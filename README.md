@@ -332,3 +332,4 @@ DocuGardener is open source under the [GNU Affero General Public License v3.0 (A
 You are free to self-host, modify, and distribute the software. If you run a modified version as a network service, you must make the source available under the same license.
 
 A managed SaaS offering is available at [docugardener.dev](https://docugardener.dev) — same code, zero ops.
+
