@@ -68,6 +68,8 @@ async def handle_stripe_webhook(
     request: Request,
     stripe_signature: str = Header(..., alias="Stripe-Signature"),
 ) -> JSONResponse:
+    if not settings.billing_enabled:
+        return JSONResponse(status_code=404, content={"error": "BILLING_NOT_ENABLED"})
     """Process an incoming Stripe webhook event.
 
     Always returns 200 for recognised events (even if we chose not to act on

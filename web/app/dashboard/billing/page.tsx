@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 "use client"
+import { WaitlistForm } from "@/components/billing/WaitlistForm"
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
@@ -73,6 +74,9 @@ const PLAN_LABELS: Record<string, string> = {
 }
 
 export default function BillingPage() {
+  const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === "true"
+  const [waitlistPlan, setWaitlistPlan] = useState<"pro" | "team" | null>(null)
+
   const { data: session } = useSession()
   const currentPlan = ((session?.user as any)?.plan as string | undefined) ?? "FREE"
   // HYB-06: Determine deployment mode from env (baked in at build time)
@@ -297,23 +301,47 @@ export default function BillingPage() {
             <div className="flex gap-2 shrink-0">
               {currentPlan === "FREE" && (
                 <>
-                  <Button
-                    size="sm"
-                    disabled={checkoutLoading}
-                    onClick={() => handleUpgrade("pro")}
-                    className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
-                  >
-                    {checkoutLoading ? "Redirecting..." : "Upgrade to Pro — $29/mo"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={checkoutLoading}
-                    onClick={() => handleUpgrade("team")}
-                    className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
-                  >
-                    {checkoutLoading ? "Redirecting..." : "Upgrade to Team — $79/mo"}
-                  </Button>
+                  {billingEnabled ? (
+                    <>
+                      <Button
+                        size="sm"
+                        disabled={checkoutLoading}
+                        onClick={() => handleUpgrade("pro")}
+                        className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
+                      >
+                        {checkoutLoading ? "Redirecting..." : "Upgrade to Pro — $29/mo"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={checkoutLoading}
+                        onClick={() => handleUpgrade("team")}
+                        className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
+                      >
+                        {checkoutLoading ? "Redirecting..." : "Upgrade to Team — $79/mo"}
+                      </Button>
+                    </>
+                  ) : waitlistPlan ? (
+                    <WaitlistForm plan={waitlistPlan} onSuccess={() => setWaitlistPlan(null)} />
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => setWaitlistPlan("pro")}
+                        className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
+                      >
+                        Reserve your spot — Pro →
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setWaitlistPlan("team")}
+                        className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
+                      >
+                        Reserve your spot — Team →
+                      </Button>
+                    </>
+                  )}
                   <a href="/pricing" className="text-xs text-muted-foreground hover:text-foreground underline shrink-0">
                     Compare plans
                   </a>
@@ -322,15 +350,28 @@ export default function BillingPage() {
               {(currentPlan === "PRO" || currentPlan === "TEAM") && (
                 <>
                   {currentPlan === "PRO" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={checkoutLoading}
-                      onClick={() => handleUpgrade("team")}
-                      className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
-                    >
-                      {checkoutLoading ? "Redirecting..." : "Upgrade to Team — $79/mo"}
-                    </Button>
+                    billingEnabled ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={checkoutLoading}
+                        onClick={() => handleUpgrade("team")}
+                        className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
+                      >
+                        {checkoutLoading ? "Redirecting..." : "Upgrade to Team — $79/mo"}
+                      </Button>
+                    ) : waitlistPlan === "team" ? (
+                      <WaitlistForm plan="team" onSuccess={() => setWaitlistPlan(null)} />
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setWaitlistPlan("team")}
+                        className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
+                      >
+                        Reserve your spot — Team →
+                      </Button>
+                    )
                   )}
                   <Button
                     size="sm"

@@ -144,6 +144,7 @@ class Settings(BaseSettings):
     # stripe_price_team:     price_xxx   (Team plan monthly price ID)
     stripe_secret_key: str = Field(default="")
     stripe_webhook_secret: str = Field(default="")
+    billing_enabled: bool = Field(default=False)
     stripe_price_pro: str = Field(default="")
     stripe_price_team: str = Field(default="")
 

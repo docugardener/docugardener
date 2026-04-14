@@ -37,6 +37,7 @@ def _configure_stripe_settings() -> None:
     settings.stripe_webhook_secret = "whsec_UNIT_TEST_SECRET"
     settings.stripe_price_pro = "price_PRO_TEST"
     settings.stripe_price_team = "price_TEAM_TEST"
+    settings.billing_enabled = True
 
 
 def _make_client() -> TestClient:

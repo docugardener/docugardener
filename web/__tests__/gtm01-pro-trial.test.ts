@@ -44,7 +44,7 @@ function viewerSession() {
 // ── A. GET /api/billing/trial ─────────────────────────────────────────────────
 
 describe("GET /api/billing/trial", () => {
-    beforeEach(() => { vi.resetModules(); vi.resetAllMocks() })
+    beforeEach(() => { vi.resetModules(); vi.resetAllMocks(); vi.stubEnv("BILLING_ENABLED", "true") })
 
     it("returns 401 when unauthenticated", async () => {
         mockGetServerSession.mockResolvedValue(null)
@@ -98,7 +98,7 @@ describe("GET /api/billing/trial", () => {
 // ── B. POST /api/billing/trial ────────────────────────────────────────────────
 
 describe("POST /api/billing/trial", () => {
-    beforeEach(() => { vi.resetModules(); vi.resetAllMocks() })
+    beforeEach(() => { vi.resetModules(); vi.resetAllMocks(); vi.stubEnv("BILLING_ENABLED", "true") })
 
     it("returns 401 when unauthenticated", async () => {
         mockGetServerSession.mockResolvedValue(null)

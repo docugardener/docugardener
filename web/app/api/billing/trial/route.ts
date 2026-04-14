@@ -38,6 +38,10 @@ function trialPayload(tenant: { plan: string; trialExpiresAt: Date | null }) {
 }
 
 export async function GET(req: Request) {
+  if (!process.env.BILLING_ENABLED || process.env.BILLING_ENABLED === "false") {
+    return NextResponse.json({ available: false }, { status: 404 })
+  }
+
     const session = await getServerSession(authOptions)
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

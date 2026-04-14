@@ -304,3 +304,12 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  email     String
+  name      String?
+  plan      String
+  message   String?
+  createdAt DateTime @default(now())
+}

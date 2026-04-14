@@ -37,6 +37,7 @@ def _make_client() -> TestClient:
     settings.stripe_webhook_secret = _TEST_WEBHOOK_SECRET
     settings.stripe_price_pro = _TEST_PRICE_PRO
     settings.stripe_price_team = _TEST_PRICE_TEAM
+    settings.billing_enabled = True
 
     return TestClient(create_app())
 

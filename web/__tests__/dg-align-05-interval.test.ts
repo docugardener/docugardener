@@ -47,6 +47,7 @@ describe("POST /api/billing/checkout — DG-ALIGN-05 interval passthrough (clien
     beforeEach(() => {
         vi.resetModules()
         vi.clearAllMocks()
+        vi.stubEnv("BILLING_ENABLED", "true")
         mockGetServerSession.mockResolvedValue(adminSession())
         process.env.DEPLOYMENT_MODE = "client-installed"
         process.env.PLATFORM_CLOUD_URL = "http://platform.test"

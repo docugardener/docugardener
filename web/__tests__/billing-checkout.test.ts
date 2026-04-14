@@ -138,6 +138,7 @@ function makeRequest(body: unknown) {
 describe("POST /api/billing/checkout", () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        vi.stubEnv("BILLING_ENABLED", "true")
         mockStripeCustomersCreate.mockResolvedValue({ id: "cus_new123" })
         mockStripeCheckoutCreate.mockResolvedValue({ url: "https://checkout.stripe.com/session123" })
         mockStripeSubscriptionsList.mockResolvedValue(noSubscriptions())

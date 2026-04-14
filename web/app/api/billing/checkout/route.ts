@@ -24,6 +24,10 @@ export const dynamic = "force-dynamic"
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"
 
 export async function POST(req: Request) {
+  if (!process.env.BILLING_ENABLED || process.env.BILLING_ENABLED === "false") {
+    return NextResponse.json({ error: "BILLING_NOT_ENABLED" }, { status: 404 })
+  }
+
     // DG-BIL-01: client-installed mode proxies billing to PlatformCloud
     // FROZEN: client-installed mode is not actively maintained (PlatformCloud frozen 2026-03-30)
     if (process.env.DEPLOYMENT_MODE === "client-installed") {

@@ -9,7 +9,9 @@ from src.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def get_stripe_client() -> _stripe.Stripe:
+def get_stripe_client() -> "_stripe.StripeClient":
+    if not settings.billing_enabled:
+        raise RuntimeError("Billing is disabled (BILLING_ENABLED=false).")
     """Return a configured Stripe client using the secret key from settings.
 
     The Stripe SDK is configured lazily so that the app starts even when
@@ -20,4 +22,4 @@ def get_stripe_client() -> _stripe.Stripe:
             "STRIPE_SECRET_KEY is not configured. "
             "Set it in your .env file or environment variables."
         )
-    return _stripe.Stripe(api_key=settings.stripe_secret_key)
+    return _stripe.StripeClient(api_key=settings.stripe_secret_key)
