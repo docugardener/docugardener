@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, GitBranch, Check, X, Loader2, AlertTriangle, Lock } from "lucide-react"
 import Link from "next/link"
+import { UpgradeContextCard } from "@/components/billing/UpgradeContextCard"
 
 interface Repo {
     id: string
@@ -103,13 +104,17 @@ export function RepoListCard({ initialRepos, plan }: RepoListCardProps) {
             ))}
 
             {/* FREE plan private-repo note */}
-            {isFree && repos.length > 0 && (
-                <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
-                    <Lock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span>Private repositories are not available on the Free plan.{" "}
-                        <Link href="/dashboard/billing" className="underline text-foreground">Upgrade to Pro</Link> to monitor private repos.
-                    </span>
-                </div>
+            {isFree && (
+              <UpgradeContextCard
+                title="Private Repository Monitoring"
+                description="Monitor private repos on any branch — DocuGardener analyses PRs just like public repos, with all data scoped to your tenant."
+                persona="Teams shipping proprietary products on GitHub"
+                outcomes={[
+                  "Catch documentation drift in private repos before it reaches production code reviews",
+                  "Apply the same drift detection policies across public and private repos uniformly",
+                ]}
+                requiredPlan="PRO"
+              />
             )}
 
             {/* Repo list */}

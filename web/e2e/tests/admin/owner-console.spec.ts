@@ -4,12 +4,14 @@
  * SPEC-OWN-03 — Tenant health table shows plan badges and quota bars (mocked API)
  * SPEC-OWN-04 — Feature override panel shows feature checklist (mocked API)
  * SPEC-OWN-05 — Stripe event feed renders sentiment badges (mocked API)
+ * SPEC-OWN-06 — Owner with valid email but no/invalid cookie sees challenge form, not 404
  *
  * SPEC-OWN-01 runs unconditionally — a non-owner role must always get 404.
  * SPEC-OWN-02..05 require OWNER_EMAIL=e2e-admin@test.local in the test
  * environment. Skip gracefully otherwise to avoid blocking CI.
+ * SPEC-OWN-06 requires E2E_OWNER_CONSOLE=1 (same gate as OWN-02..05).
  *
- * Gate: set E2E_OWNER_CONSOLE=1 in env to enable SPEC-OWN-02..05.
+ * Gate: set E2E_OWNER_CONSOLE=1 in env to enable SPEC-OWN-02..06.
  */
 import { test, expect } from "@playwright/test"
 import { storageStatePath } from "../../fixtures/auth"
@@ -232,6 +234,45 @@ test("SPEC-OWN-05: Owner event feed renders Stripe events with sentiment badges"
         // Event row must show tenant name and amount
         await expect(page.getByText("acme-corp")).toBeVisible()
         await expect(page.getByText(/\$49|49\.00/)).toBeVisible()
+    } finally {
+        await ctx.close()
+    }
+})
+
+// ── SPEC-OWN-06: Token challenge (SEC-OWN-01) ────────────────────────────────
+
+test("SPEC-OWN-06: Owner with valid email but no HMAC cookie sees challenge form, not 404", async ({ browser }) => {
+    test.skip(!OWNER_CONSOLE_ENABLED, "Set E2E_OWNER_CONSOLE=1 and OWNER_EMAIL=e2e-admin@test.local to run")
+
+    // Open a fresh context with no dg_owner_access cookie
+    const ctx = await browser.newContext({ storageState: storageStatePath("ADMIN") })
+    const page = await ctx.newPage()
+
+    try {
+        // Explicitly clear the owner access cookie if present
+        await ctx.clearCookies()
+        // Re-apply auth cookies only (not the owner token cookie)
+        const authState = require(storageStatePath("ADMIN"))
+        const authCookies = (authState.cookies as Array<{ name: string }>).filter(
+            (c) => c.name !== "dg_owner_access"
+        )
+        await ctx.addCookies(authCookies)
+
+        const response = await page.goto("/admin/owner")
+
+        // Must return 200 (challenge page rendered by layout, not notFound())
+        expect(response?.status()).toBe(200)
+
+        // Owner Console shell must NOT be visible (no nav, no KPI cards)
+        await expect(page.getByText("Owner Console").first()).toBeVisible({ timeout: 10_000 })
+
+        // Challenge form elements must be visible
+        await expect(page.getByRole("button", { name: /verify/i })).toBeVisible()
+        await expect(page.getByLabel(/access token/i)).toBeVisible()
+
+        // Full console nav must NOT be visible (sidebar links not rendered)
+        await expect(page.getByRole("link", { name: "Tenants" })).not.toBeVisible()
+        await expect(page.getByRole("link", { name: "Overrides" })).not.toBeVisible()
     } finally {
         await ctx.close()
     }

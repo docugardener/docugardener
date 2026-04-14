@@ -8,6 +8,7 @@ import {
     ChevronDown, ChevronUp, Loader2,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { UpgradeContextCard } from "@/components/billing/UpgradeContextCard"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -292,7 +293,7 @@ export function AgentRulesPanel({ repos, isPro }: AgentRulesPanelProps) {
     return (
         <div className="space-y-4">
             {/* DG-SAAS-05: Free plan quota banner */}
-            {!isPro && (
+            {!isPro && (<>
                 <div
                     data-testid="free-quota-banner"
                     className="flex items-center justify-between gap-3 rounded-lg border border-yellow-800 bg-yellow-950/30 px-4 py-2.5 text-xs"
@@ -304,7 +305,19 @@ export function AgentRulesPanel({ repos, isPro }: AgentRulesPanelProps) {
                         Upgrade to Pro for unlimited →
                     </a>
                 </div>
-            )}
+                {freeArtifactCount >= FREE_LIMIT && (
+                          <UpgradeContextCard
+                            title="Unlimited Policy Rules"
+                            description="Create unlimited documentation policy rule sets per repo — custom rules for naming conventions, section requirements, staleness thresholds, and more."
+                            persona="Platform teams standardising documentation practices across 5+ repos"
+                            outcomes={[
+                              "Enforce consistent documentation standards across every repo without manual review",
+                              "Customise rules per repo — stricter for API specs, relaxed for internal tools",
+                            ]}
+                            requiredPlan="PRO"
+                          />
+                        )}
+            </>)}
 
             {/* Tab bar */}
             <div className="flex gap-1 border-b border-border">

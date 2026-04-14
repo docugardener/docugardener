@@ -181,6 +181,7 @@ export default function PricingPage() {
     const router = useRouter()
     const { data: session } = useSession()
     const currentPlan = (session?.user as any)?.plan as string | undefined
+    const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === "true"
     const [loading, setLoading] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [isAnnual, setIsAnnual] = useState(false)
@@ -210,6 +211,10 @@ export default function PricingPage() {
         } finally {
             setLoading(null)
         }
+    }
+
+    const handleWaitlist = () => {
+        router.push(session ? "/dashboard/billing" : "/api/auth/signin?callbackUrl=/dashboard/billing")
     }
 
     return (
@@ -252,6 +257,13 @@ export default function PricingPage() {
                     </div>
                 </div>
 
+                {!billingEnabled && (
+                    <div className="mb-8 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800 text-center">
+                        <span className="font-semibold">Paid plans are launching soon.</span>{" "}
+                        Reserve your spot for early access — no credit card required.
+                    </div>
+                )}
+
                 {error && (
                     <div className="mb-8 p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 text-center">
                         {error}
@@ -290,12 +302,19 @@ export default function PricingPage() {
                                     <div className="flex items-center gap-2 mb-3">
                                         <Icon className="h-5 w-5 text-green-600" />
                                         <span className="text-sm font-black uppercase tracking-widest text-gray-900">{plan.name}</span>
+                                        {!billingEnabled && plan.monthlyPrice > 0 && (
+                                            <span className="ml-auto text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                                                Coming soon
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex items-baseline gap-1">
-                                        <span className="text-4xl font-black text-gray-900">{displayPrice}</span>
+                                        <span className={`text-4xl font-black text-gray-900 ${!billingEnabled && plan.monthlyPrice > 0 ? "blur-sm select-none" : ""}`}>
+                                            {displayPrice}
+                                        </span>
                                         <span className="text-sm text-gray-500">{periodLabel}</span>
                                     </div>
-                                    {isAnnual && plan.annualPrice && (
+                                    {isAnnual && plan.annualPrice && !(!billingEnabled && plan.monthlyPrice > 0) && (
                                         <p className="text-xs text-green-600 font-semibold mt-1">${plan.annualPrice} billed annually</p>
                                     )}
                                     <p className="text-xs text-gray-500 mt-2 leading-relaxed">{plan.description}</p>
@@ -322,7 +341,7 @@ export default function PricingPage() {
                                         >
                                             {session ? "Go to Dashboard" : plan.cta}
                                         </Button>
-                                    ) : (
+                                    ) : billingEnabled ? (
                                         <Button
                                             variant={plan.ctaVariant}
                                             className="w-full text-[10px] font-black uppercase tracking-widest bg-green-600 hover:bg-green-700"
@@ -330,6 +349,14 @@ export default function PricingPage() {
                                             onClick={() => handleUpgrade(plan.id as "pro" | "team")}
                                         >
                                             {loading === plan.id ? "Redirecting..." : plan.cta}
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            variant={plan.ctaVariant}
+                                            className="w-full text-[10px] font-black uppercase tracking-widest bg-green-600 hover:bg-green-700"
+                                            onClick={handleWaitlist}
+                                        >
+                                            Reserve your spot →
                                         </Button>
                                     )}
                                 </CardContent>

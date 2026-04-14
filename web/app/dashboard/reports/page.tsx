@@ -5,7 +5,8 @@ import { authOptions } from "../../api/auth/[...nextauth]/route"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Settings, Activity, ShieldAlert, GitPullRequest, Lock, Zap, TrendingUp } from "lucide-react"
+import { Settings, Activity, ShieldAlert, GitPullRequest, Lock, TrendingUp } from "lucide-react"
+import { UpgradeContextCard } from "@/components/billing/UpgradeContextCard"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -407,18 +408,16 @@ export default async function ReportsPage() {
                                             <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-muted shrink-0">
                                                 <Lock className="h-7 w-7 text-muted-foreground" />
                                             </div>
-                                            <div className="space-y-2">
-                                                <p className="text-sm font-black uppercase tracking-widest text-foreground">Pro Feature</p>
-                                                <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto">
-                                                    Upgrade to Pro to unlock per-repo risk scores, filterable by time range and doc path, with drilldown into recent drift events.
-                                                </p>
-                                            </div>
-                                            <Link href="/dashboard/billing">
-                                                <Button className="btn-premium bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] font-black uppercase tracking-widest h-10 px-6 gap-2">
-                                                    <Zap className="h-3.5 w-3.5" />
-                                                    Upgrade to Pro
-                                                </Button>
-                                            </Link>
+                                            <UpgradeContextCard
+                                                title="Documentation Risk Map"
+                                                description="Per-repo risk scores with timeline drilldown — see which repos are drifting fastest and which PRs contributed most."
+                                                persona="Engineering managers and staff engineers tracking documentation health at scale"
+                                                outcomes={[
+                                                    "Identify the top 3 drifting repos before your quarterly planning cycle, not after",
+                                                    "Correlate documentation debt spikes with specific PRs to coach teams proactively",
+                                                ]}
+                                                requiredPlan="PRO"
+                                            />
                                         </CardContent>
                                     </Card>
                                 </div>
@@ -609,18 +608,18 @@ export default async function ReportsPage() {
                                             <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-muted shrink-0">
                                                 <Lock className="h-7 w-7 text-muted-foreground" />
                                             </div>
-                                            <div className="flex-1 space-y-2 text-center sm:text-left">
-                                                <p className="text-sm font-black uppercase tracking-widest text-foreground">Analytics &amp; Nightly Digest — Pro Feature</p>
-                                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                                    Upgrade to Pro to unlock ignore-rate analytics, dismiss signal trends, and the nightly documentation drift digest delivered to your GitHub Issues every morning.
-                                                </p>
+                                            <div className="flex-1">
+                                                <UpgradeContextCard
+                                                    title="Ignore-Rate Analytics & Drift Digest"
+                                                    description="Track how often teams dismiss drift alerts, see dismiss trends over time, and get a nightly digest delivered to your GitHub Issues."
+                                                    persona="Team leads who want signal on whether documentation debt is improving week-over-week"
+                                                    outcomes={[
+                                                        "Spot teams that habitually dismiss alerts before it becomes a culture problem",
+                                                        "Get a daily drift health summary in GitHub Issues without opening the DocuGardener dashboard",
+                                                    ]}
+                                                    requiredPlan="PRO"
+                                                />
                                             </div>
-                                            <Link href="/dashboard/billing" className="shrink-0">
-                                                <Button className="btn-premium bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] font-black uppercase tracking-widest h-10 px-6 gap-2">
-                                                    <Zap className="h-3.5 w-3.5" />
-                                                    Upgrade to Pro
-                                                </Button>
-                                            </Link>
                                         </CardContent>
                                     </Card>
                                 </div>

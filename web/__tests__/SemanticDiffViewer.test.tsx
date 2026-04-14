@@ -33,6 +33,7 @@ vi.mock('lucide-react', () => ({
     ChevronDown: () => <svg data-testid="chevron-down-icon" />,
     CircleDashed: () => <svg data-testid="circle-dashed-icon" />,
     Loader2: () => <svg data-testid="loader2-icon" />,
+    UserCheck: () => <svg data-testid="user-check-icon" />,
 }))
 
 vi.mock('@/components/ui/button', () => ({
@@ -153,47 +154,53 @@ describe('SemanticDiffViewer', () => {
         expect(screen.queryByTestId('live-code-block')).not.toBeInTheDocument()
     })
 
-    it('shows "View Pull Request" button and hides triage buttons when fixPrUrl is set', () => {
+    it('shows "View Fix PR" button and hides triage buttons when triageStatus=FIX_PR_OPEN', () => {
+        // UX-FLOW-04: uiStatus is derived from triageStatus via getUiStatus().
+        // "FIX_PR_OPEN" triageStatus → uiStatus FIX_PR_OPEN → "View Fix PR" button.
         render(
             <SemanticDiffViewer
-                alert={{ ...baseAlert, fixPrUrl: 'https://github.com/my-org/repo/pull/99' }}
+                alert={{ ...baseAlert, triageStatus: 'FIX_PR_OPEN', fixPrUrl: 'https://github.com/my-org/repo/pull/99' }}
                 onAccept={vi.fn()}
                 onIgnore={vi.fn()}
             />
         )
-        expect(screen.getByText('View Pull Request')).toBeInTheDocument()
-        expect(screen.queryByText('No Update Required')).not.toBeInTheDocument()
+        expect(screen.getByText('View Fix PR')).toBeInTheDocument()
+        expect(screen.queryByText('Accept Changes')).not.toBeInTheDocument()
     })
 
     describe('Issue 4 — AI Author in-progress spinner', () => {
-        it('shows spinner badge when autoFixEnqueued=true and fixPrUrl is absent', () => {
+        it('shows spinner badge when result.auto_fix_enqueued=true and fixPrUrl is absent', () => {
+            // UX-FLOW-04: getUiStatus reads result.auto_fix_enqueued (not a direct prop).
+            // result.auto_fix_enqueued=true + drift_score>0 → uiStatus AI_FIXING → spinner.
             render(
                 <SemanticDiffViewer
-                    alert={{ ...baseAlert, autoFixEnqueued: true }}
+                    alert={{ ...baseAlert, result: { auto_fix_enqueued: true, drift_score: 75 } }}
                     onAccept={vi.fn()}
                     onIgnore={vi.fn()}
                 />
             )
             expect(screen.getByText(/AI generating fix PR/i)).toBeInTheDocument()
             expect(screen.queryByText('Accept Changes')).not.toBeInTheDocument()
-            expect(screen.queryByText('No Update Required')).not.toBeInTheDocument()
         })
 
-        it('does NOT show spinner when autoFixEnqueued=true and fixPrUrl is present', () => {
+        it('does NOT show spinner when triageStatus=FIX_PR_OPEN and fixPrUrl is present', () => {
+            // FIX_PR_OPEN → "View Fix PR" shown, not AI_FIXING spinner.
             render(
                 <SemanticDiffViewer
-                    alert={{ ...baseAlert, autoFixEnqueued: true, fixPrUrl: 'https://github.com/org/repo/pull/1' }}
+                    alert={{ ...baseAlert, triageStatus: 'FIX_PR_OPEN', fixPrUrl: 'https://github.com/org/repo/pull/1' }}
                     onAccept={vi.fn()}
                     onIgnore={vi.fn()}
                 />
             )
             expect(screen.queryByText(/AI generating fix PR/i)).not.toBeInTheDocument()
+            expect(screen.getByText('View Fix PR')).toBeInTheDocument()
         })
 
-        it('shows Accept/Ignore when autoFixEnqueued=false and no fixPrUrl', () => {
+        it('shows Accept/Ignore when result has drift but auto_fix_enqueued=false', () => {
+            // drift_score>0 + auto_fix_enqueued=false → uiStatus NEEDS_REVIEW → Accept/Ignore.
             render(
                 <SemanticDiffViewer
-                    alert={{ ...baseAlert, autoFixEnqueued: false }}
+                    alert={{ ...baseAlert, result: { auto_fix_enqueued: false, drift_score: 75 } }}
                     onAccept={vi.fn()}
                     onIgnore={vi.fn()}
                 />
@@ -202,10 +209,10 @@ describe('SemanticDiffViewer', () => {
             expect(screen.queryByText(/AI generating fix PR/i)).not.toBeInTheDocument()
         })
 
-        it('does NOT show spinner when aiAuthored=true but autoFixEnqueued=false (no docs to fix)', () => {
+        it('does NOT show spinner when aiAuthored=true but auto_fix_enqueued=false (no fix queued)', () => {
             render(
                 <SemanticDiffViewer
-                    alert={{ ...baseAlert, aiAuthored: true, autoFixEnqueued: false }}
+                    alert={{ ...baseAlert, aiAuthored: true, result: { auto_fix_enqueued: false, drift_score: 75 } }}
                     onAccept={vi.fn()}
                     onIgnore={vi.fn()}
                 />

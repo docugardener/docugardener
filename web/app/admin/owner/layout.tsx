@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { notFound } from "next/navigation"
 import { getServerSession } from "next-auth"
+import { cookies } from "next/headers"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { isOwnerTokenConfigured, verifyOwnerToken, OWNER_COOKIE_NAME } from "@/lib/owner-auth"
+import OwnerChallenge from "@/components/admin/OwnerChallenge"
 import Link from "next/link"
 import { LayoutDashboard, Users, Zap, Activity } from "lucide-react"
 
@@ -15,11 +18,26 @@ const NAV = [
 ]
 
 export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
-  // DG-OWN-01: gate — returns 404 (not 401) to avoid leaking existence
+  // Gate 1: OWNER_EMAIL must be set
   if (!OWNER_EMAIL) notFound()
 
+  // Gate 2: OWNER_ACCESS_TOKEN must be configured (SEC-OWN-01)
+  if (!isOwnerTokenConfigured()) notFound()
+
+  // Gate 3: session email must match (first factor)
   const session = await getServerSession(authOptions)
   if (!session?.user?.email || session.user.email !== OWNER_EMAIL) notFound()
+
+  // Gate 4: HMAC cookie must be valid (second factor)
+  const cookieStore = await cookies()
+  const hmacCookie = cookieStore.get(OWNER_COOKIE_NAME)?.value ?? ""
+  const userId = (session.user as { id?: string }).id ?? session.user.email
+  const tokenValid = verifyOwnerToken(userId, hmacCookie)
+
+  if (!tokenValid) {
+    // Render challenge page — not a redirect, so layout can set the cookie via API route
+    return <OwnerChallenge />
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

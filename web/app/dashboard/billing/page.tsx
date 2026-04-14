@@ -421,7 +421,7 @@ export default function BillingPage() {
         </Card>}
 
         {/* Trial CTA — SaaS only, for FREE tenants who haven't used their trial */}
-        {isSaas && trial && trial.plan === "FREE" && !trial.alreadyUsed && (
+        {isSaas && billingEnabled && trial && trial.plan === "FREE" && !trial.alreadyUsed && (
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -448,7 +448,7 @@ export default function BillingPage() {
         )}
 
         {/* Trial active/expired status — SaaS only */}
-        {isSaas && trial?.isActive && (
+        {isSaas && billingEnabled && trial?.isActive && (
           <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-xs font-semibold text-primary flex items-center gap-2">
             <Zap className="h-4 w-4 shrink-0" />
             Pro Trial active — {trial.daysRemaining} day{trial.daysRemaining !== 1 ? "s" : ""} remaining.
@@ -459,13 +459,13 @@ export default function BillingPage() {
             )}
           </div>
         )}
-        {isSaas && trial?.isExpired && trial.plan === "FREE" && (
+        {isSaas && billingEnabled && trial?.isExpired && trial.plan === "FREE" && (
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs font-semibold text-red-400 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             Your Pro Trial has expired. Upgrade to restore private repo access and Pro features.
           </div>
         )}
-        {isSaas && trialMsg && trial?.isActive && (
+        {isSaas && billingEnabled && trialMsg && trial?.isActive && (
           <p className="text-xs text-emerald-500 font-semibold">{trialMsg}</p>
         )}
 

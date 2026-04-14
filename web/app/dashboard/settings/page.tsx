@@ -21,6 +21,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Cog, Bot } from "lucide-react"
 import { getKeyStatusPerProvider } from "@/lib/llm-config"
 import { getPlanLimits } from "@/lib/billing"
+import { UpgradeContextCard } from "@/components/billing/UpgradeContextCard"
 
 
 export default async function SettingsPage() {
@@ -320,9 +321,16 @@ export default async function SettingsPage() {
                                 </div>
                             </div>
                         </>) : (
-                            <div className="rounded-md border border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-                                SSO and SCIM provisioning are available on the <span className="font-semibold text-foreground">TEAM plan</span>.
-                            </div>
+                                <UpgradeContextCard
+                                  title="SSO & SCIM Provisioning"
+                                  description="Connect your identity provider (Okta, Azure AD, Google Workspace) for one-click employee login and automated seat provisioning via SCIM."
+                                  persona="Companies with ≥10 engineers or a security/IT team managing access"
+                                  outcomes={[
+                                    "Eliminate manual seat management — new hires get access automatically via your IdP",
+                                    "Satisfy SOC 2 and ISO 27001 access control requirements with centralised identity",
+                                  ]}
+                                  requiredPlan="TEAM"
+                                />
                         )}
                     </>}
                 />

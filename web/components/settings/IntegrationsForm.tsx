@@ -12,8 +12,9 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
-import { Slack, CheckCircle2, Lock, Zap, ExternalLink, GitBranch, Triangle, Circle, FlaskConical } from "lucide-react"
+import { Slack, CheckCircle2, Lock, ExternalLink, GitBranch, Triangle, Circle, FlaskConical } from "lucide-react"
 import Link from "next/link"
+import { UpgradeContextCard } from "@/components/billing/UpgradeContextCard"
 
 const formSchema = z.object({
     // Slack
@@ -47,31 +48,18 @@ interface IntegrationsFormProps {
 
 // ─── FREE plan upgrade gate ────────────────────────────────────────────────
 function UpgradeGate() {
-    return (
-        <div className="relative">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 select-none pointer-events-none blur-sm opacity-40" aria-hidden="true">
-                <Card><CardHeader><CardTitle className="flex items-center gap-2"><Slack className="w-5 h-5" />Slack</CardTitle></CardHeader><CardContent><div className="h-10 bg-muted rounded-md" /></CardContent></Card>
-                <Card><CardHeader><CardTitle className="flex items-center gap-2"><ExternalLink className="w-5 h-5" />Jira</CardTitle></CardHeader><CardContent className="space-y-3"><div className="h-10 bg-muted rounded-md" /><div className="h-10 bg-muted rounded-md" /></CardContent></Card>
-                <Card><CardHeader><CardTitle className="flex items-center gap-2"><Triangle className="w-5 h-5" />Linear</CardTitle></CardHeader><CardContent className="space-y-3"><div className="h-10 bg-muted rounded-md" /><div className="h-10 bg-muted rounded-md" /></CardContent></Card>
-                <Card><CardHeader><CardTitle className="flex items-center gap-2"><GitBranch className="w-5 h-5" />GitHub Issues</CardTitle></CardHeader><CardContent><div className="h-10 bg-muted rounded-md" /></CardContent></Card>
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center">
-                <div className="bg-card border border-border rounded-xl shadow-lg p-8 text-center max-w-sm mx-4">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-muted mx-auto mb-4">
-                        <Lock className="w-6 h-6 text-muted-foreground" />
-                    </div>
-                    <h3 className="font-semibold text-lg mb-2">Pro Feature</h3>
-                    <p className="text-sm text-muted-foreground mb-5">
-                        Slack, Jira, and Linear integrations are available on the <strong>Pro</strong> and <strong>Team</strong> plans.
-                        GitHub Issues is available on all plans.
-                    </p>
-                    <Link href="/dashboard/billing" className="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors px-5 py-2.5 rounded-lg text-sm font-medium">
-                        <Zap className="w-4 h-4" />Upgrade to Pro
-                    </Link>
-                </div>
-            </div>
-        </div>
-    )
+  return (
+    <UpgradeContextCard
+      title="Slack, Jira & Linear Integrations"
+      description="Route drift alerts directly to your team's Slack channels, create Jira tickets for detected drift, and sync issues to Linear — without leaving the PR workflow."
+      persona="Engineering leads managing multiple repos across teams"
+      outcomes={[
+        "Reduce mean time to documentation fix by routing alerts to the right channel automatically",
+        "Cut context-switching: drift tickets appear in Jira/Linear with full PR context attached",
+      ]}
+      requiredPlan="PRO"
+    />
+  )
 }
 
 // ─── Configured badge ──────────────────────────────────────────────────────
