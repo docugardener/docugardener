@@ -49,7 +49,9 @@ services:
   # Next.js web app
   # ---------------------------------------------------------------------------
   web:
-    image: ghcr.io/docugardener/web:${RELEASE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
     container_name: docugardener-web
     restart: unless-stopped
     # No host port binding — Caddy proxies to this service internally
@@ -78,7 +80,10 @@ services:
   # Prisma migration runner — runs once, exits, then web starts
   # ---------------------------------------------------------------------------
   migrate:
-    image: ghcr.io/docugardener/web:${RELEASE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      target: builder
     container_name: docugardener-migrate
     command: npx prisma migrate deploy
     environment:
@@ -93,7 +98,9 @@ services:
   # FastAPI backend
   # ---------------------------------------------------------------------------
   docugardener:
-    image: ghcr.io/docugardener/api:${RELEASE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: docugardener
     restart: unless-stopped
     # No host port binding
@@ -134,7 +141,9 @@ services:
   # RQ worker
   # ---------------------------------------------------------------------------
   worker:
-    image: ghcr.io/docugardener/api:${RELEASE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: docugardener-worker
     command: rq worker default --url redis://:${REDIS_PASSWORD}@redis:6379/0
     stop_grace_period: 60s
@@ -163,7 +172,9 @@ services:
   # Nightly scheduler
   # ---------------------------------------------------------------------------
   scheduler:
-    image: ghcr.io/docugardener/api:${RELEASE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: docugardener-scheduler
     command: python -m src.scheduler.manager
     restart: unless-stopped
