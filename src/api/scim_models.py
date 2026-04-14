@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 ENT-12 SCIM 2.0 — RFC 7643 / 7644 Pydantic request & response schemas.
 

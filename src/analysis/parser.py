@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Tree-sitter based code parsing for multiple languages.
 

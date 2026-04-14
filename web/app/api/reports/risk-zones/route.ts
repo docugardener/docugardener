@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * MAP-01: Documentation Coverage & Risk Map
  * GET /api/reports/risk-zones?timeRange=30d&repo=&docType=

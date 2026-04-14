@@ -193,7 +193,7 @@ services:
     image: deltaprojects/smee-client:latest
     container_name: docugardener-smee
     restart: always
-    command: -u https://smee.io/85AZjBVA8yAG1EBI -t http://host.docker.internal:8000/webhooks/github
+    command: -u ${WEBHOOK_PROXY_URL} -t http://host.docker.internal:8000/webhooks/github
     depends_on: []
     networks:
       - docugardener-network
@@ -208,7 +208,7 @@ services:
       - "5433:5432"   # 5432 reserved by SkillSeal; internal network still uses 5432
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: docugardener-web
     volumes:
       - postgres-data:/var/lib/postgresql/data

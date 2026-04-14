@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Stripe SDK client factory."""
 
 import stripe as _stripe

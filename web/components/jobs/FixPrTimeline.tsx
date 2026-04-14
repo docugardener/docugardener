@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 "use client"
 
 import { CheckCircle2, Circle, Loader2, GitPullRequest, XCircle, ExternalLink } from "lucide-react"

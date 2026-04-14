@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 SCALE-03: Asynchronous Nightly Drift Rollup.
 

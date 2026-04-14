@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import Link from "next/link"
 import { Github, Plug, FolderGit2, GitPullRequest, ArrowRight } from "lucide-react"
 

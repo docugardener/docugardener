@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Notification Dispatcher for integrating DocuGardener Drift Alerts
 with external workflows: Slack, Jira, Linear, GitHub Issues.

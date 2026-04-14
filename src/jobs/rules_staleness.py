@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 RULES-01: Daily staleness check for generated rule artifacts.
 

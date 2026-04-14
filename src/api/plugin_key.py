@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Plugin API key management — generate and retrieve the VS Code plugin key (DX-02)."""
 
 import secrets

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 

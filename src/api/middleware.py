@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 from contextvars import ContextVar
 from typing import Optional, TYPE_CHECKING
 from fastapi import Request, status

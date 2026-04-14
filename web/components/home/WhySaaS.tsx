@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { Zap, Bot, GitBranch, LucideIcon } from "lucide-react"
 
 interface Reason {

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Deterministic drift scoring based on semantic change types, visibility, and complexity.
 

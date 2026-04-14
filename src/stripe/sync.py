@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Subscription → Tenant plan synchronisation logic.
 
 Maps Stripe Subscription objects and Price IDs to the DocuGardener plan enum

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 RQ-STAB-02: Stale job sweeper (GAP-8 / on_failure complement).
 

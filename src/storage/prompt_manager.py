@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 from src.pipeline.job_manager import SessionLocal
 from src.storage.sql_models import PromptConfig
 from src.agents import prompts as default_prompts

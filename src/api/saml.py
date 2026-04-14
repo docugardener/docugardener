@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 ENT-12: SSO / SAML 2.0 endpoints (SP-initiated and IdP-initiated flows).
 

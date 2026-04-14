@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from src.core.config import settings

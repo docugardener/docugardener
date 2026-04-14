@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * GET  /api/settings/sso  — Returns tenant SSO configuration (certificate redacted)
  * POST /api/settings/sso  — Saves tenant SSO configuration

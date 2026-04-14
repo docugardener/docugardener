@@ -19,7 +19,7 @@ maintainers:
   - name: DocuGardener Team
     email: infra@docugardener.ai
 annotations:
-  artifacthub.io/license: BUSL-1.1
+  artifacthub.io/license: AGPL-3.0-or-later
   artifacthub.io/signKey: |
     fingerprint: PLACEHOLDER_COSIGN_KEY
     url: https://docugardener.ai/cosign.pub

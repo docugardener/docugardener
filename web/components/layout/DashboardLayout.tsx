@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs"
 import { Toaster } from "@/components/ui/sonner"

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 DocuGardener E2E Demo Script.
 Runs the full pipeline manually to demonstrate intermediate artifacts.

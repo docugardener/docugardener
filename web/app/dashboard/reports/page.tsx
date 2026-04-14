@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { Suspense } from "react"
 import { getServerSession } from "next-auth"
 import { authOptions } from "../../api/auth/[...nextauth]/route"

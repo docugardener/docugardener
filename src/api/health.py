@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Health check endpoints for monitoring and orchestration."""
 
 from datetime import datetime, timezone

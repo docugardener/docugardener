@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * GAP-05: POST /api/settings/test-llm
  *

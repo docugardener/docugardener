@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Plugin API — pre-flight drift check endpoint (DX-02 / IDE-01)."""
 
 import secrets
