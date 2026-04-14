@@ -15,6 +15,12 @@ import { FAQTeaser } from "@/components/home/FAQTeaser"
 import { SocialProof } from "@/components/home/SocialProof"
 
 export default async function Home() {
+  // Self-hosted instances have no SaaS marketing page — send unauthenticated
+  // users straight to sign-in. SaaS mode (default) shows the landing page.
+  if (process.env.NEXT_PUBLIC_DEPLOYMENT_MODE !== "saas") {
+    redirect("/auth/signin")
+  }
+
   const session = await getServerSession(authOptions)
 
   // Smart Redirect Logic

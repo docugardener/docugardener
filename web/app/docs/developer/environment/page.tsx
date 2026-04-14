@@ -139,6 +139,8 @@ export default function EnvironmentPage() {
           <EnvVar name="STRIPE_PRICE_PRO" description="Stripe Price ID for PRO plan checkout." />
           <EnvVar name="STRIPE_PRICE_TEAM" description="Stripe Price ID for TEAM plan checkout." />
           <EnvVar name="OWNER_EMAIL" description="Email address of the operator. When set, enables the /admin/owner console for that user only. Leave unset for self-hosted deployments." example="OWNER_EMAIL=ops@example.com" />
+          <EnvVar name="OWNER_ACCESS_TOKEN" description="Second-factor secret for the owner console (SEC-OWN-01). Must be set alongside OWNER_EMAIL. Generate with: openssl rand -hex 32. Stored only in env — never in DB." example="OWNER_ACCESS_TOKEN=$(openssl rand -hex 32)" />
+          <EnvVar name="NEXT_PUBLIC_BILLING_ENABLED" description='Set to "true" to enable Stripe checkout, trial banners, and upgrade CTAs. When "false" (default), prices are blurred and all upgrade actions route to the waitlist form.' example="NEXT_PUBLIC_BILLING_ENABLED=true" />
         </tbody>
       </table>
     </>
