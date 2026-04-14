@@ -1,0 +1,9 @@
+- id: docugardener-check
+  name: DocuGardener Check
+  description: Checks for documentation drift in code changes.
+  entry: docugardener check --path .
+  language: python
+  pass_filenames: false
+  types: [text]
+  require_serial: true
+  files: \.(py|js|ts|jsx|tsx)$

@@ -1,0 +1,30 @@
+# DocuGardener — Air-Gap Mode Values
+# Usage: helm install docugardener . -f values-air-gap.yaml
+# Requires: Secret with license file + Ollama running locally
+# Full docs: helm/docugardener/README.md
+
+deploymentMode: "air-gap"
+
+organization:
+  githubOrg: "your-org-name"
+  adminEmail: "admin@your-org.com"
+
+license:
+  filePath: "/etc/docugardener/license.json"
+  # portalUrl intentionally empty — no outbound connections
+
+airGap:
+  licenseSecretName: "docugardener-license"   # kubectl create secret generic docugardener-license --from-file=license.json=./license.json
+
+# Cloud connector disabled in air-gap mode
+cloudConnector:
+  enabled: false
+
+# Stripe disabled in air-gap mode
+stripe:
+  enabled: false
+
+# Use local Ollama (no outbound LLM calls)
+llm:
+  provider: "ollama"
+  ollamaUrl: "http://ollama:11434"

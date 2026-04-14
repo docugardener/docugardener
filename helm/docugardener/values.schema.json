@@ -1,0 +1,227 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DocuGardener Helm Chart Values",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "imageRegistry": { "type": "string" },
+        "imagePullSecrets": { "type": "array" },
+        "storageClass": { "type": "string" }
+      }
+    },
+    "api": {
+      "type": "object",
+      "required": ["replicaCount"],
+      "properties": {
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of API pod replicas"
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+              "description": "Kubernetes service type for the API"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        },
+        "autoscaling": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "minReplicas": { "type": "integer", "minimum": 1 },
+            "maxReplicas": { "type": "integer", "minimum": 1 },
+            "targetCPUUtilizationPercentage": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "required": ["replicaCount"],
+      "properties": {
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Seconds to wait for in-flight RQ jobs before SIGKILL"
+        }
+      }
+    },
+    "scheduler": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1,
+          "description": "Scheduler must be a singleton (max 1 replica)"
+        }
+      }
+    },
+    "web": {
+      "type": "object",
+      "required": ["replicaCount"],
+      "properties": {
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"]
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": { "type": "object" },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["host", "paths"],
+            "properties": {
+              "host": { "type": "string", "minLength": 1 },
+              "paths": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        },
+        "tls": { "type": "array" }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "keys": { "type": "object" },
+        "create": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "postgresql": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "external": {
+          "type": "object",
+          "properties": {
+            "host": { "type": "string" },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "existingSecret": { "type": "string" }
+          }
+        }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "weaviate": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean" },
+        "name": { "type": "string" },
+        "annotations": { "type": "object" }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "properties": {
+        "runAsNonRoot": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must be true — PSA restricted compliance"
+        },
+        "runAsUser": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "UID must be non-zero (non-root)"
+        }
+      }
+    },
+    "containerSecurityContext": {
+      "type": "object",
+      "properties": {
+        "allowPrivilegeEscalation": {
+          "type": "boolean",
+          "const": false,
+          "description": "Must be false — PSA restricted compliance"
+        },
+        "readOnlyRootFilesystem": { "type": "boolean" }
+      }
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "appEnv": {
+          "type": "string",
+          "enum": ["development", "staging", "production"],
+          "description": "Application environment"
+        },
+        "logLevel": {
+          "type": "string",
+          "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        },
+        "vectorDbProvider": {
+          "type": "string",
+          "enum": ["weaviate"],
+          "description": "Vector database provider — only weaviate supported"
+        }
+      }
+    }
+  }
+}

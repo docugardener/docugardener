@@ -1,0 +1,352 @@
+# =============================================================================
+# DocuGardener — Production Docker Compose
+# =============================================================================
+# Usage:
+#   cp .env.production.example .env.production
+#   bash scripts/generate-secrets.sh >> .env.production   # fill in generated secrets
+#   # edit .env.production and fill remaining values
+#   docker compose --env-file .env.production \
+#                  -f docker/docker-compose.prod.yml up -d
+#
+# What this file does vs the dev compose:
+#   ✓  Caddy handles automatic TLS (Let's Encrypt) on ports 80 / 443
+#   ✓  Next.js web app runs as a container (not a bare `next start`)
+#   ✓  Internal services (Redis, Weaviate, Postgres, FastAPI) have NO host
+#      port bindings — they are only reachable inside the Docker network
+#   ✓  Redis requires a password (requirepass)
+#   ✓  Postgres password comes from env var — no hardcoded default
+#   ✓  smee dev proxy is absent
+#   ✓  All services set APP_ENV=production / DEBUG=false
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Caddy — TLS termination + reverse proxy
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: docugardener-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3 QUIC
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data          # certificate storage (persisted across restarts)
+      - caddy-config:/config
+    environment:
+      - DOMAIN=${DOMAIN}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+    depends_on:
+      - web
+      - docugardener
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # Next.js web app
+  # ---------------------------------------------------------------------------
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+    container_name: docugardener-web
+    restart: unless-stopped
+    # No host port binding — Caddy proxies to this service internally
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - BACKEND_URL=http://docugardener:8000
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/docugardener-web
+      - NEXTAUTH_URL=https://${DOMAIN}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - GITHUB_ID=${GITHUB_ID}
+      - GITHUB_SECRET=${GITHUB_SECRET}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - BUNDLED_GEMINI_KEY=${BUNDLED_GEMINI_KEY}
+      - BUNDLED_GEMINI_MODEL=${BUNDLED_GEMINI_MODEL:-gemini-2.0-flash}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # Prisma migration runner — runs once, exits, then web starts
+  # ---------------------------------------------------------------------------
+  migrate:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      target: builder       # reuse the builder stage which has the Prisma CLI
+    container_name: docugardener-migrate
+    command: npx prisma migrate deploy
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/docugardener-web
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # FastAPI backend
+  # ---------------------------------------------------------------------------
+  docugardener:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: docugardener
+    restart: unless-stopped
+    # No host port binding
+    environment:
+      - APP_ENV=production
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - WEAVIATE_URL=http://weaviate:8080
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH:-/app/secrets/github-app.pem}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/docugardener-web
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - BUNDLED_GEMINI_KEY=${BUNDLED_GEMINI_KEY}
+      - BUNDLED_GEMINI_MODEL=${BUNDLED_GEMINI_MODEL:-gemini-2.0-flash}
+    volumes:
+      - ../secrets:/app/secrets:ro
+    tmpfs:
+      - /tmp/docugardener:size=512M,mode=1777
+    depends_on:
+      redis:
+        condition: service_healthy
+      weaviate:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - docugardener-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # RQ worker
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: docugardener-worker
+    command: rq worker default --url redis://:${REDIS_PASSWORD}@redis:6379/0
+    stop_grace_period: 60s
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - WEAVIATE_URL=http://weaviate:8080
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH:-/app/secrets/github-app.pem}
+      - VECTOR_DB_PROVIDER=weaviate
+      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/docugardener-web
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    volumes:
+      - ../secrets:/app/secrets:ro
+    depends_on:
+      - redis
+      - docugardener
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # Nightly scheduler
+  # ---------------------------------------------------------------------------
+  scheduler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: docugardener-scheduler
+    command: python -m src.scheduler.manager
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH:-/app/secrets/github-app.pem}
+      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/docugardener-web
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    volumes:
+      - ../secrets:/app/secrets:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # Redis — job queue (password-protected, no host binding)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: valkey/valkey:7-alpine
+    container_name: docugardener-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    networks:
+      - docugardener-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $REDIS_PASSWORD ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Weaviate — vector DB (no host binding; anonymous access is fine here
+  # because it is only reachable inside the Docker network)
+  # ---------------------------------------------------------------------------
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.27.0
+    container_name: docugardener-weaviate
+    restart: unless-stopped
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+      CLUSTER_HOSTNAME: node1
+      ENABLE_MODULES: backup-filesystem
+      BACKUP_FILESYSTEM_PATH: /var/lib/weaviate/backups
+    volumes:
+      - weaviate-data:/var/lib/weaviate
+      - backup-data:/var/lib/weaviate/backups
+    networks:
+      - docugardener-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Backup cron — nightly PostgreSQL + Weaviate backups
+  # ---------------------------------------------------------------------------
+  backup-cron:
+    image: postgres:15-alpine
+    container_name: docugardener-backup
+    restart: unless-stopped
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        echo "0 2 * * * /scripts/backup.sh >> /var/log/backup.log 2>&1" | crontab -
+        crond -f -l 2
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      WEAVIATE_URL: http://weaviate:8080
+    volumes:
+      - ../scripts/backup.sh:/scripts/backup.sh:ro
+      - backup-data:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+      weaviate:
+        condition: service_healthy
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # Postgres — web DB (no host binding)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: docugardener-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: docugardener-web
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - docugardener-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Prometheus — metrics collection
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    container_name: docugardener-prometheus
+    restart: unless-stopped
+    # No host port binding — Grafana accesses internally
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+    depends_on:
+      docugardener:
+        condition: service_healthy
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # Grafana — dashboards + alerting
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: docugardener-grafana
+    restart: unless-stopped
+    # No host port binding — access via SSH tunnel or Caddy path rule
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/docugardener.json
+      GF_UNIFIED_ALERTING_ENABLED: "true"
+      GF_ALERTING_ENABLED: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - docugardener-network
+
+volumes:
+  caddy-data:
+  caddy-config:
+  redis-data:
+  weaviate-data:
+  postgres-data:
+  backup-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  docugardener-network:
+    driver: bridge

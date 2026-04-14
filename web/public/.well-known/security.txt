@@ -1,0 +1,10 @@
+Contact: mailto:security@docugardener.io
+Expires: 2027-03-30T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://docugardener.io/.well-known/security.txt
+Policy: https://docugardener.io/security
+
+# DocuGardener Responsible Disclosure Policy
+# We appreciate responsible disclosure of security vulnerabilities.
+# Please email security@docugardener.io with details.
+# We aim to acknowledge reports within 48 hours and resolve within 30 days.

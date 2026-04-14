@@ -1,0 +1,37 @@
+name: Audit Log Retention
+
+on:
+  schedule:
+    # Daily at 02:00 UTC — outside business hours
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (report only, no changes)"
+        type: boolean
+        default: true
+
+jobs:
+  retain:
+    name: Enforce audit log retention policy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call retention endpoint
+        env:
+          APP_URL: ${{ vars.APP_URL }}         # e.g. https://app.docugardener.ai
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+
+          RESPONSE=$(curl -sf \
+            -X POST \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "{\"dryRun\": ${DRY_RUN}}" \
+            "${APP_URL}/api/admin/audit/retain")
+
+          echo "Response: $RESPONSE"
+
+          # Fail the workflow if the API call itself failed (curl -sf exits non-zero)
+          echo "$RESPONSE" | jq .

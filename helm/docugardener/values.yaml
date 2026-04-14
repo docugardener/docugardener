@@ -1,0 +1,376 @@
+# =============================================================================
+# DocuGardener Helm Chart — Default Values
+# All values are documented. Override in your own values file or via --set.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global image settings (can be overridden per component)
+# -----------------------------------------------------------------------------
+global:
+  imageRegistry: ""        # e.g. "my-registry.example.com" for air-gap
+  imagePullSecrets: []     # e.g. [{name: "regcred"}]
+  storageClass: ""
+
+# -----------------------------------------------------------------------------
+# Container image defaults (shared across api/worker/scheduler)
+# -----------------------------------------------------------------------------
+image:
+  repository: ghcr.io/docugardener/api
+  tag: ""               # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+# -----------------------------------------------------------------------------
+# API — FastAPI backend
+# -----------------------------------------------------------------------------
+api:
+  replicaCount: 2
+
+  image:
+    repository: ghcr.io/docugardener/api
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  # Extra env vars injected verbatim
+  extraEnv: []
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# -----------------------------------------------------------------------------
+# Worker — RQ worker (job queue consumer)
+# -----------------------------------------------------------------------------
+worker:
+  replicaCount: 2
+
+  image:
+    repository: ghcr.io/docugardener/api
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+  # Graceful shutdown — let in-flight jobs finish (matches docker-compose stop_grace_period)
+  terminationGracePeriodSeconds: 60
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  extraEnv: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# -----------------------------------------------------------------------------
+# Scheduler — Nightly rollup (SCALE-03)
+# -----------------------------------------------------------------------------
+scheduler:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/docugardener/api
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  extraEnv: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# -----------------------------------------------------------------------------
+# Web — Next.js frontend
+# -----------------------------------------------------------------------------
+web:
+  replicaCount: 2
+
+  image:
+    repository: ghcr.io/docugardener/web
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 3001
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  extraEnv: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# -----------------------------------------------------------------------------
+# Ingress
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  hosts:
+    - host: docugardener.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          backend: api
+        - path: /webhooks
+          pathType: Prefix
+          backend: api
+        - path: /
+          pathType: Prefix
+          backend: web
+  tls: []
+  #  - secretName: docugardener-tls
+  #    hosts:
+  #      - docugardener.example.com
+
+# -----------------------------------------------------------------------------
+# Secrets — existingSecret pattern (no hardcoded values in chart)
+# All secret references point to a pre-created K8s Secret by default.
+# -----------------------------------------------------------------------------
+secrets:
+  # Reference an externally managed Secret (sealed-secrets, Vault, etc.)
+  # If set, the chart will NOT create its own Secret.
+  existingSecret: ""
+
+  # Keys within the secret (used only when existingSecret is set)
+  keys:
+    databaseUrl: DATABASE_URL
+    redisUrl: REDIS_URL
+    geminiApiKey: GEMINI_API_KEY
+    githubAppId: GITHUB_APP_ID
+    githubPrivateKey: GITHUB_PRIVATE_KEY
+    encryptionKey: ENCRYPTION_KEY
+    nextauthSecret: NEXTAUTH_SECRET
+    nextauthUrl: NEXTAUTH_URL
+
+  # Values used when the chart creates its own Secret (dev/test only).
+  # In production, use existingSecret.
+  create:
+    enabled: false
+    databaseUrl: ""
+    redisUrl: ""
+    geminiApiKey: ""
+    githubAppId: ""
+    githubPrivateKey: ""
+    encryptionKey: ""
+    nextauthSecret: ""
+    nextauthUrl: ""
+
+# -----------------------------------------------------------------------------
+# PostgreSQL — bitnami subchart (dev) or external (production)
+# -----------------------------------------------------------------------------
+postgresql:
+  enabled: false    # set true for dev; use external.* for production
+
+  auth:
+    username: docugardener
+    password: ""          # set via --set or existingSecret
+    database: docugardener
+
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+  # External PostgreSQL (production)
+  external:
+    host: ""
+    port: 5432
+    existingSecret: ""    # secret must contain DATABASE_URL key
+
+# -----------------------------------------------------------------------------
+# Redis — bitnami subchart (dev) or external (production)
+# -----------------------------------------------------------------------------
+redis:
+  enabled: false    # set true for dev
+
+  auth:
+    enabled: false  # set true for production
+
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+
+  # External Redis (production)
+  external:
+    host: ""
+    port: 6379
+    existingSecret: ""    # secret must contain REDIS_URL key
+
+# -----------------------------------------------------------------------------
+# Weaviate — vector database
+# -----------------------------------------------------------------------------
+weaviate:
+  enabled: false    # bundled (dev only — no official bitnami chart)
+
+  image:
+    repository: cr.weaviate.io/semitechnologies/weaviate
+    tag: "1.27.0"
+    pullPolicy: IfNotPresent
+
+  persistence:
+    enabled: true
+    size: 20Gi
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+  # External Weaviate (production)
+  external:
+    host: ""
+    port: 8080
+    scheme: http
+
+# -----------------------------------------------------------------------------
+# ServiceAccount
+# -----------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: ""           # auto-generated if empty
+  annotations: {}
+
+# -----------------------------------------------------------------------------
+# Network Policy — default deny-all + explicit whitelist
+# -----------------------------------------------------------------------------
+networkPolicy:
+  enabled: true
+
+# -----------------------------------------------------------------------------
+# Pod Security Context (applied to all pods — PSA "restricted" compliant)
+# -----------------------------------------------------------------------------
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-level security context
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# -----------------------------------------------------------------------------
+# Config (non-secret env vars)
+# -----------------------------------------------------------------------------
+config:
+  appEnv: production
+  logLevel: INFO
+  vectorDbProvider: weaviate
+  debug: "false"
+
+# -----------------------------------------------------------------------------
+# Common labels applied to all resources
+# -----------------------------------------------------------------------------
+commonLabels: {}
+commonAnnotations: {}
+
+# =============================================================================
+# HYB-14: Deployment Mode Configuration
+# =============================================================================
+
+# Deployment mode: saas | client-installed | air-gap
+# saas (default): multi-tenant, Stripe billing
+# client-installed: single-tenant, license-key billing, cloud LLM permitted
+# air-gap: single-tenant, offline license, no outbound connections
+deploymentMode: "saas"
+
+# Organization settings (required for client-installed and air-gap)
+organization:
+  githubOrg: ""       # Your GitHub organization name (e.g. acme-corp)
+  adminEmail: ""      # Initial admin user email
+
+# License configuration (client-installed and air-gap)
+license:
+  # License key for client-installed mode (dg_lic_<32hex>)
+  key: ""
+  # Path where license file is mounted (air-gap only)
+  filePath: "/etc/docugardener/license.json"
+  # URL to license management portal
+  portalUrl: ""
+
+# Cloud connector (client-installed mode only)
+cloudConnector:
+  enabled: false
+  serviceUrl: "https://cloud.docugardener.dev"
+  # Telemetry opt-in (aggregate metrics only, no PII)
+  telemetryEnabled: false
+
+# Air-gap bundle (air-gap mode only)
+airGap:
+  # Name of existing Secret containing the license file
+  # Secret must have key: license.json
+  licenseSecretName: ""

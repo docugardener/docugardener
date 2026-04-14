@@ -1,0 +1,69 @@
+{{- if .Values.scheduler.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "docugardener.fullname" . }}-scheduler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  # Scheduler is a singleton — must never run more than 1 replica
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "docugardener.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: scheduler
+  strategy:
+    # Recreate ensures only one scheduler runs at a time
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "docugardener.labels" . | nindent 8 }}
+        app.kubernetes.io/component: scheduler
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "docugardener.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "docugardener.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "docugardener.podSecurityContext" . | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: scheduler
+          image: {{ include "docugardener.image" (dict "image" .Values.scheduler.image "global" .Values.global "defaultTag" .Chart.AppVersion) }}
+          imagePullPolicy: {{ .Values.scheduler.image.pullPolicy }}
+          command: ["python", "-m", "src.scheduler.manager"]
+          securityContext:
+            {{- include "docugardener.containerSecurityContext" . | nindent 12 }}
+          env:
+            {{- include "docugardener.configEnvVars" . | nindent 12 }}
+            {{- include "docugardener.secretEnvVars" . | nindent 12 }}
+            {{- with .Values.scheduler.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            {{- include "docugardener.tmpVolumeMounts" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.scheduler.resources | nindent 12 }}
+      volumes:
+        {{- include "docugardener.tmpVolumes" . | nindent 8 }}
+      {{- with .Values.scheduler.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.scheduler.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.scheduler.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

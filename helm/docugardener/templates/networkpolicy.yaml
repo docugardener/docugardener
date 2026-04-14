@@ -1,0 +1,186 @@
+{{- if .Values.networkPolicy.enabled -}}
+# =============================================================================
+# NetworkPolicy — default deny-all with explicit whitelist
+# ENT-13: Least-privilege network access for each component
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# API: accepts ingress from web + ingress controller; egress to DB, Redis, Weaviate
+# ---------------------------------------------------------------------------
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "docugardener.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "docugardener.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from web pods
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "docugardener.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: web
+      ports:
+        - port: 8000
+    # Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8000
+    # Allow Prometheus scraping (if monitoring namespace exists)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 8000
+  egress:
+    # PostgreSQL
+    - ports:
+        - port: 5432
+    # Redis
+    - ports:
+        - port: 6379
+    # Weaviate HTTP + gRPC
+    - ports:
+        - port: 8080
+        - port: 50051
+    # DNS
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # GitHub API (webhooks outbound check runs)
+    - ports:
+        - port: 443
+
+# ---------------------------------------------------------------------------
+# Worker: egress to DB, Redis, Weaviate, GitHub API (LLM calls go via HTTPS)
+# ---------------------------------------------------------------------------
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "docugardener.fullname" . }}-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "docugardener.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []  # workers expose no ports
+  egress:
+    - ports:
+        - port: 5432
+    - ports:
+        - port: 6379
+    - ports:
+        - port: 8080
+        - port: 50051
+    - ports:
+        - port: 443
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+
+# ---------------------------------------------------------------------------
+# Scheduler: egress to DB + Redis only
+# ---------------------------------------------------------------------------
+{{- if .Values.scheduler.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "docugardener.fullname" . }}-scheduler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "docugardener.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: scheduler
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - ports:
+        - port: 5432
+    - ports:
+        - port: 6379
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+{{- end }}
+
+# ---------------------------------------------------------------------------
+# Web: accepts ingress from ingress controller; egress to API + DB
+# ---------------------------------------------------------------------------
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "docugardener.fullname" . }}-web
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "docugardener.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 3001
+    # Allow load balancer health checks (no namespace selector needed for same-ns LB)
+    - ports:
+        - port: 3001
+  egress:
+    # API service
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "docugardener.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: api
+      ports:
+        - port: 8000
+    # PostgreSQL (Prisma ORM direct connection from Next.js)
+    - ports:
+        - port: 5432
+    # DNS
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+{{- end }}

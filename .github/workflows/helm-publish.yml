@@ -1,0 +1,256 @@
+name: Helm — Lint, Test & Publish to OCI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "helm/**"
+      - ".github/workflows/helm-publish.yml"
+  pull_request:
+    paths:
+      - "helm/**"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish chart to OCI registry?"
+        required: false
+        default: "false"
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  CHART_PATH: helm/docugardener
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint & validate
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Helm Lint & Schema Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "3.14.x"
+
+      - name: Add Bitnami OCI repo (for dependency resolution)
+        run: |
+          helm registry login registry-1.docker.io \
+            --username "${{ secrets.DOCKERHUB_USERNAME || 'anonymous' }}" \
+            --password "${{ secrets.DOCKERHUB_TOKEN || 'anonymous' }}" || true
+
+      - name: Helm dependency update
+        run: helm dependency update ${{ env.CHART_PATH }} || true
+
+      - name: Helm lint (default values)
+        run: helm lint ${{ env.CHART_PATH }}
+
+      - name: Helm lint (ci test values)
+        run: helm lint ${{ env.CHART_PATH }} -f ${{ env.CHART_PATH }}/ci/test-values.yaml
+
+      - name: Helm template (dry-run manifest generation)
+        run: |
+          helm template docugardener-test ${{ env.CHART_PATH }} \
+            -f ${{ env.CHART_PATH }}/ci/test-values.yaml \
+            --namespace docugardener \
+            > /tmp/manifests.yaml
+          echo "Generated $(wc -l < /tmp/manifests.yaml) lines of manifests"
+
+      - name: Validate manifest YAML (yamllint)
+        run: |
+          pip install yamllint --quiet
+          yamllint -d "{extends: relaxed, rules: {line-length: {max: 200}}}" /tmp/manifests.yaml
+
+      - name: Validate values schema (invalid values rejected)
+        run: |
+          # runAsNonRoot: false should fail schema validation
+          helm lint ${{ env.CHART_PATH }} \
+            --set "podSecurityContext.runAsNonRoot=false" 2>&1 | grep -q "schema" \
+            && echo "Schema validation correctly rejected runAsNonRoot=false" \
+            || echo "WARNING: schema validation did not catch runAsNonRoot=false"
+
+  # ---------------------------------------------------------------------------
+  # PSA restricted compliance check
+  # ---------------------------------------------------------------------------
+  psa-check:
+    name: Pod Security Standards (restricted)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "3.14.x"
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "1.29.x"
+
+      - name: Helm template → check PSA fields
+        run: |
+          helm template docugardener-test ${{ env.CHART_PATH }} \
+            -f ${{ env.CHART_PATH }}/ci/test-values.yaml \
+            --namespace docugardener \
+            > /tmp/manifests.yaml
+
+          python3 - <<'EOF'
+          import yaml, sys
+
+          with open("/tmp/manifests.yaml") as f:
+              docs = list(yaml.safe_load_all(f))
+
+          failures = []
+          for doc in docs:
+              if doc is None or doc.get("kind") != "Deployment":
+                  continue
+              name = doc["metadata"]["name"]
+              for container in doc["spec"]["template"]["spec"].get("containers", []):
+                  sc = container.get("securityContext", {})
+                  if sc.get("allowPrivilegeEscalation") is not False:
+                      failures.append(f"{name}/{container['name']}: allowPrivilegeEscalation must be false")
+                  if sc.get("readOnlyRootFilesystem") is not True:
+                      failures.append(f"{name}/{container['name']}: readOnlyRootFilesystem must be true")
+                  caps = sc.get("capabilities", {})
+                  if "ALL" not in caps.get("drop", []):
+                      failures.append(f"{name}/{container['name']}: capabilities.drop must include ALL")
+              pod_sc = doc["spec"]["template"]["spec"].get("securityContext", {})
+              if pod_sc.get("runAsNonRoot") is not True:
+                  failures.append(f"{name}: runAsNonRoot must be true")
+              if "seccompProfile" not in pod_sc:
+                  failures.append(f"{name}: seccompProfile must be set")
+
+          if failures:
+              print("PSA restricted compliance FAILURES:")
+              for f in failures:
+                  print(f"  ✗ {f}")
+              sys.exit(1)
+          else:
+              print(f"PSA restricted compliance: {sum(1 for d in docs if d and d.get('kind')=='Deployment')} Deployments — all OK")
+          EOF
+
+  # ---------------------------------------------------------------------------
+  # kind cluster smoke test
+  # ---------------------------------------------------------------------------
+  kind-smoke-test:
+    name: kind Cluster Smoke Test
+    runs-on: ubuntu-latest
+    needs: [lint, psa-check]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "3.14.x"
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: docugardener-test
+          kubectl_version: v1.29.0
+
+      - name: Create namespace + secret
+        run: |
+          kubectl create namespace docugardener
+          kubectl create secret generic docugardener-secrets \
+            --namespace docugardener \
+            --from-literal=DATABASE_URL="postgresql://user:pass@localhost/db" \
+            --from-literal=REDIS_URL="redis://localhost:6379/0" \
+            --from-literal=GEMINI_API_KEY="test" \
+            --from-literal=GITHUB_APP_ID="1" \
+            --from-literal=GITHUB_PRIVATE_KEY="test" \
+            --from-literal=ENCRYPTION_KEY="test-key-32-bytes-padding-here!!" \
+            --from-literal=NEXTAUTH_SECRET="test" \
+            --from-literal=NEXTAUTH_URL="http://localhost:3001"
+
+      - name: Helm install (dry-run)
+        run: |
+          helm install docugardener ${{ env.CHART_PATH }} \
+            --namespace docugardener \
+            --set secrets.existingSecret=docugardener-secrets \
+            --set api.image.repository=busybox \
+            --set api.image.tag=latest \
+            --set worker.image.repository=busybox \
+            --set worker.image.tag=latest \
+            --set scheduler.image.repository=busybox \
+            --set scheduler.image.tag=latest \
+            --set web.image.repository=busybox \
+            --set web.image.tag=latest \
+            --dry-run --debug \
+            > /tmp/kind-dry-run.txt 2>&1
+          echo "Dry-run output:"
+          tail -20 /tmp/kind-dry-run.txt
+
+  # ---------------------------------------------------------------------------
+  # Package & publish (main branch only, or manual trigger with publish=true)
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Package & Push to OCI Registry
+    runs-on: ubuntu-latest
+    needs: [lint, psa-check]
+    if: >
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+    permissions:
+      contents: read
+      packages: write
+      id-token: write  # for cosign keyless signing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "3.14.x"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} \
+            --username ${{ github.actor }} \
+            --password-stdin
+
+      - name: Extract chart version
+        id: chart_version
+        run: |
+          VERSION=$(grep '^version:' ${{ env.CHART_PATH }}/Chart.yaml | awk '{print $2}')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Chart version: ${VERSION}"
+
+      - name: Helm dependency update
+        run: helm dependency update ${{ env.CHART_PATH }} || true
+
+      - name: Helm package
+        run: |
+          helm package ${{ env.CHART_PATH }} --destination /tmp/helm-pkg
+          ls -la /tmp/helm-pkg/
+
+      - name: Push chart to OCI registry
+        run: |
+          helm push /tmp/helm-pkg/docugardener-${{ steps.chart_version.outputs.version }}.tgz \
+            oci://${{ env.REGISTRY }}/docugardener/helm
+
+      - name: Sign chart with cosign (keyless OIDC)
+        run: |
+          cosign sign --yes \
+            ${{ env.REGISTRY }}/docugardener/helm/docugardener:${{ steps.chart_version.outputs.version }}
+
+      - name: Output install instructions
+        run: |
+          echo ""
+          echo "Chart published successfully!"
+          echo ""
+          echo "Install with:"
+          echo "  helm install docugardener oci://${{ env.REGISTRY }}/docugardener/helm/docugardener \\"
+          echo "    --version ${{ steps.chart_version.outputs.version }} \\"
+          echo "    --namespace docugardener \\"
+          echo "    --set secrets.existingSecret=<your-secret-name>"

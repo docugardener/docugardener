@@ -1,0 +1,46 @@
+# =============================================================================
+# DocuGardener Caddyfile — Production TLS Reverse Proxy
+# =============================================================================
+# Caddy automatically obtains and renews TLS certificates from Let's Encrypt.
+# DOMAIN and LETSENCRYPT_EMAIL are injected from the production .env file.
+#
+# Routing:
+#   /webhooks/*  →  FastAPI (docugardener:8000)  — GitHub webhook delivery
+#   /health      →  FastAPI (docugardener:8000)  — health probe
+#   *            →  Next.js (web:3001)            — web app + its own /api/*
+# =============================================================================
+
+{
+    email {$LETSENCRYPT_EMAIL}
+}
+
+{$DOMAIN} {
+    # ── Security headers ──────────────────────────────────────────────────────
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options    "nosniff"
+        X-Frame-Options           "DENY"
+        Referrer-Policy           "strict-origin-when-cross-origin"
+        Permissions-Policy        "geolocation=(), microphone=(), camera=()"
+        # Remove the Caddy version banner
+        -Server
+    }
+
+    # ── Compression ───────────────────────────────────────────────────────────
+    encode gzip
+
+    # ── FastAPI: webhook endpoint (GitHub delivers here directly) ─────────────
+    handle /webhooks/* {
+        reverse_proxy docugardener:8000
+    }
+
+    # ── FastAPI: health probe ─────────────────────────────────────────────────
+    handle /health {
+        reverse_proxy docugardener:8000
+    }
+
+    # ── Next.js: everything else (web app + /api/* NextAuth routes) ───────────
+    handle {
+        reverse_proxy web:3001
+    }
+}

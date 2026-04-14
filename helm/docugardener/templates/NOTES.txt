@@ -1,0 +1,48 @@
+╔═══════════════════════════════════════════════════════════╗
+║        DocuGardener — On-Premise Installation             ║
+╚═══════════════════════════════════════════════════════════╝
+
+Release:   {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Version:   {{ .Chart.AppVersion }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. ACCESS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  API/Web: https://{{ .host }}
+{{- end }}
+{{- else }}
+  Ingress is disabled. Forward ports locally:
+
+  kubectl port-forward svc/{{ include "docugardener.fullname" . }}-api 8000:8000 -n {{ .Release.Namespace }}
+  kubectl port-forward svc/{{ include "docugardener.fullname" . }}-web 3001:3001 -n {{ .Release.Namespace }}
+
+  Then open: http://localhost:3001
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. HEALTH CHECK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. SECRETS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- if .Values.secrets.existingSecret }}
+  Using externally managed secret: {{ .Values.secrets.existingSecret }}
+{{- else if .Values.secrets.create.enabled }}
+  WARNING: Chart-managed secret is active. This is for dev/test only.
+  For production, set secrets.existingSecret to your pre-created K8s Secret name.
+{{- else }}
+  ACTION REQUIRED: No secret configured.
+  Create a K8s Secret and set secrets.existingSecret=<name>.
+  See helm/docugardener/README.md for the required keys.
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Full setup guide (including air-gap): https://docugardener.ai/docs/self-hosted
+  Chart source: https://github.com/docugardener/docugardener/tree/main/helm/docugardener

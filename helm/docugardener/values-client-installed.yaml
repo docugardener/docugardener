@@ -1,0 +1,22 @@
+# DocuGardener — Client-Installed Mode Values
+# Usage: helm install docugardener . -f values-client-installed.yaml --set license.key=dg_lic_...
+# Full docs: helm/docugardener/README.md
+
+deploymentMode: "client-installed"
+
+organization:
+  githubOrg: "your-org-name"
+  adminEmail: "admin@your-org.com"
+
+license:
+  key: ""           # Set via --set license.key=dg_lic_... or existing Secret
+  portalUrl: "https://cloud.docugardener.dev"
+
+cloudConnector:
+  enabled: true
+  serviceUrl: "https://cloud.docugardener.dev"
+  telemetryEnabled: false
+
+# Disable Stripe (not used in client-installed mode)
+stripe:
+  enabled: false

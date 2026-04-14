@@ -1,0 +1,299 @@
+# =============================================================================
+# DocuGardener Development Docker Compose
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Main Application
+  # ---------------------------------------------------------------------------
+  docugardener:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: docugardener
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - REDIS_URL=redis://redis:6379/0
+      - WEAVIATE_URL=http://weaviate:8080
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - STRIPE_PRICE_PRO=${STRIPE_PRICE_PRO}
+      - STRIPE_PRICE_TEAM=${STRIPE_PRICE_TEAM}
+      - SQL_DATABASE_URL=postgresql://postgres:password@postgres:5432/docugardener-web
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - APP_URL=${APP_URL:-http://localhost:8000}
+      - FEEDBACK_HMAC_SECRET=${FEEDBACK_HMAC_SECRET:-}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3003}
+      # HYB-02: saas | client-installed | air-gap  (default: saas)
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      # GitHub App — needed for Rules Preview + outbound GitHub API calls
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH}
+
+    volumes:
+      # Mount source for hot-reload in development
+      - ../src:/app/src:ro
+      - ../secrets:/app/secrets:ro
+      # tmpfs for ephemeral storage (RAM-only, no persistence)
+    tmpfs:
+      - /tmp/docugardener:size=512M,mode=1777
+    depends_on:
+      - redis
+      - weaviate
+    networks:
+      - docugardener-network
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: docugardener-worker
+    # DG-PLAT-01: install platformcloud_client SDK from sibling repo before starting.
+    # The SDK lives outside the Docker build context so it cannot be baked into the
+    # image; instead we mount it at runtime and pip-install in the entrypoint.
+    # DG-PLAT-01: install SDK to user-writable /tmp/site-packages (venv is root-owned)
+    command: >
+      bash -c "cp -r /app/vendor/platformcloud_sdk /tmp/platformcloud_sdk &&
+               pip install -q --target /tmp/site-packages /tmp/platformcloud_sdk &&
+               PYTHONPATH=/tmp/site-packages:$$PYTHONPATH
+               rq worker high default --url redis://redis:6379/0"
+    # GAP-04: Give in-flight jobs up to 60 s to finish before Docker sends SIGKILL.
+    # RQ responds to SIGTERM by completing the current job and then exiting cleanly.
+    stop_grace_period: 60s
+    restart: unless-stopped
+    # Disable the Dockerfile's port-8000 healthcheck — worker has no HTTP server
+    healthcheck:
+      disable: true
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://redis:6379/0
+      - WEAVIATE_URL=http://weaviate:8080
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - STRIPE_PRICE_PRO=${STRIPE_PRICE_PRO}
+      - STRIPE_PRICE_TEAM=${STRIPE_PRICE_TEAM}
+      - VECTOR_DB_PROVIDER=weaviate
+      - SQL_DATABASE_URL=postgresql://postgres:password@postgres:5432/docugardener-web
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - APP_URL=${APP_URL:-http://localhost:8000}
+      - FEEDBACK_HMAC_SECRET=${FEEDBACK_HMAC_SECRET:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH}
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+    volumes:
+      - ../src:/app/src:ro
+      - ../scripts:/app/scripts:ro
+      - ../secrets:/app/secrets:ro
+      - ../../PlatformCloud/packages/python:/app/vendor/platformcloud_sdk:ro
+    depends_on:
+      - redis
+      - weaviate
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # Redis - Job Queue
+  # ---------------------------------------------------------------------------
+  redis:
+    image: valkey/valkey:7-alpine  # Valkey = MIT-licensed Redis 7 fork (Redis 7+ uses SSPL)
+    container_name: docugardener-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - docugardener-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Weaviate - Vector Database (Self-hosted option)
+  # ---------------------------------------------------------------------------
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.27.0
+    container_name: docugardener-weaviate
+    ports:
+      - "8080:8080"
+      - "50051:50051" # gRPC
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+      CLUSTER_HOSTNAME: node1
+    volumes:
+      - weaviate-data:/var/lib/weaviate
+    networks:
+      - docugardener-network
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8080/v1/.well-known/ready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Scheduler - Nightly Rollup (SCALE-03)
+  # ---------------------------------------------------------------------------
+  scheduler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: docugardener-scheduler
+    # DG-PLAT-01: install SDK to user-writable /tmp/site-packages (venv is root-owned)
+    command: >
+      bash -c "cp -r /app/vendor/platformcloud_sdk /tmp/platformcloud_sdk &&
+               pip install -q --target /tmp/site-packages /tmp/platformcloud_sdk &&
+               PYTHONPATH=/tmp/site-packages:$$PYTHONPATH
+               python -m src.scheduler.manager"
+    # Disable the Dockerfile's port-8000 healthcheck — scheduler has no HTTP server
+    healthcheck:
+      disable: true
+    environment:
+      - APP_ENV=development
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH}
+      - SQL_DATABASE_URL=postgresql://postgres:password@postgres:5432/docugardener-web
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - APP_URL=${APP_URL:-http://localhost:8000}
+      - FEEDBACK_HMAC_SECRET=${FEEDBACK_HMAC_SECRET:-}
+    volumes:
+      - ../src:/app/src:ro
+      - ../secrets:/app/secrets:ro
+      - ../../PlatformCloud/packages/python:/app/vendor/platformcloud_sdk:ro
+    depends_on:
+      - postgres
+    networks:
+      - docugardener-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Smee - Webhook Proxy (Development)
+  # ---------------------------------------------------------------------------
+  smee:
+    image: deltaprojects/smee-client:latest
+    container_name: docugardener-smee
+    restart: always
+    command: -u https://smee.io/85AZjBVA8yAG1EBI -t http://host.docker.internal:8000/webhooks/github
+    depends_on: []
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # Postgres - Web DB
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: docugardener-postgres
+    ports:
+      - "5433:5432"   # 5432 reserved by SkillSeal; internal network still uses 5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: docugardener-web
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - docugardener-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # ── OPTIONAL: Secrets Management (Infisical Self-Hosted) ─────────────────────
+  # Access at http://localhost:8081 — create the first admin user on first boot.
+  # See docs/INFISICAL.md for full setup guide.
+  # =============================================================================
+  infisical:
+    image: infisical/infisical:latest-postgres
+    container_name: docugardener-infisical
+    ports:
+      - "8081:8080"   # Infisical web UI
+    environment:
+      ENCRYPTION_KEY: "${INFISICAL_ENCRYPTION_KEY}"
+      AUTH_SECRET: "${INFISICAL_AUTH_SECRET}"
+      DB_CONNECTION_URI: "postgresql://postgres:password@postgres:5432/infisical"
+      REDIS_URL: "redis://redis:6379/1"   # DB 1 (DocuGardener uses DB 0)
+      SITE_URL: "http://localhost:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - docugardener-network
+    restart: unless-stopped
+    volumes:
+      - infisical-data:/app/.infisical
+
+  # ---------------------------------------------------------------------------
+  # Observability Stack — Grafana + Prometheus
+  # Access: Grafana → http://localhost:3004  (admin / admin)
+  #         Prometheus → http://localhost:9090
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    container_name: docugardener-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - docugardener-network
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: docugardener-grafana
+    ports:
+      - "3004:3000"   # 3003 is Next.js dev server (3001/3002 reserved by NestFleet)
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GRAFANA_ALERT_WEBHOOK_URL: "http://localhost:9999/alert-sink"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/docugardener.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - docugardener-network
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  weaviate-data:
+  postgres-data:
+  infisical-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  docugardener-network:
+    driver: bridge

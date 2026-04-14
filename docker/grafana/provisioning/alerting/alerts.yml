@@ -1,0 +1,288 @@
+# MON-01: Grafana Unified Alerting provisioning for DocuGardener.
+#
+# Alert rules:
+#   1. API error rate >5% over 5 min window
+#   2. RQ queue depth >100 for 5 min (batch overflow; see also rule 5)
+#   3. Webhook failure rate >10% over 5 min window
+#   4. LLM error rate >5% over 10 min window
+#   5. RQ queue stuck — any job queued >5 min (catches worker down early)
+#   6. Worker silent — queue non-empty but no jobs completed in 10 min
+#
+# Notification: contact point "docugardener-ops" (webhook placeholder).
+# Replace the webhook URL with your Slack/PagerDuty/email integration.
+
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: docugardener-ops
+    receivers:
+      - uid: docugardener-ops-webhook
+        type: webhook
+        settings:
+          url: "${GRAFANA_ALERT_WEBHOOK_URL}"
+          httpMethod: POST
+        disableResolveMessage: false
+
+policies:
+  - orgId: 1
+    receiver: docugardener-ops
+    group_by:
+      - grafana_folder
+      - alertname
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+
+groups:
+  - orgId: 1
+    name: DocuGardener Production Alerts
+    folder: DocuGardener
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------
+      # RULE 1: API Error Rate >5%
+      # -----------------------------------------------------------------
+      - uid: mon01-api-error-rate
+        title: "API Error Rate >5%"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >
+                sum(rate(docugardener_http_requests_total{status=~"5.."}[5m])) or vector(0)
+              intervalMs: 15000
+              maxDataPoints: 20
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >
+                sum(rate(docugardener_http_requests_total[5m])) or vector(0)
+              intervalMs: 15000
+              maxDataPoints: 20
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: "$A / clamp_min($B, 0.001) > 0.05"
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          summary: "API 5xx error rate exceeds 5% over the last 5 minutes."
+          description: >
+            The ratio of HTTP 5xx responses to total responses has exceeded the
+            5% threshold. Check FastAPI logs for stack traces.
+        labels:
+          severity: critical
+          team: platform
+
+      # -----------------------------------------------------------------
+      # RULE 2: Queue Depth >100
+      # -----------------------------------------------------------------
+      - uid: mon01-queue-depth
+        title: "RQ Queue Depth >100"
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >
+                docugardener_queue_size{queue_name="default"} > 100
+              intervalMs: 15000
+              maxDataPoints: 20
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          summary: "RQ default queue depth exceeds 100 jobs."
+          description: >
+            The job queue has more than 100 pending jobs for over 5 minutes.
+            This may indicate worker starvation or a processing bottleneck.
+            Consider scaling workers or investigating stuck jobs.
+        labels:
+          severity: warning
+          team: platform
+
+      # -----------------------------------------------------------------
+      # RULE 3: Webhook Failure Rate >10%
+      # -----------------------------------------------------------------
+      - uid: mon01-webhook-failure-rate
+        title: "Webhook Failure Rate >10%"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >
+                sum(rate(docugardener_webhooks_failed_total[5m])) or vector(0)
+              intervalMs: 15000
+              maxDataPoints: 20
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >
+                sum(rate(docugardener_webhooks_received_total[5m])) or vector(0)
+              intervalMs: 15000
+              maxDataPoints: 20
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: "$A / clamp_min($B, 0.001) > 0.10"
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          summary: "Webhook failure rate exceeds 10% over the last 5 minutes."
+          description: >
+            More than 10% of incoming GitHub webhooks are failing.
+            Check GitHub App connectivity and webhook signature validation.
+        labels:
+          severity: warning
+          team: platform
+
+      # -----------------------------------------------------------------
+      # RULE 4: LLM Error Rate >5%
+      # -----------------------------------------------------------------
+      - uid: mon01-llm-error-rate
+        title: "LLM Error Rate >5%"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >
+                sum(rate(docugardener_llm_errors_total[10m])) or vector(0)
+              intervalMs: 15000
+              maxDataPoints: 20
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >
+                sum(rate(docugardener_llm_requests_total[10m])) or vector(0)
+              intervalMs: 15000
+              maxDataPoints: 20
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: "$A / clamp_min($B, 0.001) > 0.05"
+        noDataState: OK
+        execErrState: Alerting
+        for: 10m
+        annotations:
+          summary: "LLM API error rate exceeds 5% over the last 10 minutes."
+          description: >
+            The LLM provider (Gemini/Ollama) is returning errors at a rate above 5%.
+            Check provider status page and API key validity.
+        labels:
+          severity: warning
+          team: platform
+
+      # ── Rule 5: RQ queue stuck (any depth > 0 for 5 min) ─────────────────
+      - uid: rq-queue-stuck
+        title: "RQ Queue Stuck — Jobs Not Processing"
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >
+                docugardener_queue_size{queue_name="default"} > 0
+              intervalMs: 15000
+              maxDataPoints: 20
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          summary: "RQ default queue has been non-empty for 5+ minutes."
+          description: >
+            At least one job has been sitting in the queue for over 5 minutes
+            without being processed. Likely causes: worker container stopped,
+            Redis restarted without worker restart, or ENCRYPTION_KEY missing
+            from worker environment. Run: make dev-check
+        labels:
+          severity: critical
+          team: platform
+
+      # ── Rule 6: Worker silent (queue non-empty, no jobs completed in 10 min)
+      - uid: worker-silent
+        title: "RQ Worker Silent — No Jobs Completed in 10 min"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >
+                docugardener_queue_size{queue_name="default"} or vector(0)
+              intervalMs: 15000
+              maxDataPoints: 20
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >
+                increase(docugardener_jobs_completed_total[10m]) or vector(0)
+              intervalMs: 15000
+              maxDataPoints: 20
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: "$A > 0 && $B == 0"
+        noDataState: OK
+        execErrState: Alerting
+        for: 10m
+        annotations:
+          summary: "Worker has not completed any jobs in 10 minutes despite a non-empty queue."
+          description: >
+            The RQ worker appears stopped or stuck. Check: docker logs docugardener-worker.
+            Common fix: make dev-restart. Verify ENCRYPTION_KEY and GEMINI_API_KEY
+            are set in the worker container.
+        labels:
+          severity: critical
+          team: platform

@@ -1,0 +1,27 @@
+# Prometheus scrape configuration for DocuGardener local development.
+# Scrapes the FastAPI /metrics endpoint (prometheus-client format) every 15s.
+# Worker metrics endpoint is not yet wired — add when RQ prometheus-rq is integrated.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "docugardener-api"
+    static_configs:
+      - targets: ["docugardener:8000"]
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+    scrape_interval: 30s
+
+  # Worker metrics — uncomment when prometheus-rq is added to worker
+  # - job_name: "docugardener-worker"
+  #   static_configs:
+  #     - targets: ["worker:9001"]
+  #   metrics_path: /metrics
+  #   scrape_interval: 30s

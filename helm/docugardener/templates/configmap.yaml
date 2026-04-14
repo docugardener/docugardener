@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "docugardener.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  APP_ENV: {{ .Values.config.appEnv | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  VECTOR_DB_PROVIDER: {{ .Values.config.vectorDbProvider | quote }}
+  DEBUG: {{ .Values.config.debug | quote }}
+  # Weaviate URL — external host takes precedence over bundled service
+  WEAVIATE_URL: >-
+    {{- if .Values.weaviate.external.host }}
+    {{ printf "%s://%s:%d" .Values.weaviate.external.scheme .Values.weaviate.external.host (.Values.weaviate.external.port | int) | quote }}
+    {{- else }}
+    {{ printf "http://%s-weaviate:8080" (include "docugardener.fullname" .) | quote }}
+    {{- end }}
+  # API internal URL for web → api communication
+  API_INTERNAL_URL: {{ printf "http://%s-api:8000" (include "docugardener.fullname" .) | quote }}
+  # HYB-14: Deployment mode
+  DEPLOYMENT_MODE: {{ .Values.deploymentMode | quote }}
+  GITHUB_ORG: {{ .Values.organization.githubOrg | quote }}
+  ADMIN_EMAIL: {{ .Values.organization.adminEmail | quote }}
+  LICENSE_FILE_PATH: {{ .Values.license.filePath | quote }}
+  LICENSE_PORTAL_URL: {{ .Values.license.portalUrl | quote }}
+  # Cloud connector
+  CLOUD_SERVICE_URL: {{ .Values.cloudConnector.serviceUrl | quote }}
+  TELEMETRY_ENABLED: {{ .Values.cloudConnector.telemetryEnabled | quote }}

@@ -1,0 +1,18 @@
+{{- if .Values.serviceAccount.create -}}
+# Least-privilege Role: DocuGardener pods need no K8s API access beyond the defaults.
+# This role exists as an explicit no-op to document intent and satisfy audit requirements.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "docugardener.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+  annotations:
+    # ENT-13: Explicit least-privilege declaration — no K8s API access granted.
+    docugardener.ai/rbac-intent: "no-api-access"
+    {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+rules: []
+{{- end }}

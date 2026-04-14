@@ -1,0 +1,306 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id              String   @id @default(cuid())
+  githubOrgId     String   @unique
+  installationId  String?
+  name            String
+  plan            PlanType @default(FREE)
+  
+  // App Credentials (Encrypted)
+  appId           String?
+  privateKey      String?  // Encrypted
+  webhookSecret   String?  // Encrypted
+  llmConfig       Json?    // Stores provider, encrypted key
+  notificationConfig Json? // Stores customized templates
+  workflowConfig  Json?    // Stores Slack/Jira configs
+  billingConfig   Json?    // Stores { monthlyBudgetUsd: number }
+
+  // I-01/I-02: Stripe Billing
+  stripeCustomerId    String?   @unique  // Stripe Customer ID (cus_xxx)
+
+  // GTM-01: PRO Trial
+  trialExpiresAt      DateTime? // Set once per tenant; null = never started or plan upgraded
+
+  // SSO / SAML 2.0 (ENT-12)
+  ssoEnabled          Boolean   @default(false)
+  ssoProvider         String?   // "okta" | "azure_ad" | "google" | "custom"
+  samlIdpEntityId     String?
+  samlIdpSsoUrl       String?
+  samlIdpCertificate  String?   @db.Text
+  samlAttrEmail       String?
+  samlAttrRole        String?
+  samlRoleMapAdmin            String?   // IdP group value that maps to ADMIN role
+  sessionsRevokedAt           DateTime? // All sessions issued before this time are invalid
+  sessionIdleTimeoutMinutes   Int?      // Null = use system default (480 min / 8 h)
+
+  // SCIM 2.0 (ENT-12 follow-on)
+  scimEnabled          Boolean   @default(false)
+  scimBearerTokenHash  String?   // SHA-256(raw_token); raw token shown to admin once
+  scimLastSyncAt       DateTime?
+
+  users            User[]
+  repositories     Repository[]
+  jobs             Job[]
+  promptConfigs    PromptConfig[]
+  analysisFeedback AnalysisFeedback[]
+  rulesArtifacts   RulesArtifact[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model PromptConfig {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  key       String   // e.g. "generator_system_prompt"
+  content   String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, key])
+}
+
+enum PlanType {
+  FREE
+  PRO
+  TEAM
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(VIEWER)
+  
+  tenantId      String?
+  tenant        Tenant?   @relation(fields: [tenantId], references: [id])
+
+  // SCIM 2.0 (ENT-12 follow-on)
+  externalId    String?   // IdP-assigned user ID (SCIM externalId)
+  scimActive    Boolean   @default(true)
+
+  accounts      Account[]
+  sessions      Session[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum UserRole {
+  ADMIN
+  AUDITOR
+  BILLING_ADMIN
+  VIEWER
+}
+
+model Repository {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  
+  githubRepoId String
+  name         String
+  enabled      Boolean  @default(true)
+  config       Json?    // Stores drift threshold, ignored files, etc.
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  jobs          Job[]
+  rulesArtifacts RulesArtifact[]
+
+  @@unique([tenantId, githubRepoId])
+}
+
+model Job {
+  id           String    @id @default(cuid())
+
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id])
+
+  prNumber     Int
+  status       JobStatus @default(QUEUED)
+  triageStatus TriageStatus @default(PENDING)
+  aiAuthored   Boolean   @default(false)
+  result       Json?     // Stores analysis result, drift score, etc.
+  fixPrUrl     String?   // Stores URL of the generated Auto-PR (DX-01)
+  logs         Json?     // Array of log entries
+
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // FEED-01: Analysis Feedback Signal
+  feedback     AnalysisFeedback[]
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  QUOTA_EXCEEDED
+}
+
+enum TriageStatus {
+  PENDING
+  ACCEPTED
+  IGNORED
+  FIX_PR_OPEN
+  RESOLVED
+}
+
+// ENT-11: SOC 2 Audit Log
+model AuditLog {
+  id           String    @id @default(cuid())
+  tenantId     String
+  actorId      String?   // User.id - null for system events
+  actorEmail   String?
+  actorIp      String?
+  event        AuditEvent
+  resourceType String?   // "tenant" | "repository" | "job" | "user"
+  resourceId   String?
+  metadata     Json?     // Arbitrary context (field names, old/new values)
+  hash         String    // SHA-256(event_data + prev_hash) - tamper evidence
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+enum AuditEvent {
+  USER_LOGIN
+  USER_LOGIN_FAILED
+  SETTINGS_CHANGED
+  TRIAGE_DECISION
+  REPO_TOGGLED
+  USER_INVITED
+  USER_ROLE_CHANGED
+  USER_REMOVED
+  SSO_LOGIN
+  SSO_CONFIG_CHANGED
+  SESSIONS_REVOKED
+  TRIAL_STARTED
+  TRIAL_EXPIRED
+  SCIM_USER_CREATED
+  SCIM_USER_UPDATED
+  SCIM_USER_DEACTIVATED
+  SCIM_USER_REACTIVATED
+  SCIM_TOKEN_ROTATED
+  // DOCPOL-01: Policy-as-Code
+  POLICY_VIOLATION_DISMISSED
+  // DG-OWN-03: Owner feature override
+  OWNER_FEATURE_OVERRIDE
+}
+
+// FEED-01: Analysis Feedback Signal
+// Written by FastAPI (SQLAlchemy) on feedback link click; read by Next.js for dashboard KPIs.
+model AnalysisFeedback {
+  id        String   @id @default(cuid())
+
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // "up" = accurate, "down" = false positive
+  signal    String   // "up" | "down"
+
+  // Source distinguishes multiple feedback buttons in the same comment (currently only "pr_comment")
+  source    String   @default("pr_comment")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One feedback record per job per source; upsert replaces on conflict
+  @@unique([jobId, source])
+  @@index([tenantId, createdAt])
+}
+
+// RULES-01: Agent Rules Compiler - generated instruction artifacts
+model RulesArtifact {
+  id              String    @id @default(cuid())
+
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  repoId          String
+  repository      Repository @relation(fields: [repoId], references: [id], onDelete: Cascade)
+
+  // "agents_md" | "copilot_instructions"
+  targetFormat    String
+
+  // Path in repo where the generated file lives, e.g. "AGENTS.md"
+  outputPath      String
+
+  // SHA-256 of the last successfully generated content (for staleness comparison)
+  lastHash        String?
+
+  lastGeneratedAt DateTime?
+
+  // URL of the most recently proposed GitHub PR for this artifact
+  lastPrUrl       String?
+
+  // True when policy has changed since the last generation
+  isStale         Boolean   @default(true)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // One record per repo + format
+  @@unique([tenantId, repoId, targetFormat])
+  @@index([tenantId, isStale])
+}
+
+// NextAuth.js Models
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}

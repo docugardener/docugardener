@@ -1,0 +1,72 @@
+{
+    "name": "docugardener",
+    "displayName": "DocuGardener",
+    "description": "Pre-push documentation drift detection — know before you push",
+    "version": "0.1.0",
+    "publisher": "docugardener",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/docugardener/vscode-extension"
+    },
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": ["Linters", "Other"],
+    "icon": "images/icon.png",
+    "activationEvents": ["onStartupFinished"],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "docugardener.checkDrift",
+                "title": "DocuGardener: Check Drift Now",
+                "icon": "$(search)"
+            }
+        ],
+        "configuration": {
+            "title": "DocuGardener",
+            "properties": {
+                "docugardener.backendUrl": {
+                    "type": "string",
+                    "default": "https://app.docugardener.dev",
+                    "description": "DocuGardener backend URL. Leave as default for SaaS; change only for self-hosted instances."
+                },
+                "docugardener.apiKey": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Plugin API key. Generate one in the DocuGardener web app under Settings → Integrations → VS Code Plugin.",
+                    "secret": true
+                },
+                "docugardener.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable or disable DocuGardener drift analysis"
+                },
+                "docugardener.blockOnCritical": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show a blocking dialog when critical documentation drift is detected before a push"
+                }
+            }
+        },
+        "menus": {
+            "commandPalette": [
+                {
+                    "command": "docugardener.checkDrift"
+                }
+            ]
+        }
+    },
+    "scripts": {
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "vscode:prepublish": "npm run compile",
+        "package": "vsce package --no-dependencies"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "@types/vscode": "^1.85.0",
+        "typescript": "^5.3.0",
+        "@vscode/vsce": "^2.24.0"
+    }
+}

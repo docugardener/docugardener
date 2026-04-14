@@ -1,0 +1,366 @@
+@import "tailwindcss";
+
+/* Tailwind v4: configure dark mode to activate on .dark class */
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* ─── Fonts ─────────────────────────────────────────────── */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+
+  /* ─── Semantic Design Tokens ─────────────────────────────── */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* ─── Semantic Status Colors ─────────────────────────────── */
+  --color-fresh: var(--status-fresh);
+  /* Teal  — Synced / Healthy */
+  --color-withered: var(--status-withered);
+  /* Amber — Drifted / Stale  */
+  --color-broken: var(--status-broken);
+  /* Rose  — Critical / Error  */
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LIGHT MODE (default)
+   Zinc-based warm neutrals — feels more "concrete" than Slate
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --radius: 0.5rem;
+
+  --background: #fafafa;
+  /* Zinc-50  — warm off-white, not glaring */
+  --foreground: #09090b;
+  /* Zinc-950 — near-black, not pure black   */
+
+  --card: #ffffff;
+  --card-foreground: #09090b;
+
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+
+  --primary: #4f46e5;
+  /* Indigo-600 — DocuGardener brand */
+  --primary-foreground: #ffffff;
+
+  --secondary: #f4f4f5;
+  /* Zinc-100 */
+  --secondary-foreground: #09090b;
+
+  --muted: #f4f4f5;
+  /* Zinc-100 */
+  --muted-foreground: #71717a;
+  /* Zinc-500 */
+
+  --accent: #f4f4f5;
+  --accent-foreground: #09090b;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: #e4e4e7;
+  /* Zinc-200 */
+  --input: #e4e4e7;
+  --ring: #4f46e5;
+
+  /* Semantic status palette */
+  --status-fresh: #14b8a6;
+  /* Teal-500  */
+  --status-withered: #f59e0b;
+  /* Amber-500 */
+  --status-broken: #f43f5e;
+  /* Rose-500  */
+
+  --chart-1: #4f46e5;
+  --chart-2: #14b8a6;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DARK MODE (.dark class on <html>)
+   Zinc-950/900/800 — no pure black, sophisticated depth
+   ═══════════════════════════════════════════════════════════ */
+.dark {
+  --background: #1c1c1f;
+  /* Zinc-900 — Soft Dark, not black */
+  --foreground: #fafafa;
+  /* Zinc-50  */
+
+  --card: #27272a;
+  /* Zinc-800 — Elevation contrast */
+  --card-foreground: #fafafa;
+
+  --popover: #27272a;
+  --popover-foreground: #fafafa;
+
+  --primary: #6366f1;
+  /* Indigo-500 — slightly lighter for dark bg */
+  --primary-foreground: #ffffff;
+
+  --secondary: #3f3f46;
+  /* Zinc-700 */
+  --secondary-foreground: #fafafa;
+
+  --muted: #3f3f46;
+  /* Zinc-700 */
+  --muted-foreground: #a1a1aa;
+  /* Zinc-400 */
+
+  --accent: #3f3f46;
+  --accent-foreground: #fafafa;
+
+  --destructive: #fb7185;
+  --destructive-foreground: #ffffff;
+
+  --border: #52525b;
+  /* Zinc-600 — Strong visibility for element boundaries */
+  --input: #52525b;
+  --ring: #6366f1;
+
+  /* Semantic status palette — same hues, slightly brightened */
+  --status-fresh: #2dd4bf;
+  /* Teal-400  */
+  --status-withered: #fbbf24;
+  /* Amber-400 */
+  --status-broken: #fb7185;
+  /* Rose-400  */
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BASE LAYER
+   ═══════════════════════════════════════════════════════════ */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    margin: 0;
+    @apply antialiased;
+  }
+
+  /* Apply JetBrains Mono to all monospace contexts */
+  code,
+  kbd,
+  samp,
+  pre,
+  .font-mono {
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-feature-settings: "liga" 0;
+    /* disable ligatures in code */
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SEMANTIC STATUS UTILITIES
+   Use these instead of ad-hoc Tailwind color classes.
+   Teal=Fresh(synced), Amber=Withered(drifted), Rose=Broken(error)
+   ═══════════════════════════════════════════════════════════ */
+.status-fresh {
+  color: var(--status-fresh);
+}
+
+.status-withered {
+  color: var(--status-withered);
+}
+
+.status-broken {
+  color: var(--status-broken);
+}
+
+.bg-status-fresh {
+  background-color: color-mix(in srgb, var(--status-fresh) 12%, transparent);
+  border-color: color-mix(in srgb, var(--status-fresh) 30%, transparent);
+}
+
+.bg-status-withered {
+  background-color: color-mix(in srgb, var(--status-withered) 12%, transparent);
+  border-color: color-mix(in srgb, var(--status-withered) 30%, transparent);
+}
+
+.bg-status-broken {
+  background-color: color-mix(in srgb, var(--status-broken) 12%, transparent);
+  border-color: color-mix(in srgb, var(--status-broken) 30%, transparent);
+}
+
+/* Drift border glow — mirrors LiveCodeBlock border treatment */
+.border-status-fresh {
+  border-color: color-mix(in srgb, var(--status-fresh) 50%, transparent);
+}
+
+.border-status-withered {
+  border-color: color-mix(in srgb, var(--status-withered) 50%, transparent);
+}
+
+.border-status-broken {
+  border-color: color-mix(in srgb, var(--status-broken) 50%, transparent);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT
+   ═══════════════════════════════════════════════════════════ */
+.app-container {
+  width: 100% !important;
+  max-width: 1280px !important;
+  margin-inline: auto !important;
+  padding-inline: 1.5rem !important;
+  box-sizing: border-box !important;
+  display: block !important;
+}
+
+@media (min-width: 768px) {
+  .app-container {
+    padding-inline: 2.5rem !important;
+  }
+}
+
+.page-stage {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SEMANTIC TYPOGRAPHY SYSTEM
+   ═══════════════════════════════════════════════════════════ */
+.type-h1 {
+  @apply text-3xl font-bold tracking-tight;
+  color: var(--foreground);
+}
+
+.type-section-header {
+  @apply text-[11px] font-black uppercase tracking-[0.2em];
+  color: var(--muted-foreground);
+}
+
+.type-table-header {
+  @apply text-[13px] font-black uppercase tracking-[0.15em];
+  color: var(--foreground);
+}
+
+.type-body {
+  @apply text-sm font-medium;
+  color: var(--foreground);
+}
+
+.type-metadata {
+  @apply text-[10px] font-bold uppercase tracking-widest;
+  color: var(--muted-foreground);
+}
+
+/* Monospace data chip — for SHA, scores, IDs */
+.type-mono {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  @apply text-[11px] font-medium tracking-tight;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SIDEBAR
+   ═══════════════════════════════════════════════════════════ */
+#dashboard-sidebar {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+  z-index: 50 !important;
+  position: relative !important;
+}
+
+[data-sidebar="true"] {
+  background-color: var(--background) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AESTHETIC POLISH — Shadows, radius, animations
+   ═══════════════════════════════════════════════════════════ */
+.shadow-card {
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.05),
+    0 2px 4px -2px rgb(0 0 0 / 0.05),
+    0 0 0 1px rgb(0 0 0 / 0.02);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shadow-card-hover {
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.05),
+    0 2px 4px -2px rgb(0 0 0 / 0.05),
+    0 0 0 1px rgb(0 0 0 / 0.02);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shadow-card-hover:hover {
+  box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.05),
+    0 8px 10px -6px rgb(0 0 0 / 0.05),
+    0 0 0 1px rgb(0 0 0 / 0.05);
+  transform: translateY(-2px);
+}
+
+.rounded-card {
+  border-radius: 2rem;
+}
+
+.rounded-interactive {
+  border-radius: 0.75rem;
+}
+
+/* ─── Entrance Animations ──────────────────────────────── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-entrance {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.btn-premium {
+  transition: transform 0.2s;
+  border-radius: 0.75rem;
+}
+
+.btn-premium:active {
+  transform: scale(0.95);
+}
+
+/* ─── Custom Scrollbar ─────────────────────────────────── */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 999px;
+}

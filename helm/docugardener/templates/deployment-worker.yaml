@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "docugardener.fullname" . }}-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.worker.autoscaling.enabled }}
+  replicas: {{ .Values.worker.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "docugardener.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "docugardener.labels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "docugardener.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "docugardener.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      # GAP-04: Allow in-flight RQ jobs to complete on SIGTERM before SIGKILL
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- include "docugardener.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: worker
+          image: {{ include "docugardener.image" (dict "image" .Values.worker.image "global" .Values.global "defaultTag" .Chart.AppVersion) }}
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          command: ["rq", "worker", "default", "--url", "$(REDIS_URL)"]
+          securityContext:
+            {{- include "docugardener.containerSecurityContext" . | nindent 12 }}
+          env:
+            {{- include "docugardener.configEnvVars" . | nindent 12 }}
+            {{- include "docugardener.secretEnvVars" . | nindent 12 }}
+            {{- with .Values.worker.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            {{- include "docugardener.tmpVolumeMounts" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          # Workers have no HTTP endpoint — use process-level liveness
+          livenessProbe:
+            exec:
+              command: ["python", "-c", "import rq; print('ok')"]
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            failureThreshold: 3
+      volumes:
+        {{- include "docugardener.tmpVolumes" . | nindent 8 }}
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

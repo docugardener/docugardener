@@ -1,0 +1,116 @@
+# =============================================================================
+# Dependabot Configuration (I-07)
+# =============================================================================
+# Automated dependency update PRs for npm, pip, and Docker.
+# PRs are created weekly (npm/pip) and monthly (Docker — less volatile).
+# =============================================================================
+
+version: 2
+
+updates:
+  # ---------------------------------------------------------------------------
+  # Next.js / Node.js — web/
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "automated"
+      - "frontend"
+    commit-message:
+      prefix: "deps(web)"
+    groups:
+      # Group all non-breaking Next.js / React updates into one PR
+      nextjs:
+        patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+      # Group all Radix UI / shadcn primitives
+      radix:
+        patterns:
+          - "@radix-ui/*"
+      # Group recharts + chart libraries
+      charts:
+        patterns:
+          - "recharts"
+          - "d3-*"
+
+  # ---------------------------------------------------------------------------
+  # Python — pyproject.toml (root)
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "automated"
+      - "backend"
+    commit-message:
+      prefix: "deps(api)"
+    groups:
+      # Group all FastAPI / Pydantic ecosystem updates
+      fastapi:
+        patterns:
+          - "fastapi"
+          - "pydantic*"
+          - "uvicorn*"
+          - "starlette"
+      # Group all LLM SDK updates
+      llm:
+        patterns:
+          - "google-generativeai"
+          - "openai"
+          - "anthropic"
+      # Group all tree-sitter parsers
+      tree-sitter:
+        patterns:
+          - "tree-sitter*"
+
+  # ---------------------------------------------------------------------------
+  # Docker base images — docker/
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "monthly"
+      day: "1"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "automated"
+      - "infrastructure"
+    commit-message:
+      prefix: "deps(docker)"
+
+  # ---------------------------------------------------------------------------
+  # GitHub Actions — .github/workflows/
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "automated"
+      - "ci"
+    commit-message:
+      prefix: "deps(ci)"

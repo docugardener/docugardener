@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+:root {
+  --radius: 0.5rem;
+  --background: #f8fafc;
+  /* Slate-50 */
+  --foreground: #0f172a;
+  /* Slate-900 */
+
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
+  --primary: #4f46e5;
+  /* Indigo-600 */
+  --primary-foreground: #ffffff;
+
+  --secondary: #f1f5f9;
+  /* Slate-100 */
+  --secondary-foreground: #0f172a;
+
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: #e2e8f0;
+  /* Slate-200 */
+  --input: #e2e8f0;
+  --ring: #4f46e5;
+
+  --chart-1: #4f46e5;
+  --chart-2: #06b6d4;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    margin: 0;
+    @apply antialiased;
+  }
+}
+
+/* 
+   UNIVERSAL LAYOUT STABILIZER
+   Forces Safari and Chrome to respect the 1280px grid.
+*/
+.app-container {
+  width: 100% !important;
+  max-width: 1280px !important;
+  margin-inline: auto !important;
+  padding-inline: 1.5rem !important;
+  box-sizing: border-box !important;
+  display: block !important;
+}
+
+@media (min-width: 768px) {
+  .app-container {
+    padding-inline: 2.5rem !important;
+  }
+}
+
+/* Stage isolation for Safari flexbox bugs */
+.page-stage {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+/* 
+   SEMANTIC TYPOGRAPHY SYSTEM
+   Ensures consistent weights, sizes, and tracking across all pages.
+*/
+
+.type-h1 {
+  @apply text-3xl font-bold tracking-tight text-slate-900;
+}
+
+/* Card Headers (e.g., Vitality Index) */
+.type-section-header {
+  @apply text-xs font-black uppercase tracking-[0.2em] text-slate-500;
+}
+
+/* Table/List Headers (Section Headers + 2 size increase as requested) */
+.type-table-header {
+  @apply text-[14px] font-black uppercase tracking-[0.2em] text-slate-900;
+}
+
+.type-body {
+  @apply text-sm font-medium text-slate-900;
+}
+
+.type-metadata {
+  @apply text-[10px] font-bold uppercase tracking-widest text-slate-400;
+}
+
+/* Forced Sidebar Styling for Cross-Browser Consistency */
+#dashboard-sidebar {
+  background-color: #020617 !important;
+  color: #f8fafc !important;
+  z-index: 50 !important;
+  position: relative !important;
+}
+
+[data-sidebar="true"] {
+  background-color: #020617 !important;
+}
+
+/* 
+   AESTHETIC POLISH SYSTEM
+   Premium shadows, border radius, and animations.
+*/
+
+.shadow-card {
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.05),
+    0 2px 4px -2px rgb(0 0 0 / 0.05),
+    0 0 0 1px rgb(0 0 0 / 0.02);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shadow-card-hover {
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.05),
+    0 2px 4px -2px rgb(0 0 0 / 0.05),
+    0 0 0 1px rgb(0 0 0 / 0.02);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shadow-card-hover:hover {
+  box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.05),
+    0 8px 10px -6px rgb(0 0 0 / 0.05),
+    0 0 0 1px rgb(0 0 0 / 0.05);
+  transform: translateY(-2px);
+}
+
+.rounded-card {
+  border-radius: 2rem;
+  /* 32px */
+}
+
+.rounded-interactive {
+  border-radius: 0.75rem;
+  /* xl */
+}
+
+/* Entrance Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-entrance {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+/* Interactive Scale Transition */
+.btn-premium {
+  transition: transform 0.2s;
+  border-radius: 0.75rem;
+}
+
+.btn-premium:active {
+  transform: scale(0.95);
+}

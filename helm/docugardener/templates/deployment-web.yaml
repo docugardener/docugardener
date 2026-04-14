@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "docugardener.fullname" . }}-web
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.web.autoscaling.enabled }}
+  replicas: {{ .Values.web.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "docugardener.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "docugardener.labels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "docugardener.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "docugardener.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "docugardener.podSecurityContext" . | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: web
+          image: {{ include "docugardener.image" (dict "image" .Values.web.image "global" .Values.global "defaultTag" .Chart.AppVersion) }}
+          imagePullPolicy: {{ .Values.web.image.pullPolicy }}
+          # Next.js standalone server
+          command: ["node", "server.js"]
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          securityContext:
+            {{- include "docugardener.containerSecurityContext" . | nindent 12 }}
+          env:
+            - name: PORT
+              value: "3001"
+            - name: NEXTAUTH_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "docugardener.secretName" . }}
+                  key: {{ .Values.secrets.keys.nextauthUrl | default "NEXTAUTH_URL" }}
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "docugardener.secretName" . }}
+                  key: {{ .Values.secrets.keys.nextauthSecret | default "NEXTAUTH_SECRET" }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "docugardener.secretName" . }}
+                  key: {{ .Values.secrets.keys.databaseUrl | default "DATABASE_URL" }}
+            - name: NODE_ENV
+              value: "production"
+            {{- with .Values.web.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            {{- include "docugardener.tmpVolumeMounts" . | nindent 12 }}
+            # Next.js needs writable .next/cache at runtime
+            - name: nextjs-cache
+              mountPath: /app/.next/cache
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+      volumes:
+        {{- include "docugardener.tmpVolumes" . | nindent 8 }}
+        - name: nextjs-cache
+          emptyDir:
+            sizeLimit: 256Mi
+      {{- with .Values.web.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.web.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.web.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,74 @@
+---
+# API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "docugardener.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.api.service.type }}
+  ports:
+    - port: {{ .Values.api.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "docugardener.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+---
+# Web Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "docugardener.fullname" . }}-web
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.web.service.type }}
+  ports:
+    - port: {{ .Values.web.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "docugardener.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+{{- if .Values.weaviate.enabled }}
+---
+# Bundled Weaviate Service (dev only)
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "docugardener.fullname" . }}-weaviate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+    app.kubernetes.io/component: weaviate
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+    - port: 50051
+      targetPort: 50051
+      protocol: TCP
+      name: grpc
+  selector:
+    {{- include "docugardener.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: weaviate
+{{- end }}

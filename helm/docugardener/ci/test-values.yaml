@@ -1,0 +1,56 @@
+# CI test values — used by helm lint and helm unittest
+# Provides minimum required overrides to produce a valid manifest set
+
+api:
+  replicaCount: 1
+
+worker:
+  replicaCount: 1
+
+scheduler:
+  enabled: true
+  replicaCount: 1
+
+web:
+  replicaCount: 1
+
+ingress:
+  enabled: false
+
+# Use chart-managed secret for CI testing
+secrets:
+  existingSecret: ""
+  create:
+    enabled: true
+    databaseUrl: "postgresql://user:pass@localhost:5432/docugardener"
+    redisUrl: "redis://localhost:6379/0"
+    geminiApiKey: "test-key"
+    githubAppId: "123456"
+    githubPrivateKey: "-----BEGIN RSA PRIVATE KEY-----\nTEST\n-----END RSA PRIVATE KEY-----"
+    encryptionKey: "test-encryption-key-32-bytes-ok!"
+    nextauthSecret: "test-nextauth-secret"
+    nextauthUrl: "http://localhost:3001"
+
+postgresql:
+  enabled: false
+  external:
+    host: "localhost"
+
+redis:
+  enabled: false
+  external:
+    host: "localhost"
+
+weaviate:
+  enabled: false
+  external:
+    host: "localhost"
+    port: 8080
+    scheme: http
+
+networkPolicy:
+  enabled: true
+
+config:
+  appEnv: development
+  logLevel: DEBUG
