@@ -4,12 +4,13 @@ import { getOwnerSession } from "@/lib/owner-auth"
 import { prisma } from "@/lib/prisma"
 import { writeAuditLog } from "@/lib/audit"
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const owner = await getOwnerSession()
   if (!owner) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
+  const { id } = await params
   const tenant = await prisma.tenant.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { workflowConfig: true, plan: true },
   })
   if (!tenant) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -22,10 +23,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   })
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const owner = await getOwnerSession()
   if (!owner) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
+  const { id } = await params
   const body = await req.json()
   const { grantedFeatures, quotaCeiling } = body as {
     grantedFeatures?: string[] | null
@@ -33,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const tenant = await prisma.tenant.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { workflowConfig: true },
   })
   if (!tenant) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -45,13 +47,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (quotaCeiling !== undefined) patch.quotaCeiling = quotaCeiling
 
   await prisma.tenant.update({
-    where: { id: params.id },
+    where: { id },
     data: { workflowConfig: { ...current, ...patch } },
   })
 
   // Owner audit log entry (DG-OWN-03)
   await writeAuditLog({
-    tenantId: params.id,
+    tenantId: id,
     actorEmail: owner,
     event: "OWNER_FEATURE_OVERRIDE" as any,
     metadata: {
