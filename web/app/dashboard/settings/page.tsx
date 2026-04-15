@@ -56,9 +56,10 @@ export default async function SettingsPage() {
         orderBy: { name: "asc" },
         include: { rulesArtifacts: true },
     })
-    // All repos for the Repositories tab list
+    // All repos for the Repositories tab list — enabled:true excludes phantoms from
+    // old/removed installations (BUG-01: disabled repos reappeared after navigation)
     const allRepos = await prisma.repository.findMany({
-        where: { tenantId },
+        where: { tenantId, enabled: true },
         orderBy: { name: "asc" },
         select: { id: true, name: true, enabled: true, githubRepoId: true },
     })

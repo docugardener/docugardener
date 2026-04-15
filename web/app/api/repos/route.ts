@@ -93,15 +93,25 @@ export async function POST(req: NextRequest) {
             syncedRepos.push(repo)
         }
 
-        // Disable repos that are no longer accessible to this GitHub App installation
-        await prisma.repository.updateMany({
-            where: {
-                tenantId,
-                githubRepoId: { notIn: [...eligibleGithubIds] },
-                enabled: true,
-            },
-            data: { enabled: false, updatedAt: new Date() },
+        // Repos no longer accessible to this installation — split by whether they have job history
+        const removedRepos = await prisma.repository.findMany({
+            where: { tenantId, githubRepoId: { notIn: [...eligibleGithubIds] } },
+            select: { id: true, _count: { select: { jobs: true } } },
         })
+        const toDelete = removedRepos.filter(r => r._count.jobs === 0).map(r => r.id)
+        const toDisable = removedRepos.filter(r => r._count.jobs > 0).map(r => r.id)
+
+        // Delete phantom repos (no job history — safe to remove, no FK constraint)
+        if (toDelete.length > 0) {
+            await prisma.repository.deleteMany({ where: { id: { in: toDelete } } })
+        }
+        // Disable repos with job history (preserve audit trail, hide from active list)
+        if (toDisable.length > 0) {
+            await prisma.repository.updateMany({
+                where: { id: { in: toDisable }, enabled: true },
+                data: { enabled: false, updatedAt: new Date() },
+            })
+        }
 
         const warnings: string[] = []
         if (!canUsePrivateRepos && privateCount > 0) {
