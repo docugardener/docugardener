@@ -74,6 +74,8 @@ jobs:
     name: Smoke Test
     runs-on: ubuntu-latest
     needs: deploy
+    env:
+      APP_URL: ${{ vars.APP_URL || 'https://docugardener.dev' }}
 
     steps:
       - name: Wait for containers to stabilise
@@ -83,7 +85,7 @@ jobs:
         run: |
           for i in $(seq 1 12); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              "${{ vars.APP_URL }}/health" 2>/dev/null)
+              "${APP_URL}/health" 2>/dev/null)
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed (attempt $i)"
               exit 0
@@ -96,7 +98,7 @@ jobs:
 
       - name: API response validation
         run: |
-          BODY=$(curl -sf "${{ vars.APP_URL }}/health")
+          BODY=$(curl -sf "${APP_URL}/health")
           echo "$BODY"
           echo "$BODY" | python3 -c "
           import json, sys

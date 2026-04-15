@@ -1,10 +1,11 @@
 name: E2E Regression
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Nightly at 02:00 UTC — catches regressions without blocking every push
+    - cron: "0 2 * * *"
 
 jobs:
   e2e:
