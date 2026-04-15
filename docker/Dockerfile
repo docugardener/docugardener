@@ -38,9 +38,8 @@ RUN useradd --create-home --shell /bin/bash docugardener
 
 WORKDIR /app
 
-# Install runtime dependencies + apply OS security patches (reduces Trivy CVE count)
-RUN apt-get update && apt-get upgrade -y --no-install-recommends && \
-    apt-get install -y --no-install-recommends \
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
