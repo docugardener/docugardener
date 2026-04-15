@@ -61,7 +61,7 @@ jobs:
             git reset --hard origin/main
 
             echo "==> Building and starting services..."
-            docker compose -f docker/docker-compose.prod.yml up --build -d
+            docker compose --project-directory /opt/docugardener -f docker/docker-compose.prod.yml up --build -d
 
             echo "==> Pruning old images..."
             docker image prune -af --filter "until=24h" || true
