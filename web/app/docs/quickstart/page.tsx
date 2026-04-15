@@ -15,10 +15,10 @@ const STEPS = [
       <>
         Go to{" "}
         <a
-          href="https://docugardener.io"
+          href="https://docugardener.dev"
           className="text-green-600 underline underline-offset-2 hover:text-green-700"
         >
-          docugardener.io
+          docugardener.dev
         </a>{" "}
         and click <strong>Get started free</strong>. Sign in with your GitHub account. The Free
         plan includes 50 PR analyses per month, 1 repository, and 1 seat — no credit card

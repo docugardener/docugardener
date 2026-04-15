@@ -25,10 +25,10 @@ export default function SelfHostingPage() {
         repository, deploy it on your own servers, and use every feature without paying a license
         fee. The SaaS at{" "}
         <a
-          href="https://docugardener.io"
+          href="https://docugardener.dev"
           className="text-green-600 underline underline-offset-2 hover:text-green-700"
         >
-          docugardener.io
+          docugardener.dev
         </a>{" "}
         exists for teams who prefer a managed, zero-ops experience.
       </p>

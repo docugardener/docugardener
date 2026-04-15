@@ -97,7 +97,7 @@ export default function DocsOverview() {
               &nbsp;
             </th>
             <th className="text-left bg-gray-50 px-3 py-2 border border-gray-200 font-semibold text-gray-700">
-              SaaS (docugardener.io)
+              SaaS (docugardener.dev)
             </th>
             <th className="text-left bg-gray-50 px-3 py-2 border border-gray-200 font-semibold text-gray-700">
               Self-Hosted (AGPL-3.0)
