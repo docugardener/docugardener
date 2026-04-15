@@ -38,6 +38,7 @@ function makeRepo(id: string, rulesCount = 0) {
     name: `repo-${id}`,
     fullName: `owner/repo-${id}`,
     githubInstallationId: "inst-1",
+    githubRepoId: `repo-${id}-github`,
     rulesArtifacts: ALL_FORMATS.slice(0, rulesCount).map((targetFormat, i) => ({
       id: `art-${id}-${i}`,
       repoId: id,
@@ -45,6 +46,10 @@ function makeRepo(id: string, rulesCount = 0) {
       targetFormat,
       content: "# rules",
       isStale: false,
+      outputPath: "",
+      lastHash: null,
+      lastGeneratedAt: null,
+      lastPrUrl: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })),

@@ -1,12 +1,12 @@
 /**
  * SEC-06: Encryption key startup guard — TypeScript (web/lib/encryption.ts).
  *
- * Because the guard runs at module-level, each test must use
- * vi.resetModules() + dynamic import to exercise a fresh module instance
- * with the desired env var configuration.
+ * The guard runs inside getSecretKey(), which is called lazily on first
+ * encrypt()/decrypt() call. Each test uses vi.resetModules() + dynamic
+ * import to exercise a fresh module instance with the desired env config.
  *
  * Covers:
- *   1. production + no ENCRYPTION_KEY → throws on import
+ *   1. production + no ENCRYPTION_KEY → throws when encrypt() is called
  *   2. test env (default) + no ENCRYPTION_KEY → fallback, no throw
  *   3. development + no ENCRYPTION_KEY → fallback, no throw
  *   4. production + valid ENCRYPTION_KEY → module loads, encrypt/decrypt round-trips
@@ -35,7 +35,10 @@ describe("SEC-06 TypeScript encryption guard (web/lib/encryption.ts)", () => {
         setNodeEnv("production")
         vi.stubEnv("ENCRYPTION_KEY", "")
 
-        await expect(import("@/lib/encryption")).rejects.toThrow(
+        // Guard is lazy (inside getSecretKey), so the import succeeds but
+        // calling encrypt() must throw.
+        const mod = await import("@/lib/encryption")
+        expect(() => mod.encrypt("test")).toThrow(
             /ENCRYPTION_KEY environment variable is required in production/
         )
     })

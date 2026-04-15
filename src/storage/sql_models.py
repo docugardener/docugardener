@@ -32,7 +32,7 @@ class User(Base):
         return self.tenantId
 
 
-class JobStatus(str, enum.Enum):
+class JobStatus(enum.StrEnum):
     QUEUED = "QUEUED"
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
@@ -40,7 +40,7 @@ class JobStatus(str, enum.Enum):
     QUOTA_EXCEEDED = "QUOTA_EXCEEDED"
 
 
-class TriageStatus(str, enum.Enum):
+class TriageStatus(enum.StrEnum):
     PENDING = "PENDING"
     ACCEPTED = "ACCEPTED"
     IGNORED = "IGNORED"

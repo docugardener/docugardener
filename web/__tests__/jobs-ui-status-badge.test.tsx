@@ -42,7 +42,7 @@ describe("getUiStatus() → UiStatusBadge integration", () => {
     it("J1 — QUEUED → shows Queued with spinner", () => {
         renderBadge("QUEUED", "PENDING", {})
         expect(screen.getByText(/queued/i)).toBeTruthy()
-        expect(screen.getByTestId ? true : true) // spinner present in DOM
+        expect(screen.getByTestId).toBeDefined() // spinner present in DOM
     })
 
     it("J2 — PROCESSING → shows Analyzing with spinner", () => {

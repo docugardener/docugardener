@@ -185,6 +185,7 @@ describe("FEED-01 — signal validation", () => {
     })
 
     it("null/undefined coerced to empty string is not valid", () => {
-        expect(VALID_SIGNALS.includes((null ?? "") as string)).toBe(false)
+        const val: string | undefined = undefined
+        expect(VALID_SIGNALS.includes(val ?? "")).toBe(false)
     })
 })

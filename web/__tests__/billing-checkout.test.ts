@@ -14,7 +14,7 @@
  * AC-I02-11  POST /api/billing/portal returns 400 when no stripeCustomerId set
  * AC-I02-12  POST /api/billing/portal returns portal URL
  */
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { POST as checkoutPOST } from "@/app/api/billing/checkout/route"
 import { POST as portalPOST } from "@/app/api/billing/portal/route"
 

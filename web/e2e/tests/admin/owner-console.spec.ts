@@ -253,7 +253,7 @@ test("SPEC-OWN-06: Owner with valid email but no HMAC cookie sees challenge form
         // Explicitly clear the owner access cookie if present
         await ctx.clearCookies()
         // Re-apply auth cookies only (not the owner token cookie)
-        const authState = JSON.parse(readFileSync(storageStatePath("ADMIN"), "utf-8")) as { cookies: Array<{ name: string }> }
+        const authState = JSON.parse(readFileSync(storageStatePath("ADMIN"), "utf-8")) as { cookies: Array<{ name: string; value: string }> }
         const authCookies = authState.cookies.filter(
             (c) => c.name !== "dg_owner_access"
         )

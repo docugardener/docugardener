@@ -35,23 +35,24 @@ vi.mock('@/lib/prisma', () => ({
 // ── nodemailer mock ───────────────────────────────────────────────────────────
 
 const mockSendMail = vi.fn()
-const mockCreateTransport = vi.fn(() => ({ sendMail: mockSendMail }))
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockCreateTransport = vi.fn((_config?: any) => ({ sendMail: mockSendMail }))
 
 vi.mock('nodemailer', () => ({
   default: {
-    createTransport: (...args: any[]) => mockCreateTransport(...args),
+    createTransport: (arg: any) => mockCreateTransport(arg),
   },
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeRequest(body: unknown, ip = '1.2.3.4'): NextRequest {
-  const init: RequestInit =
-    typeof body === 'string'
-      ? { method: 'POST', body, headers: { 'Content-Type': 'application/json', 'x-forwarded-for': ip } }
-      : { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json', 'x-forwarded-for': ip } }
-
-  return new NextRequest('http://localhost/api/waitlist', init)
+  const bodyStr = typeof body === 'string' ? body : JSON.stringify(body)
+  return new NextRequest('http://localhost/api/waitlist', {
+    method: 'POST',
+    body: bodyStr,
+    headers: { 'Content-Type': 'application/json', 'x-forwarded-for': ip },
+  })
 }
 
 function makeRawRequest(rawBody: string, ip = '1.2.3.4'): NextRequest {
@@ -83,7 +84,7 @@ describe('POST /api/waitlist', () => {
 
     vi.mock('nodemailer', () => ({
       default: {
-        createTransport: (...args: any[]) => mockCreateTransport(...args),
+        createTransport: (arg: any) => mockCreateTransport(arg),
       },
     }))
 
