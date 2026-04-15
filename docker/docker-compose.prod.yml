@@ -117,6 +117,20 @@ services:
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - BUNDLED_GEMINI_KEY=${BUNDLED_GEMINI_KEY}
       - BUNDLED_GEMINI_MODEL=${BUNDLED_GEMINI_MODEL:-gemini-2.0-flash}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-["https://docugardener.dev"]}
+      - DOMAIN=${DOMAIN}
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - STRIPE_PRICE_PRO=${STRIPE_PRICE_PRO}
+      - STRIPE_PRICE_TEAM=${STRIPE_PRICE_TEAM}
+      - FEEDBACK_HMAC_SECRET=${FEEDBACK_HMAC_SECRET}
     volumes:
       - ../secrets:/app/secrets:ro
     tmpfs:
@@ -160,6 +174,9 @@ services:
       - VECTOR_DB_PROVIDER=weaviate
       - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/docugardener-web
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      - BUNDLED_GEMINI_KEY=${BUNDLED_GEMINI_KEY}
+      - BUNDLED_GEMINI_MODEL=${BUNDLED_GEMINI_MODEL:-gemini-2.0-flash}
     volumes:
       - ../secrets:/app/secrets:ro
     depends_on:
