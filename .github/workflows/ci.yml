@@ -73,7 +73,7 @@ jobs:
       - name: SCA — Python dependency audit (CI-04)
         run: |
           pip install pip-audit
-          pip-audit --require-hashes=false --severity HIGH
+          pip-audit --severity HIGH
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
