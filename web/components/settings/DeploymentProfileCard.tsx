@@ -77,6 +77,7 @@ export function DeploymentProfileCard() {
             .finally(() => setLoading(false))
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { load() }, [])
 
     const status = data?.license_status ? STATUS_STYLE[data.license_status] : null

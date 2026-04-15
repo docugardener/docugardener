@@ -51,7 +51,7 @@ export async function GET() {
 
   // ── Stripe queries ────────────────────────────────────────────────────────
   let mrr = 0
-  let mrrByPlan: Record<string, number> = { PRO: 0, TEAM: 0 }
+  const mrrByPlan: Record<string, number> = { PRO: 0, TEAM: 0 }
   let activeSubsCount = 0
   let revenueThisMonth = 0
   let revenueLastMonth = 0

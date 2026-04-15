@@ -14,6 +14,7 @@
  * Gate: set E2E_OWNER_CONSOLE=1 in env to enable SPEC-OWN-02..06.
  */
 import { test, expect } from "@playwright/test"
+import { readFileSync } from "fs"
 import { storageStatePath } from "../../fixtures/auth"
 
 const OWNER_CONSOLE_ENABLED = !!process.env.E2E_OWNER_CONSOLE
@@ -252,8 +253,8 @@ test("SPEC-OWN-06: Owner with valid email but no HMAC cookie sees challenge form
         // Explicitly clear the owner access cookie if present
         await ctx.clearCookies()
         // Re-apply auth cookies only (not the owner token cookie)
-        const authState = require(storageStatePath("ADMIN"))
-        const authCookies = (authState.cookies as Array<{ name: string }>).filter(
+        const authState = JSON.parse(readFileSync(storageStatePath("ADMIN"), "utf-8")) as { cookies: Array<{ name: string }> }
+        const authCookies = authState.cookies.filter(
             (c) => c.name !== "dg_owner_access"
         )
         await ctx.addCookies(authCookies)

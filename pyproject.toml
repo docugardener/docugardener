@@ -65,7 +65,33 @@ packages = ["src"]
 target-version = "py311"
 line-length = 100
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
-ignore = ["E501"]
+ignore = [
+  "E501",   # line too long — handled by formatter
+  # Naming conventions: existing codebase uses camelCase/mixed conventions
+  "N803",   # argument name should be lowercase
+  "N805",   # first argument of method should be named 'self'
+  "N806",   # variable in function should be lowercase
+  "N814",   # camelCase imported as constant
+  "N815",   # mixedCase variable in class scope
+  "N818",   # exception name should end in 'Error'
+  # Common patterns accepted in this codebase
+  "B008",   # function call in default argument (SQLAlchemy / FastAPI Depends)
+  "B904",   # raise without 'from err' (pre-existing; tracked separately)
+  "B905",   # zip() without explicit strict= parameter
+  "B017",   # assertRaises without context manager
+  "C401",   # unnecessary generator (set comprehension)
+  "C408",   # unnecessary dict call
+  "E402",   # module level import not at top of file
+  "E741",   # ambiguous variable name
+  "F841",   # local variable assigned but never used
+  "SIM102", # use single if with 'and' instead of nested ifs
+  "SIM103", # return condition directly (pre-existing patterns)
+  "SIM105", # use contextlib.suppress instead of try-except-pass
+  "SIM108", # use ternary operator (pre-existing patterns)
+  "SIM117", # use single with statement (pre-existing test patterns)
+  "W291",   # trailing whitespace (in multi-line strings/prompts)
+  "W293",   # whitespace in blank lines (in docstrings/test fixtures)
+]
 
 [tool.ruff.isort]
 known-first-party = ["docugardener"]

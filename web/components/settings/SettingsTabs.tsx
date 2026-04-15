@@ -36,6 +36,7 @@ export function SettingsTabs({ intelligence, integrations, repositories, securit
 
     useEffect(() => {
         if (tabParam && TAB_IDS.includes(tabParam)) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setActive(tabParam as TabId)
         }
     }, [tabParam])

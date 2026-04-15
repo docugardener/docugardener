@@ -1,21 +1,24 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from pathlib import Path
 import re
+import shutil
 import time
+import uuid
+from pathlib import Path
+
+import git
+
 from github import Github, GithubException
 from src.core.logging import get_logger
 from src.pipeline.analyzer import PRAnalysisResult
-import git
-import shutil
-import uuid
 
 logger = get_logger(__name__)
+
 
 class GitCommitter:
     """
     Handles git operations to commit changes and create PRs.
     """
-    
+
     def __init__(self, installation_token: str, owner: str, repo: str):
         self.token = installation_token
         self.owner = owner
@@ -25,11 +28,12 @@ class GitCommitter:
     def _sanitize_branch_name(self, name: str) -> str:
         """Sanitizes strings for use as git branch names."""
         import re
+
         # Replace non-alphanumeric with dash
-        sanitized = re.sub(r'[^a-zA-Z0-9\-_]', '-', name)
+        sanitized = re.sub(r"[^a-zA-Z0-9\-_]", "-", name)
         # Remove consecutive dashes
-        sanitized = re.sub(r'-+', '-', sanitized)
-        return sanitized.strip('-')
+        sanitized = re.sub(r"-+", "-", sanitized)
+        return sanitized.strip("-")
 
     def apply_and_push(self, result: PRAnalysisResult, original_head_sha: str) -> str | None:
         """
@@ -39,18 +43,20 @@ class GitCommitter:
         if not result.documentation_updates:
             logger.info("No updates to commit")
             return None
-            
+
         uuid_short = uuid.uuid4().hex[:6]
-        branch_name = self._sanitize_branch_name(f"docugardener/fix-{result.pr_number}-{uuid_short}")
-        
+        branch_name = self._sanitize_branch_name(
+            f"docugardener/fix-{result.pr_number}-{uuid_short}"
+        )
+
         # We use a unique temp dir to avoid collisions
         tmp_dir = Path(f"/tmp/docugardener-fix-{result.pr_number}-{uuid_short}")
         if tmp_dir.exists():
             shutil.rmtree(tmp_dir)
-            
+
         try:
             logger.info("Cloning for fix", repo=self.repo, branch=branch_name)
-            
+
             # Clone all branches shallowly so the PR HEAD SHA is reachable
             # (depth=1 per branch tip; without no_single_branch only the default
             # branch is cloned and the PR HEAD SHA would be unreachable)
@@ -71,23 +77,23 @@ class GitCommitter:
                 repo.git.fetch("origin", original_head_sha, depth=1)
                 repo.git.checkout(original_head_sha)
             repo.git.checkout("-b", branch_name)
-            
+
             # Apply changes
             files_changed = 0
             for update in result.documentation_updates:
                 file_path = tmp_dir / update.file_path
                 file_path.parent.mkdir(parents=True, exist_ok=True)
-                
+
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(update.content)
-                
+
                 repo.index.add([str(update.file_path)])
                 files_changed += 1
-                
+
             if files_changed == 0:
                 logger.warning("No files were changed during apply")
                 return None
-                
+
             # Commit with clear message
             commit_msg = (
                 f"docs: update documentation for PR #{result.pr_number}\n\n"
@@ -95,17 +101,17 @@ class GitCommitter:
                 f"to resolve documentation drift detected in PR #{result.pr_number}."
             )
             repo.index.commit(commit_msg)
-            
+
             # Push
             origin = repo.remote(name="origin")
             origin.push(branch_name)
-            
+
             logger.info("Pushed fix branch", branch=branch_name)
             return branch_name
-            
+
         except Exception as e:
             logger.error("Failed to push fix branch", error=str(e), repo=self.repo)
-            return None # Return None to trigger fail_job in handler
+            return None  # Return None to trigger fail_job in handler
         finally:
             if tmp_dir.exists():
                 try:
@@ -116,7 +122,7 @@ class GitCommitter:
     def post_pr_comment(self, pr_number: int, body: str) -> None:
         """Post a comment on a Pull Request."""
         try:
-            g = Github(self.token)  # noqa: module-level import
+            g = Github(self.token)
             repo = g.get_repo(f"{self.owner}/{self.repo}")
             pr = repo.get_pull(pr_number)
             pr.create_issue_comment(body)
@@ -195,12 +201,17 @@ class GitCommitter:
                                 attempt=attempt + 1,
                                 max_retries=max_retries,
                             )
-                            time.sleep(min(retry_delay * (2 ** attempt), max_delay))
+                            time.sleep(min(retry_delay * (2**attempt), max_delay))
                             continue
                         # Still no checks after waiting — repo has no CI configured
                         break
 
-                    failed = [c for c in external if c.status == "completed" and c.conclusion in ("failure", "cancelled", "timed_out", "action_required")]
+                    failed = [
+                        c
+                        for c in external
+                        if c.status == "completed"
+                        and c.conclusion in ("failure", "cancelled", "timed_out", "action_required")
+                    ]
                     if failed:
                         logger.error(
                             "auto_merge_pr: CI failed — skipping merge",
@@ -210,7 +221,8 @@ class GitCommitter:
                         return "ci_failed"
 
                     passed = all(
-                        c.status == "completed" and c.conclusion in ("success", "neutral", "skipped")
+                        c.status == "completed"
+                        and c.conclusion in ("success", "neutral", "skipped")
                         for c in external
                     )
                     if passed:
@@ -224,7 +236,7 @@ class GitCommitter:
                             max_retries=max_retries,
                             pending_checks=[c.name for c in external if c.status != "completed"],
                         )
-                        time.sleep(min(retry_delay * (2 ** attempt), max_delay))
+                        time.sleep(min(retry_delay * (2**attempt), max_delay))
                 else:
                     logger.error(
                         "auto_merge_pr: CI polling timed out",
@@ -239,10 +251,16 @@ class GitCommitter:
             for _attempt in range(_merge_retries):
                 try:
                     pr.merge(merge_method=method)
-                    logger.info("auto_merge_pr: PR merged successfully", pr=pr_number, method=method)
+                    logger.info(
+                        "auto_merge_pr: PR merged successfully", pr=pr_number, method=method
+                    )
                     return None
                 except GithubException as _me:
-                    if _me.status == 405 and "already in progress" in str(_me).lower() and _attempt < _merge_retries - 1:
+                    if (
+                        _me.status == 405
+                        and "already in progress" in str(_me).lower()
+                        and _attempt < _merge_retries - 1
+                    ):
                         logger.warning(
                             "auto_merge_pr: merge already in progress, retrying",
                             pr=pr_number,
@@ -308,7 +326,8 @@ class GitCommitter:
         }
         _ai_row = (
             f"| AI Authorship Signal | {_ai_signal_labels.get(ai_signal, ai_signal)} |\n"
-            if ai_signal else ""
+            if ai_signal
+            else ""
         )
         body = (
             f"## 🌱 DocuGardener Documentation Fix\n\n"
@@ -325,14 +344,9 @@ class GitCommitter:
             f"\n---\n"
             f"*Generated by [DocuGardener](https://github.com/apps/docugardener)*"
         )
-        
+
         try:
-            pr = repo.create_pull(
-                title=title,
-                body=body,
-                head=branch_name,
-                base=base_ref
-            )
+            pr = repo.create_pull(title=title, body=body, head=branch_name, base=base_ref)
             logger.info("Created Fix PR", url=pr.html_url)
             return pr.html_url
         except Exception as e:

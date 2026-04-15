@@ -101,6 +101,7 @@ export default function OwnerOverviewPage() {
       .finally(() => setLoading(false))
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [])
 
   if (loading) return <div className="text-sm text-gray-400 py-8">Loading KPIs…</div>

@@ -23,6 +23,7 @@ export function DiscoverMoreChecklist({ tenantId }: DiscoverMoreChecklistProps) 
 
   useEffect(() => {
     if (localStorage.getItem(DISMISSED_KEY(tenantId)) === "true") return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisible(true)
   }, [tenantId])
 

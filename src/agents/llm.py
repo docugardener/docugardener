@@ -31,28 +31,29 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 #: Error type names that warrant a retry (provider-agnostic string matching).
-_TRANSIENT_ERROR_NAMES = frozenset({
-    # Gemini / google-api-core
-    "ResourceExhausted",
-    "ServiceUnavailable",
-    "DeadlineExceeded",
-    "InternalServerError",
-    # OpenAI SDK
-    "RateLimitError",
-    "APIConnectionError",
-    "APITimeoutError",
-    # Anthropic SDK
-    "OverloadedError",
-    "APIConnectionError",  # also covers anthropic.APIConnectionError
-    # httpx (Ollama)
-    "ConnectError",
-    "TimeoutException",
-    "ReadTimeout",
-    "ConnectTimeout",
-    # Generic
-    "ConnectionError",
-    "TimeoutError",
-})
+_TRANSIENT_ERROR_NAMES = frozenset(
+    {
+        # Gemini / google-api-core
+        "ResourceExhausted",
+        "ServiceUnavailable",
+        "DeadlineExceeded",
+        "InternalServerError",
+        # OpenAI / Anthropic SDKs share this name
+        "RateLimitError",
+        "APIConnectionError",
+        "APITimeoutError",
+        # Anthropic SDK
+        "OverloadedError",
+        # httpx (Ollama)
+        "ConnectError",
+        "TimeoutException",
+        "ReadTimeout",
+        "ConnectTimeout",
+        # Generic
+        "ConnectionError",
+        "TimeoutError",
+    }
+)
 
 #: HTTP status codes that indicate a transient failure.
 _TRANSIENT_HTTP_CODES = frozenset({429, 500, 502, 503, 504, 529})  # 529 = Anthropic overloaded
@@ -65,12 +66,11 @@ def _is_transient(exc: BaseException) -> bool:
         return True
     # Check for http status code on the exception (openai / httpx carry it)
     code = getattr(exc, "status_code", None) or getattr(exc, "response", None)
-    if isinstance(code, int) and code in _TRANSIENT_HTTP_CODES:
-        return True
-    if hasattr(exc, "response") and hasattr(exc.response, "status_code"):
-        if exc.response.status_code in _TRANSIENT_HTTP_CODES:
-            return True
-    return False
+    return (isinstance(code, int) and code in _TRANSIENT_HTTP_CODES) or (
+        hasattr(exc, "response")
+        and hasattr(exc.response, "status_code")
+        and exc.response.status_code in _TRANSIENT_HTTP_CODES
+    )
 
 
 async def _llm_call_with_retry(coro_fn, *, max_attempts: int = 3, base_delay: float = 1.0):
@@ -125,7 +125,7 @@ async def _llm_call_with_retry(coro_fn, *, max_attempts: int = 3, base_delay: fl
 # ---------------------------------------------------------------------------
 
 LLM_RATE_CALLS_PER_MINUTE: int = 60  # max LLM calls per tenant per minute
-LLM_RATE_BURST: int = 10             # burst allowance
+LLM_RATE_BURST: int = 10  # burst allowance
 
 _tenant_rate_limiters: dict[str, "LLMTenantRateLimiter"] = {}
 _rate_limiter_lock = asyncio.Lock()
@@ -134,8 +134,11 @@ _rate_limiter_lock = asyncio.Lock()
 class LLMTenantRateLimiter:
     """Token-bucket rate limiter for a single tenant's LLM calls."""
 
-    def __init__(self, calls_per_minute: int = LLM_RATE_CALLS_PER_MINUTE, burst: int = LLM_RATE_BURST) -> None:
+    def __init__(
+        self, calls_per_minute: int = LLM_RATE_CALLS_PER_MINUTE, burst: int = LLM_RATE_BURST
+    ) -> None:
         import time as _time
+
         self._rate = calls_per_minute / 60.0  # tokens/second
         self._burst = burst
         self._tokens = float(burst)
@@ -145,6 +148,7 @@ class LLMTenantRateLimiter:
     async def acquire(self) -> bool:
         """Return True if the call is allowed; False if rate-limited."""
         import time as _time
+
         async with self._lock:
             now = _time.monotonic()
             elapsed = now - self._last
@@ -183,6 +187,7 @@ async def check_llm_rate_limit(tenant_id: str) -> bool:
 
 class LLMProvider(Enum):
     """Supported LLM providers."""
+
     GEMINI = "gemini"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
@@ -201,6 +206,7 @@ class LLMResponse:
         usage:         Token counts {"prompt_tokens": int, "completion_tokens": int}.
         raw_response:  Original provider response object (for debugging).
     """
+
     content: str
     model: str
     finish_reason: str = "stop"
@@ -219,6 +225,7 @@ class LLMConfig:
         top_p:          Nucleus sampling parameter.
         stop_sequences: Sequences that stop generation.
     """
+
     temperature: float = 0.0
     max_tokens: int = 2048
     top_p: float = 1.0
@@ -250,6 +257,7 @@ class LLMClient(ABC):
 # GeminiClient
 # ---------------------------------------------------------------------------
 
+
 class GeminiClient(LLMClient):
     """
     Google Gemini LLM client (google-generativeai SDK).
@@ -276,6 +284,7 @@ class GeminiClient(LLMClient):
 
     def _init_client(self) -> None:
         import google.generativeai as genai
+
         genai.configure(api_key=self.api_key)
         self._model = genai.GenerativeModel(self.model_name)
         logger.info("Gemini client initialised", model=self.model_name)
@@ -287,6 +296,7 @@ class GeminiClient(LLMClient):
         config: LLMConfig | None = None,
     ) -> LLMResponse:
         import google.generativeai as genai
+
         from src.agents.model_registry import get_capability
         from src.agents.response_normalizer import (
             adapt_prompts_with_cap,
@@ -347,6 +357,7 @@ class GeminiClient(LLMClient):
         config: LLMConfig | None = None,
     ) -> LLMResponse:
         import google.generativeai as genai
+
         from src.agents.model_registry import get_capability
         from src.agents.response_normalizer import normalize_usage
 
@@ -379,6 +390,7 @@ class GeminiClient(LLMClient):
         raw = chat.send_message(last_message, generation_config=generation_config)
 
         from src.agents.response_normalizer import extract_content_with_cap
+
         content = extract_content_with_cap(raw, cap)
         usage = normalize_usage(raw, cap.input_format)
 
@@ -399,6 +411,7 @@ class GeminiClient(LLMClient):
 # ---------------------------------------------------------------------------
 # OpenAIClient
 # ---------------------------------------------------------------------------
+
 
 class OpenAIClient(LLMClient):
     """
@@ -430,6 +443,7 @@ class OpenAIClient(LLMClient):
         config: LLMConfig | None = None,
     ) -> LLMResponse:
         from openai import AsyncOpenAI
+
         from src.agents.model_registry import get_capability
         from src.agents.response_normalizer import (
             adapt_prompts_with_cap,
@@ -485,6 +499,7 @@ class OpenAIClient(LLMClient):
         config: LLMConfig | None = None,
     ) -> LLMResponse:
         from openai import AsyncOpenAI
+
         from src.agents.model_registry import get_capability
         from src.agents.response_normalizer import extract_content_with_cap, normalize_usage
 
@@ -525,6 +540,7 @@ class OpenAIClient(LLMClient):
 # ---------------------------------------------------------------------------
 # OllamaClient
 # ---------------------------------------------------------------------------
+
 
 class OllamaClient(LLMClient):
     """
@@ -572,7 +588,9 @@ class OllamaClient(LLMClient):
                 return "ollama"
         except Exception:
             pass
-        logger.warning("Could not detect Ollama API format — defaulting to openai-compat", url=self.url)
+        logger.warning(
+            "Could not detect Ollama API format — defaulting to openai-compat", url=self.url
+        )
         return "openai"
 
     async def generate(
@@ -582,6 +600,7 @@ class OllamaClient(LLMClient):
         config: LLMConfig | None = None,
     ) -> LLMResponse:
         import httpx
+
         from src.agents.response_normalizer import normalize_usage
 
         config = config or LLMConfig()
@@ -683,6 +702,7 @@ class OllamaClient(LLMClient):
 # AnthropicClient
 # ---------------------------------------------------------------------------
 
+
 class AnthropicClient(LLMClient):
     """
     Anthropic Claude LLM client (anthropic SDK — AsyncAnthropic).
@@ -710,6 +730,7 @@ class AnthropicClient(LLMClient):
 
     def _init_client(self) -> None:
         import anthropic
+
         self._client = anthropic.AsyncAnthropic(api_key=self.api_key)
         logger.info("Anthropic client initialised", model=self.model_name)
 
@@ -733,12 +754,14 @@ class AnthropicClient(LLMClient):
         # Anthropic supports temperature; top_p is also supported but rarely needed
         payload["temperature"] = config.temperature
 
-        raw = await _llm_call_with_retry(
-            lambda: self._client.messages.create(**payload)
-        )
+        raw = await _llm_call_with_retry(lambda: self._client.messages.create(**payload))
 
         content = self._extract_content(raw)
-        finish_reason = "stop" if raw.stop_reason in ("end_turn", "stop_sequence") else raw.stop_reason or "stop"
+        finish_reason = (
+            "stop"
+            if raw.stop_reason in ("end_turn", "stop_sequence")
+            else raw.stop_reason or "stop"
+        )
         usage = {
             "prompt_tokens": raw.usage.input_tokens,
             "completion_tokens": raw.usage.output_tokens,
@@ -779,12 +802,14 @@ class AnthropicClient(LLMClient):
         if system:
             payload["system"] = system
 
-        raw = await _llm_call_with_retry(
-            lambda: self._client.messages.create(**payload)
-        )
+        raw = await _llm_call_with_retry(lambda: self._client.messages.create(**payload))
 
         content = self._extract_content(raw)
-        finish_reason = "stop" if raw.stop_reason in ("end_turn", "stop_sequence") else raw.stop_reason or "stop"
+        finish_reason = (
+            "stop"
+            if raw.stop_reason in ("end_turn", "stop_sequence")
+            else raw.stop_reason or "stop"
+        )
         usage = {
             "prompt_tokens": raw.usage.input_tokens,
             "completion_tokens": raw.usage.output_tokens,
@@ -811,6 +836,7 @@ class AnthropicClient(LLMClient):
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
+
 
 def create_llm_client(
     provider: LLMProvider | None = None,
