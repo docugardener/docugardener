@@ -9,14 +9,42 @@ from sqlalchemy.orm import sessionmaker
 from src.core.config import settings
 from src.storage.sql_models import Job, JobStatus, Repository
 
-# Initialize DB connection
-engine = create_engine(settings.sql_database_url)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Lazy engine/session — created on first use so importing this module
+# does not require SQL_DATABASE_URL to be set (unit tests run without it).
+_engine = None
+_SessionLocal = None
+
+
+def _get_engine():
+    global _engine
+    if _engine is None:
+        _engine = create_engine(settings.sql_database_url)
+    return _engine
+
+
+def _get_session_local():
+    global _SessionLocal
+    if _SessionLocal is None:
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_get_engine())
+    return _SessionLocal
+
+
+# Kept for backwards-compat imports: `from src.pipeline.job_manager import SessionLocal`
+# Returns the lazily-initialised factory (creates it on first access).
+class _SessionLocalProxy:
+    def __call__(self):
+        return _get_session_local()()
+
+    def __instancecheck__(self, instance):
+        return isinstance(instance, type(_get_session_local()))
+
+
+SessionLocal = _SessionLocalProxy()
 
 
 def get_db():
     """FastAPI dependency for database sessions."""
-    db = SessionLocal()
+    db = _get_session_local()()
     try:
         yield db
     finally:
@@ -30,14 +58,22 @@ class JobManager:
     """
 
     def __init__(self):
-        self._session_factory = SessionLocal
+        # None means "use the lazy global factory"; tests override this
+        # with a SQLite sessionmaker to avoid hitting real Postgres.
+        self._session_factory = None
+
+    def _get_factory(self):
+        """Return the session factory — test-overridable."""
+        if self._session_factory is not None:
+            return self._session_factory
+        return _get_session_local()
 
     def get_or_create_repo(self, tenant_id: str, github_repo_id: str, name: str) -> str:
         """
         Ensures a Repository record exists for the job linkage.
         Returns the internal Repository DB ID (CUID).
         """
-        session = self._session_factory()
+        session = self._get_factory()()
         try:
             repo = (
                 session.query(Repository)
@@ -71,7 +107,7 @@ class JobManager:
         Creates a new Job record in QUEUED state.
         Returns the Job ID.
         """
-        session = self._session_factory()
+        session = self._get_factory()()
         try:
             # We assume repo_id is the internal DB ID here.
             # If caller has github ID, they should use resolve_repo first.
@@ -98,7 +134,7 @@ class JobManager:
         self, job_id: str, status: JobStatus, result: dict[str, Any] | None = None
     ) -> None:
         """Update job status and optionally the result."""
-        session = self._session_factory()
+        session = self._get_factory()()
         try:
             update_data = {"status": status}
             if status == JobStatus.PROCESSING:
@@ -118,7 +154,7 @@ class JobManager:
 
     def fail_job(self, job_id: str, error: str) -> None:
         """Mark job as failed, merging error into existing result so analysis data is preserved."""
-        session = self._session_factory()
+        session = self._get_factory()()
         try:
             job = session.query(Job).filter(Job.id == job_id).first()
             existing_result = dict(job.result) if job and isinstance(job.result, dict) else {}
@@ -142,7 +178,7 @@ class JobManager:
 
     def patch_result(self, job_id: str, extra: dict[str, Any]) -> None:
         """Merge extra fields into an existing job result without overwriting other fields."""
-        session = self._session_factory()
+        session = self._get_factory()()
         try:
             job = session.query(Job).filter(Job.id == job_id).first()
             if not job:
