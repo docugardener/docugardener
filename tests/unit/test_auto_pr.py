@@ -64,6 +64,7 @@ async def test_process_fix_pr_success(db_session):
     # engine so update_status / complete_job don't hit real Postgres.
     # Each call gets a fresh session (job_manager closes sessions after use).
     from src.pipeline.job_manager import job_manager as _jm
+
     _original_factory = _jm._session_factory
     _jm._session_factory = TestingSessionLocal
 
@@ -93,6 +94,7 @@ async def test_process_fix_pr_success(db_session):
         # Re-query rather than refresh — job_manager closes its session after
         # committing, which detaches the original instance from db_session.
         from src.storage.sql_models import Job as _Job
+
         updated_job = db_session.query(_Job).filter(_Job.id == job.id).first()
 
         # Did GitCommitter get instantiated correctly?
