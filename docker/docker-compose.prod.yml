@@ -164,9 +164,12 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: docugardener-worker
-    command: rq worker default --url redis://:${REDIS_PASSWORD}@redis:6379/0
+    command: rq worker high default --url redis://:${REDIS_PASSWORD}@redis:6379/0
     stop_grace_period: 60s
     restart: unless-stopped
+    # Worker has no HTTP server — disable the Dockerfile HEALTHCHECK
+    healthcheck:
+      disable: true
     environment:
       - APP_ENV=production
       - DEBUG=false
@@ -200,6 +203,9 @@ services:
     container_name: docugardener-scheduler
     command: python -m src.scheduler.manager
     restart: unless-stopped
+    # Scheduler has no HTTP server — disable the Dockerfile HEALTHCHECK
+    healthcheck:
+      disable: true
     environment:
       - APP_ENV=production
       - LOG_LEVEL=INFO
@@ -351,6 +357,9 @@ services:
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/docugardener.json
       GF_UNIFIED_ALERTING_ENABLED: "true"
       GF_ALERTING_ENABLED: "false"
+      # Webhook URL for alert notifications — set to a real Slack/PagerDuty URL in production
+      # Defaults to a no-op localhost sink so Grafana starts without crashing on first deploy
+      GRAFANA_ALERT_WEBHOOK_URL: ${GRAFANA_ALERT_WEBHOOK_URL:-http://localhost/alert-sink-noop}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

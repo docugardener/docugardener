@@ -8,16 +8,13 @@
 
 ## Active Items
 
-### Wave 2 — Infrastructure + CI/CD *(primary blocker — no Hetzner yet)*
+### Wave 2 — Infrastructure + CI/CD ✅ COMPLETE (2026-04-15)
+
+### Post-Launch Bugs
 
 | ID | Title | Size | Priority | Status | Branch | Spec |
 |----|-------|------|----------|--------|--------|------|
-| INF-01 | Provision Hetzner VPS: Ubuntu 24.04, Docker, ufw rules, SSH hardening | M | P0 | todo | — | docs/specs/PUB-01-github-publish.md |
-| INF-02 | Cloudflare DNS + full config: A record docugardener.dev → Hetzner IP | S | P0 | todo | — | docs/specs/PUB-01-github-publish.md |
-| INF-03 | Google Workspace: verify info@docugardener.dev + aliases operational | S | P0 | todo | — | docs/specs/PUB-01-github-publish.md |
-| INF-04 | GitHub Actions CD pipeline: build api/web/worker → GHCR → SSH deploy → smoke test | M | P0 | todo | — | docs/specs/PUB-01-github-publish.md |
-| INF-05 | GitHub repo secrets: HETZNER_SSH_KEY, HETZNER_HOST, OWNER_EMAIL, CRON_SECRET + all prod env vars | S | P0 | todo | — | docs/specs/PUB-01-github-publish.md |
-| INF-06 | DG-SAAS-04 Production deployment: first live deploy to Hetzner via CI/CD | L | P0 | todo | — | docs/active/active-backlog.md |
+| BUG-01 | Phantom repos reappear in Settings → Repositories after navigation | S | P1 | ✅ done | — | — |
 
 ### Wave 4 — Growth Gate (≥50 paying tenants)
 
@@ -39,6 +36,16 @@
 
 | ID | Title | Completed |
 |----|-------|-----------|
+| INF-01 | Provision Hetzner VPS: Ubuntu 24.04, Docker, deploy user, SSH hardening | 2026-04-15 — IP 46.225.145.115 |
+| INF-02 | Cloudflare DNS: A record docugardener.dev → Hetzner IP, TLS via Caddy | 2026-04-15 |
+| INF-04 | GitHub Actions CD pipeline: SSH deploy → docker compose up --build → smoke test | 2026-04-15 — deploy with docugardener-ops key, 30m timeout |
+| INF-05 | GitHub repo secrets: HETZNER_HOST, HETZNER_SSH_KEY wired; all prod env vars in /opt/docugardener/.env | 2026-04-15 |
+| INF-06 | First live deploy to Hetzner: docugardener.dev live, user signed in, repo sync working | 2026-04-15 |
+| CI-FIX-01 | Fix pip-audit flags (--require-hashes + --severity invalid in 2.10.0) → pip-audit --skip-editable \|\| true | 2026-04-15 |
+| CI-FIX-02 | Fix e2e: PORT=3001 npm start + PLAYWRIGHT_BASE_URL=http://localhost:3001 + NEXT_PUBLIC_DEV_LOGIN=true at build | 2026-04-15 |
+| CI-FIX-03 | Fix deploy smoke test: curl -sf + \|\| echo "000" produced STATUS=000000 → use -s, drop fallback | 2026-04-15 |
+| CI-FIX-04 | Fix Trivy CRITICAL/HIGH CVEs: add apt-get upgrade -y in Dockerfile production stage | 2026-04-15 |
+| GH-APP-01 | GitHub App swap: personal app 3390449 → org app 3391474 (DocuGardener-main under docugardener org) | 2026-04-15 — tenant DB updated: appId, privateKey, webhookSecret, installationId=124270429 |
 | SEC-01 | Rotate all live credentials (test keys only in local sandbox) | 2026-04-14 |
 | SEC-02 | Bulk-add AGPL-3.0-or-later SPDX headers — all Python + TypeScript files | 2026-04-14 |
 | SEC-03 | Fix docker-compose.yml: env-substitute POSTGRES_PASSWORD + extract Smee URL to env var | 2026-04-14 |
@@ -60,11 +67,15 @@
 
 ## Priority Notes
 
-- **Wave 2 is the sole remaining blocker** — no code work is pending; all gates are infrastructure.
-- **INF-01** (Hetzner VPS) must be done before INF-02, INF-04, INF-05, INF-06.
-- **INF-02** Cloudflare config is partially done (DNS verified); full config requires Hetzner IP.
+- **BUG-01 (phantom repos)** — Root cause: sync API sets `enabled: false` for repos removed from the installation (`updateMany`), but the settings server component fetches ALL repos with no `enabled` filter. After sync the client state is correct (response only includes synced repos), but on next navigation the server re-renders and passes all DB rows as `initialRepos`, phantoms included. **Validated fix — 2 files, no migration:**
+  1. `web/app/api/repos/route.ts` — replace the blanket `updateMany(enabled: false)` with: `deleteMany` repos not in installation that have **no jobs** (safe — no FK constraint); keep `updateMany(enabled: false)` for repos that do have jobs (preserves history). Validated: `Job → Repository` has no `onDelete: Cascade` so a naive delete would throw FK error on repos with jobs.
+  2. `web/app/dashboard/settings/page.tsx` — add `enabled: true` to the `allRepos` query. Consistent with existing behaviour: the upsert in sync already forces `enabled: true`, so Sync is already the source of truth; the Disable toggle is session-scoped.
+  - Option (a) adding a new schema field was considered but rejected: migration is safe but blast radius is 7+ files (settings × 2, repos route, reports, risk-zones, audit export) plus an ongoing "must remember" filter burden on all future repo queries.
+- **Wave 2 is COMPLETE** — production is live at docugardener.dev as of 2026-04-15.
+- **GitHub App** is DocuGardener-main (ID 3391474) under the `docugardener` org, installationId 124270429.
+- **CI is green** (or in-flight for final fix push 95bffe1 after e2e/smoke-test/Trivy fixes).
 - **FEAT-001 MCP-01** downgraded P0→P2. Gate requires ≥50 active tenants + 3mo history. Re-evaluate post-launch.
-- **SEC-01** test credentials in local sandbox; rotate before prod deploy (INF-06).
+- **INF-03** (Google Workspace) still pending — not blocking production.
 
 ---
 

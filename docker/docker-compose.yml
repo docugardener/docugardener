@@ -30,9 +30,10 @@ services:
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3003}
       # HYB-02: saas | client-installed | air-gap  (default: saas)
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
-      # GitHub App — needed for Rules Preview + outbound GitHub API calls
+      # GitHub App — needed for webhook validation + Rules Preview + outbound API calls
       - GITHUB_APP_ID=${GITHUB_APP_ID}
       - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
 
     volumes:
       # Mount source for hot-reload in development
@@ -58,15 +59,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: docugardener-worker
-    # DG-PLAT-01: install platformcloud_client SDK from sibling repo before starting.
-    # The SDK lives outside the Docker build context so it cannot be baked into the
-    # image; instead we mount it at runtime and pip-install in the entrypoint.
-    # DG-PLAT-01: install SDK to user-writable /tmp/site-packages (venv is root-owned)
-    command: >
-      bash -c "cp -r /app/vendor/platformcloud_sdk /tmp/platformcloud_sdk &&
-               pip install -q --target /tmp/site-packages /tmp/platformcloud_sdk &&
-               PYTHONPATH=/tmp/site-packages:$$PYTHONPATH
-               rq worker high default --url redis://redis:6379/0"
+    command: rq worker high default --url redis://redis:6379/0
     # GAP-04: Give in-flight jobs up to 60 s to finish before Docker sends SIGKILL.
     # RQ responds to SIGTERM by completing the current job and then exiting cleanly.
     stop_grace_period: 60s
@@ -98,7 +91,6 @@ services:
       - ../src:/app/src:ro
       - ../scripts:/app/scripts:ro
       - ../secrets:/app/secrets:ro
-      - ../../PlatformCloud/packages/python:/app/vendor/platformcloud_sdk:ro
     depends_on:
       - redis
       - weaviate
@@ -156,12 +148,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: docugardener-scheduler
-    # DG-PLAT-01: install SDK to user-writable /tmp/site-packages (venv is root-owned)
-    command: >
-      bash -c "cp -r /app/vendor/platformcloud_sdk /tmp/platformcloud_sdk &&
-               pip install -q --target /tmp/site-packages /tmp/platformcloud_sdk &&
-               PYTHONPATH=/tmp/site-packages:$$PYTHONPATH
-               python -m src.scheduler.manager"
+    command: python -m src.scheduler.manager
     # Disable the Dockerfile's port-8000 healthcheck — scheduler has no HTTP server
     healthcheck:
       disable: true
@@ -179,7 +166,6 @@ services:
     volumes:
       - ../src:/app/src:ro
       - ../secrets:/app/secrets:ro
-      - ../../PlatformCloud/packages/python:/app/vendor/platformcloud_sdk:ro
     depends_on:
       - postgres
     networks:
@@ -193,7 +179,7 @@ services:
     image: deltaprojects/smee-client:latest
     container_name: docugardener-smee
     restart: always
-    command: -u ${WEBHOOK_PROXY_URL} -t http://host.docker.internal:8000/webhooks/github
+    command: -u ${WEBHOOK_PROXY_URL} -t http://host.docker.internal:8000/api/webhooks/github
     depends_on: []
     networks:
       - docugardener-network

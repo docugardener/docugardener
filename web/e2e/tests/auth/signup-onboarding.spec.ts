@@ -108,7 +108,7 @@ test.describe('Onboarding wizard — progress indicator', () => {
         const page = await ctx.newPage()
 
         try {
-            await page.goto(`${APP_URL}/api/auth/signin`)
+            await page.goto('/api/auth/signin')
             await page.getByPlaceholder('user@test.local').fill('e2e-newuser@test.local')
             await page.getByRole('button', { name: /dev login/i }).click()
 
@@ -136,7 +136,7 @@ test.describe('Onboarding wizard — progress indicator', () => {
             // If ADMIN already has a tenant the app redirects to /dashboard.
             // In that case this spec is informational — we just check if we
             // actually land on /onboarding first.
-            await page.goto(`${APP_URL}/onboarding`)
+            await page.goto('/onboarding')
 
             const url = page.url()
             if (!url.includes('/onboarding')) {

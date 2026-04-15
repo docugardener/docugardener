@@ -57,6 +57,8 @@ jobs:
 
             echo "==> Pulling latest code..."
             git config --global --add safe.directory /opt/docugardener || true
+            # Ensure all .git/objects are owned by deploy (first deploys may have root-owned files)
+            sudo /bin/chown -R deploy:deploy /opt/docugardener/.git/ || true
             cd /opt/docugardener
             git fetch origin main
             git reset --hard origin/main
