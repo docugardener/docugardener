@@ -47,7 +47,7 @@ export default function Onboarding() {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')
-    const webhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_URL || 'https://smee.io/DocuGardenerDevProxy'
+    const webhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_URL || `${appUrl}/api/webhooks/github`
 
     const manifest = {
         name: `DocuGardener-${randomHex}`,
