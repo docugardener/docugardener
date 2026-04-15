@@ -104,3 +104,34 @@ def _mock_redis_connection():
         with _patch("rq.Queue") as mock_q_cls:
             mock_q_cls.return_value = mock_queue
             yield mock_queue
+
+
+# ── LLM API key stubs ─────────────────────────────────────────────────────────
+# Unit tests run without real LLM API keys. Tests that exercise LLM-backed
+# endpoints (e.g. /check) mock the high-level method (analyze_drift) so no
+# real API call is ever made. However, LLMClient.__init__ checks that the key
+# is non-empty and raises ValueError if it isn't — which breaks in CI where
+# no .env is loaded. Setting placeholder keys on the already-loaded settings
+# object prevents the ValueError without touching actual API traffic.
+
+
+@_pytest.fixture(autouse=True)
+def _stub_llm_api_keys():
+    """Set placeholder LLM keys on `settings` so LLMClient.__init__ succeeds."""
+    from src.core.config import settings as _settings
+
+    _orig = {
+        "gemini_api_key": getattr(_settings, "gemini_api_key", None),
+        "openai_api_key": getattr(_settings, "openai_api_key", None),
+        "anthropic_api_key": getattr(_settings, "anthropic_api_key", None),
+    }
+    if not _settings.gemini_api_key:
+        _settings.gemini_api_key = "ci-unit-test-placeholder"
+    if not getattr(_settings, "openai_api_key", None):
+        _settings.openai_api_key = "ci-unit-test-placeholder"
+    if not getattr(_settings, "anthropic_api_key", None):
+        _settings.anthropic_api_key = "ci-unit-test-placeholder"
+    yield
+    # Restore originals
+    for attr, val in _orig.items():
+        setattr(_settings, attr, val)

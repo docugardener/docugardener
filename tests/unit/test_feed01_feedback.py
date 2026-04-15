@@ -162,3 +162,156 @@ class TestFormatDriftReportFeedbackFooter:
         report = format_drift_report(result, template=template, job_id="job1", tenant_id="t1")
         assert report.startswith("Score: 42")
         assert "Was this analysis helpful?" in report
+
+
+# ---------------------------------------------------------------------------
+# FastAPI endpoint (src/api/feedback.py)
+# ---------------------------------------------------------------------------
+
+_HMAC_SECRET = "test-secret-32-bytes-long-for-tests"
+_APP_URL = "http://app.test"
+
+
+def _make_token(job_id, tenant_id, secret=_HMAC_SECRET):
+    from src.pipeline.feedback import make_feedback_token
+
+    with patch("src.pipeline.feedback.settings") as ms:
+        ms.feedback_hmac_secret = secret
+        return make_feedback_token(job_id, tenant_id)
+
+
+class TestFeedbackEndpoint:
+    """Tests for GET /api/feedback."""
+
+    def _get(self, client, **kwargs):
+        params = {"j": "job-123", "s": "up", "tid": "tenant-abc", "t": "token", **kwargs}
+        return client.get("/api/feedback", params=params, follow_redirects=False)
+
+    def test_503_when_hmac_secret_not_configured(self):
+        from fastapi.testclient import TestClient
+
+        from src.main import app
+        from src.pipeline.job_manager import get_db
+
+        db_mock = MagicMock()
+        app.dependency_overrides[get_db] = lambda: db_mock
+        try:
+            with patch("src.api.feedback.settings") as ms:
+                ms.feedback_hmac_secret = None
+                client = TestClient(app, raise_server_exceptions=False)
+                res = self._get(client)
+        finally:
+            del app.dependency_overrides[get_db]
+
+        assert res.status_code == 503
+
+    def test_400_on_invalid_signal(self):
+        from fastapi.testclient import TestClient
+
+        from src.main import app
+        from src.pipeline.job_manager import get_db
+
+        db_mock = MagicMock()
+        app.dependency_overrides[get_db] = lambda: db_mock
+        try:
+            with patch("src.api.feedback.settings") as ms:
+                ms.feedback_hmac_secret = _HMAC_SECRET
+                client = TestClient(app, raise_server_exceptions=False)
+                res = self._get(client, s="invalid")
+        finally:
+            del app.dependency_overrides[get_db]
+
+        assert res.status_code == 400
+
+    def test_403_on_invalid_token(self):
+        from fastapi.testclient import TestClient
+
+        from src.main import app
+        from src.pipeline.job_manager import get_db
+
+        db_mock = MagicMock()
+        app.dependency_overrides[get_db] = lambda: db_mock
+        try:
+            with (
+                patch("src.api.feedback.settings") as ms,
+                patch("src.api.feedback.verify_feedback_token", return_value=False),
+            ):
+                ms.feedback_hmac_secret = _HMAC_SECRET
+                client = TestClient(app, raise_server_exceptions=False)
+                res = self._get(client)
+        finally:
+            del app.dependency_overrides[get_db]
+
+        assert res.status_code == 403
+
+    def test_302_redirect_on_valid_up_signal(self):
+        from fastapi.testclient import TestClient
+
+        from src.main import app
+        from src.pipeline.job_manager import get_db
+
+        db_mock = MagicMock()
+        app.dependency_overrides[get_db] = lambda: db_mock
+        try:
+            with (
+                patch("src.api.feedback.settings") as ms,
+                patch("src.api.feedback.verify_feedback_token", return_value=True),
+            ):
+                ms.feedback_hmac_secret = _HMAC_SECRET
+                ms.frontend_url = None
+                ms.app_url = _APP_URL
+                client = TestClient(app, raise_server_exceptions=False)
+                res = self._get(client, s="up")
+        finally:
+            del app.dependency_overrides[get_db]
+
+        assert res.status_code == 302
+        assert "feedback=accurate" in res.headers["location"]
+
+    def test_302_redirect_on_valid_down_signal(self):
+        from fastapi.testclient import TestClient
+
+        from src.main import app
+        from src.pipeline.job_manager import get_db
+
+        db_mock = MagicMock()
+        app.dependency_overrides[get_db] = lambda: db_mock
+        try:
+            with (
+                patch("src.api.feedback.settings") as ms,
+                patch("src.api.feedback.verify_feedback_token", return_value=True),
+            ):
+                ms.feedback_hmac_secret = _HMAC_SECRET
+                ms.frontend_url = None
+                ms.app_url = _APP_URL
+                client = TestClient(app, raise_server_exceptions=False)
+                res = self._get(client, s="down")
+        finally:
+            del app.dependency_overrides[get_db]
+
+        assert res.status_code == 302
+        assert "feedback=false-positive" in res.headers["location"]
+
+    def test_500_on_db_error(self):
+        from fastapi.testclient import TestClient
+
+        from src.main import app
+        from src.pipeline.job_manager import get_db
+
+        db_mock = MagicMock()
+        db_mock.execute.side_effect = Exception("db failure")
+        app.dependency_overrides[get_db] = lambda: db_mock
+        try:
+            with (
+                patch("src.api.feedback.settings") as ms,
+                patch("src.api.feedback.verify_feedback_token", return_value=True),
+            ):
+                ms.feedback_hmac_secret = _HMAC_SECRET
+                ms.frontend_url = None
+                ms.app_url = _APP_URL
+                client = TestClient(app, raise_server_exceptions=False)
+                res = self._get(client, s="up")
+        finally:
+            del app.dependency_overrides[get_db]
+
+        assert res.status_code == 500
