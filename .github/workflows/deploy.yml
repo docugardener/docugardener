@@ -82,8 +82,8 @@ jobs:
       - name: Health check — FastAPI
         run: |
           for i in $(seq 1 12); do
-            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" \
-              "${{ vars.APP_URL }}/health" 2>/dev/null || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              "${{ vars.APP_URL }}/health" 2>/dev/null)
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed (attempt $i)"
               exit 0

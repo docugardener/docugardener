@@ -64,6 +64,8 @@ jobs:
 
       - name: Build Next.js
         working-directory: web
+        env:
+          NEXT_PUBLIC_DEV_LOGIN: "true"
         run: npm run build
 
       - name: Start Next.js (background)
