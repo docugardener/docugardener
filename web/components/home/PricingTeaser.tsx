@@ -127,6 +127,11 @@ export function PricingTeaser() {
           {PLANS.map((plan) => {
             const price =
               period === "monthly" ? plan.monthlyPrice : plan.annualPrice
+            const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === "true"
+            const isPaid = plan.monthlyPrice > 0
+            const blurPrice = !billingEnabled && isPaid
+            const ctaHref = !billingEnabled && isPaid ? "/#waitlist" : plan.ctaHref
+            const ctaLabel = !billingEnabled && isPaid ? "Join waitlist" : plan.cta
             return (
               <div
                 key={plan.id}
@@ -148,18 +153,21 @@ export function PricingTeaser() {
 
                 {/* Price */}
                 <div className="flex items-end gap-1 mb-1">
-                  <span className="text-sm text-gray-500">$</span>
+                  <span className={`text-sm text-gray-500 ${blurPrice ? "blur-sm select-none" : ""}`}>$</span>
                   <span
                     data-testid={`price-${plan.id}-${period}`}
-                    className="text-4xl font-extrabold text-gray-900"
+                    className={`text-4xl font-extrabold text-gray-900 ${blurPrice ? "blur-sm select-none" : ""}`}
                   >
                     {price}
                   </span>
                   {price > 0 && (
-                    <span className="text-sm text-gray-500 mb-1">/mo</span>
+                    <span className={`text-sm text-gray-500 mb-1 ${blurPrice ? "blur-sm select-none" : ""}`}>/mo</span>
                   )}
                 </div>
-                {period === "annual" && plan.annualTotal > 0 && (
+                {blurPrice && (
+                  <p className="text-xs text-amber-600 font-medium mb-4">Pricing coming soon</p>
+                )}
+                {!blurPrice && period === "annual" && plan.annualTotal > 0 && (
                   <p className="text-xs text-gray-400 mb-4">
                     billed ${plan.annualTotal}/year
                   </p>
@@ -183,14 +191,14 @@ export function PricingTeaser() {
                 </ul>
 
                 <Link
-                  href={plan.ctaHref}
+                  href={ctaHref}
                   className={`block text-center py-2.5 rounded-lg text-sm font-semibold transition ${
                     plan.featured
                       ? "bg-green-600 text-white hover:bg-green-700"
                       : "border border-gray-300 text-gray-700 hover:border-gray-400 bg-white"
                   }`}
                 >
-                  {plan.cta}
+                  {ctaLabel}
                 </Link>
               </div>
             )
