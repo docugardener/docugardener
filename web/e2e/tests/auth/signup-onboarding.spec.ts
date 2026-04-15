@@ -20,13 +20,14 @@
 import { test, expect } from '@playwright/test'
 import { storageStatePath } from '../../fixtures/auth'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3003'
+// Use relative URLs so Playwright's baseURL (from PLAYWRIGHT_BASE_URL env var) is respected.
+// Do NOT hardcode APP_URL here — it breaks when CI uses a different port.
 
 // ── SPEC-SAAS06-01 ────────────────────────────────────────────────────────────
 
 test.describe('Sign-in page — signup variant', () => {
     test('SPEC-SAAS06-01: ?signup=1 shows "Create your free account" heading', async ({ page }) => {
-        await page.goto(`${APP_URL}/auth/signin?signup=1`)
+        await page.goto('/auth/signin?signup=1')
 
         await expect(
             page.getByRole('heading', { name: /create your free account/i })
@@ -34,7 +35,7 @@ test.describe('Sign-in page — signup variant', () => {
     })
 
     test('SPEC-SAAS06-01b: ?signup=1 shows "Free plan · No credit card needed" sub-copy', async ({ page }) => {
-        await page.goto(`${APP_URL}/auth/signin?signup=1`)
+        await page.goto('/auth/signin?signup=1')
 
         await expect(
             page.getByText(/free plan.*no credit card needed/i)
@@ -46,7 +47,7 @@ test.describe('Sign-in page — signup variant', () => {
 
 test.describe('Sign-in page — default variant', () => {
     test('SPEC-SAAS06-02: /auth/signin without param shows "Sign in to your workspace"', async ({ page }) => {
-        await page.goto(`${APP_URL}/auth/signin`)
+        await page.goto('/auth/signin')
 
         await expect(
             page.getByRole('heading', { name: /sign in to your workspace/i })
@@ -58,7 +59,7 @@ test.describe('Sign-in page — default variant', () => {
 
 test.describe('Onboarding page — unauthenticated guard', () => {
     test('SPEC-SAAS06-03: /onboarding without session redirects to /auth/signin', async ({ page }) => {
-        await page.goto(`${APP_URL}/onboarding`)
+        await page.goto('/onboarding')
 
         await page.waitForURL(/signin|\/api\/auth\/signin/, { timeout: 10_000 })
         await expect(page).not.toHaveURL(/\/onboarding/)
@@ -69,7 +70,7 @@ test.describe('Onboarding page — unauthenticated guard', () => {
 
 test.describe('Landing page — How it works section', () => {
     test('SPEC-SAAS06-04: all 4 "How it works" step titles are visible on the landing page', async ({ page }) => {
-        await page.goto(APP_URL)
+        await page.goto('/')
 
         // The four onboarding steps shown in the marketing section
         await expect(page.getByText(/sign up with github/i)).toBeVisible({ timeout: 10_000 })
@@ -83,7 +84,7 @@ test.describe('Landing page — How it works section', () => {
 
 test.describe('Onboarding repos page — unauthenticated guard', () => {
     test('SPEC-SAAS06-05: /onboarding/repos without session redirects to /auth/signin', async ({ page }) => {
-        await page.goto(`${APP_URL}/onboarding/repos`)
+        await page.goto('/onboarding/repos')
 
         await page.waitForURL(/signin|\/api\/auth\/signin/, { timeout: 10_000 })
         await expect(page).not.toHaveURL(/\/onboarding\/repos/)

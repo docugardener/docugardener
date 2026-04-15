@@ -34,9 +34,9 @@ test("SPEC-DOCPOL01-01: inbox list shows POLICY badge for policy violation job",
         await page.goto("/dashboard/inbox")
         await page.waitForSelector("text=e2e-policy-badge-repo", { timeout: 10_000 })
 
-        // The POLICY badge should be visible in the list item
+        // The policy indicator is rendered as 🛡️ emoji for inbox list items
         const listItem = page.getByText("e2e-policy-badge-repo").first().locator("..").locator("..")
-        await expect(listItem.getByText("POLICY")).toBeVisible()
+        await expect(listItem.getByText("🛡️")).toBeVisible()
     } finally {
         if (jobId) await deleteJob(jobId, repositoryId ?? undefined)
         await ctx.close()
@@ -65,11 +65,15 @@ test("SPEC-DOCPOL01-02: detail view shows policy violations panel with rule name
         await page.goto("/dashboard/inbox")
         await page.getByText("e2e-policy-panel-repo").first().click()
 
-        // Policy violations panel header
-        await expect(page.getByText("Policy Violations")).toBeVisible({ timeout: 8_000 })
+        // Policy collapsible summary — shows "N policy violation(s)"
+        const policySummary = page.getByText(/policy violation/i).first()
+        await expect(policySummary).toBeVisible({ timeout: 8_000 })
+
+        // Expand the <details> to see rule name and missing docs
+        await policySummary.click()
 
         // Rule name shown
-        await expect(page.getByText("api-docs-required")).toBeVisible()
+        await expect(page.getByText("api-docs-required")).toBeVisible({ timeout: 5_000 })
 
         // Missing docs shown
         await expect(page.getByText("docs/api/**")).toBeVisible()

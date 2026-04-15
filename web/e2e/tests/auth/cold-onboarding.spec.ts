@@ -56,12 +56,12 @@ test("SPEC-ONBOARD-02: onboarding page renders wizard and manual modes", async (
     try {
         await page.waitForURL(/\/onboarding/, { timeout: 15_000 })
 
-        // Wizard mode is active by default
-        await expect(page.getByRole("button", { name: /create.*install app/i })).toBeVisible({ timeout: 8_000 })
-        await expect(page.getByText(/automatic setup/i)).toBeVisible()
+        // Wizard (auto-setup) card is visible by default
+        await expect(page.getByText(/auto-setup/i)).toBeVisible({ timeout: 8_000 })
+        await expect(page.getByRole("button", { name: /create.*install github app/i })).toBeVisible()
 
-        // Switch to manual / existing app mode
-        await page.getByRole("button", { name: /existing app/i }).click()
+        // Expand the manual / existing app section
+        await page.getByRole("button", { name: /already have a github app/i }).click()
 
         // Manual form fields must appear
         await expect(page.getByText(/app id/i)).toBeVisible()
