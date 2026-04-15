@@ -31,6 +31,7 @@ jobs:
       NEXTAUTH_SECRET: e2e-test-secret
       NEXTAUTH_URL: http://localhost:3001
       E2E_DEV_CREDENTIALS: "1"  # enables dev-login CredentialsProvider without setting NODE_ENV=development (which breaks Turbopack builds)
+      PLAYWRIGHT_BASE_URL: "http://localhost:3001"
 
     steps:
       - uses: actions/checkout@v4
