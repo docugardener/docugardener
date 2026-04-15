@@ -25,6 +25,10 @@ RUN apk add --no-cache openssl openssl-dev libc6-compat
 COPY --from=deps /app/node_modules ./node_modules
 COPY web/ .
 
+# Build-time public env vars (baked into the JS bundle)
+ARG NEXT_PUBLIC_BILLING_ENABLED=false
+ENV NEXT_PUBLIC_BILLING_ENABLED=${NEXT_PUBLIC_BILLING_ENABLED}
+
 # Generate Prisma client
 RUN npx prisma generate
 

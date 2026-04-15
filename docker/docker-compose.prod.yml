@@ -52,6 +52,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.web
+      args:
+        - NEXT_PUBLIC_BILLING_ENABLED=${NEXT_PUBLIC_BILLING_ENABLED:-false}
     container_name: docugardener-web
     restart: unless-stopped
     # No host port binding — Caddy proxies to this service internally
