@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react"
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, afterEach } from "vitest"
 import { PricingTeaser, PLANS } from "@/components/home/PricingTeaser"
 
 vi.mock("next/link", () => ({
@@ -79,12 +79,33 @@ describe("PricingTeaser — plan cards", () => {
     expect(screen.getByRole("link", { name: /get started/i })).toBeInTheDocument()
   })
 
-  it("renders 'Start Pro' CTA", () => {
+  // Billing disabled by default — paid CTAs show "Join waitlist"
+  it("renders 'Join waitlist' CTA for Pro when billing is disabled", () => {
+    render(<PricingTeaser />)
+    const waitlistLinks = screen.getAllByRole("link", { name: /join waitlist/i })
+    expect(waitlistLinks.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("renders 'Join waitlist' CTA for Team when billing is disabled", () => {
+    render(<PricingTeaser />)
+    const waitlistLinks = screen.getAllByRole("link", { name: /join waitlist/i })
+    expect(waitlistLinks.length).toBe(2) // Pro + Team
+  })
+})
+
+describe("PricingTeaser — plan cards (billing enabled)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("renders 'Start Pro' CTA when NEXT_PUBLIC_BILLING_ENABLED=true", () => {
+    vi.stubEnv("NEXT_PUBLIC_BILLING_ENABLED", "true")
     render(<PricingTeaser />)
     expect(screen.getByRole("link", { name: /start pro/i })).toBeInTheDocument()
   })
 
-  it("renders 'Start Team' CTA", () => {
+  it("renders 'Start Team' CTA when NEXT_PUBLIC_BILLING_ENABLED=true", () => {
+    vi.stubEnv("NEXT_PUBLIC_BILLING_ENABLED", "true")
     render(<PricingTeaser />)
     expect(screen.getByRole("link", { name: /start team/i })).toBeInTheDocument()
   })
