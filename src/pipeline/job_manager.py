@@ -29,22 +29,14 @@ def _get_session_local():
     return _SessionLocal
 
 
-# Kept for backwards-compat imports: `from src.pipeline.job_manager import SessionLocal`
-# Returns the lazily-initialised factory (creates it on first access).
-class _SessionLocalProxy:
-    def __call__(self):
-        return _get_session_local()()
-
-    def __instancecheck__(self, instance):
-        return isinstance(instance, type(_get_session_local()))
-
-
-SessionLocal = _SessionLocalProxy()
+def SessionLocal():  # noqa: N802 — callable kept for test-patchability
+    """Thin wrapper so tests can patch 'src.pipeline.job_manager.SessionLocal'."""
+    return _get_session_local()()
 
 
 def get_db():
     """FastAPI dependency for database sessions."""
-    db = _get_session_local()()
+    db = SessionLocal()
     try:
         yield db
     finally:

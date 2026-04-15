@@ -33,8 +33,22 @@ from src.storage.sql_models import Job, JobStatus, Repository, Tenant
 
 logger = get_logger(__name__)
 
-engine = create_engine(settings.sql_database_url)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+_engine = None
+_SessionLocal = None
+
+
+def _get_session_local():
+    global _engine, _SessionLocal
+    if _SessionLocal is None:
+        _engine = create_engine(settings.sql_database_url)
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+    return _SessionLocal
+
+
+def SessionLocal():  # noqa: N802 — callable kept for test-patchability
+    """Thin wrapper so tests can patch 'src.jobs.nightly_rollup.SessionLocal'."""
+    return _get_session_local()()
+
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 

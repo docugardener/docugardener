@@ -31,8 +31,17 @@ from src.storage.sql_models import Repository, RulesArtifact, Tenant
 
 logger = get_logger(__name__)
 
-engine = create_engine(settings.sql_database_url)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+_engine = None
+_SessionLocal = None
+
+
+def _get_session_local():
+    global _engine, _SessionLocal
+    if _SessionLocal is None:
+        _engine = create_engine(settings.sql_database_url)
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+    return _SessionLocal
+
 
 _compiler = RulesCompiler()
 
@@ -44,7 +53,7 @@ def run_rules_staleness_check() -> None:
     Checks all RulesArtifact records that have been generated at least once
     (lastHash is not None) and updates their isStale flag.
     """
-    db = SessionLocal()
+    db = _get_session_local()()
     try:
         artifacts = db.query(RulesArtifact).filter(RulesArtifact.lastHash.isnot(None)).all()
 
