@@ -4,22 +4,21 @@ import crypto from 'crypto'
 const ALGORITHM = 'aes-256-gcm'
 
 // SEC-06: Fail hard in production when ENCRYPTION_KEY is not set.
-// A missing key would silently fall back to a known static value and turn
-// AES-256-GCM encryption of BYOK credentials into security theater.
-if (process.env.NODE_ENV === 'production' && !process.env.ENCRYPTION_KEY) {
-    throw new Error(
-        'ENCRYPTION_KEY environment variable is required in production. ' +
-        'Generate with: openssl rand -hex 32'
-    )
+// Guard deferred to runtime (not module load) so Next.js build succeeds without env vars.
+function getSecretKey(): Buffer {
+    if (process.env.NODE_ENV === 'production' && !process.env.ENCRYPTION_KEY) {
+        throw new Error(
+            'ENCRYPTION_KEY environment variable is required in production. ' +
+            'Generate with: openssl rand -hex 32'
+        )
+    }
+    return process.env.ENCRYPTION_KEY
+        ? Buffer.from(process.env.ENCRYPTION_KEY, 'hex')
+        : crypto.createHash('sha256').update('local-dev-secret-key-12345').digest()
 }
 
-// In production, this must be a 64-hex-char (32-byte) value from env.
-// In development/test, falls back to a deterministic dev key — never use in production.
-const SECRET_KEY = process.env.ENCRYPTION_KEY
-    ? Buffer.from(process.env.ENCRYPTION_KEY, 'hex')
-    : crypto.createHash('sha256').update('local-dev-secret-key-12345').digest()
-
 export function encrypt(text: string): string {
+    const SECRET_KEY = getSecretKey()
     const iv = crypto.randomBytes(12)
     const cipher = crypto.createCipheriv(ALGORITHM, SECRET_KEY, iv)
 
@@ -33,6 +32,7 @@ export function encrypt(text: string): string {
 }
 
 export function decrypt(text: string): string {
+    const SECRET_KEY = getSecretKey()
     const [ivHex, authTagHex, encryptedHex] = text.split(':')
 
     const decipher = crypto.createDecipheriv(

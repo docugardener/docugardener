@@ -19,6 +19,9 @@ RUN npm ci
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Prisma needs libssl.so.1.1 on Alpine
+RUN apk add --no-cache openssl openssl-dev libc6-compat
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY web/ .
 
@@ -36,6 +39,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3001
+
+# Prisma needs libssl.so.1.1 at runtime on Alpine
+RUN apk add --no-cache openssl openssl-dev libc6-compat
 
 # Non-root user
 RUN addgroup --system --gid 1001 nodejs && \
