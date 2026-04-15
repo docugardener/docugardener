@@ -59,6 +59,14 @@ async def test_process_fix_pr_success(db_session):
     db_session.commit()
 
     # 2. Patch dependencies
+    # job_manager is a module-level singleton whose _session_factory was bound
+    # at import time to the real Postgres engine. Redirect it to the SQLite
+    # engine so update_status / complete_job don't hit real Postgres.
+    # Each call gets a fresh session (job_manager closes sessions after use).
+    from src.pipeline.job_manager import job_manager as _jm
+    _original_factory = _jm._session_factory
+    _jm._session_factory = TestingSessionLocal
+
     with (
         patch("src.pipeline.job_manager.get_db") as mock_get_db,
         patch("src.github.app.get_installation_token") as mock_get_token,
@@ -82,7 +90,10 @@ async def test_process_fix_pr_success(db_session):
         await process_fix_pr(job.id)
 
         # 4. Verify the side effects
-        db_session.refresh(job)
+        # Re-query rather than refresh — job_manager closes its session after
+        # committing, which detaches the original instance from db_session.
+        from src.storage.sql_models import Job as _Job
+        updated_job = db_session.query(_Job).filter(_Job.id == job.id).first()
 
         # Did GitCommitter get instantiated correctly?
         MockGitCommitter.assert_called_once_with(
@@ -103,7 +114,10 @@ async def test_process_fix_pr_success(db_session):
         assert pr_args[:3] == ("docugardener/fix-42-xyz", 42, "main")
 
         # Was the database updated?
-        assert job.fixPrUrl == "https://github.com/TestOrg/docugardener-test/pull/43"
+        assert updated_job.fixPrUrl == "https://github.com/TestOrg/docugardener-test/pull/43"
+
+    # Restore original factory so other tests are not affected
+    _jm._session_factory = _original_factory
 
 
 @pytest.mark.asyncio

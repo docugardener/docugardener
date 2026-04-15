@@ -82,3 +82,25 @@ def _clear_redis_dedup_keys():
     except Exception:
         pass  # Redis unavailable — webhook dedup falls back to no-op anyway
     yield
+
+
+# ── RQ / Redis stub ───────────────────────────────────────────────────────────
+# Unit tests run without Redis. Patch Redis.from_url so no real connection is
+# attempted. get_queue() still executes normally (satisfying queue-routing tests
+# that assert on Queue() call args), but enqueue() is a no-op MagicMock.
+from unittest.mock import MagicMock as _MagicMock
+from unittest.mock import patch as _patch
+
+
+@_pytest.fixture(autouse=True)
+def _mock_redis_connection():
+    """Replace Redis.from_url with a MagicMock for all unit tests."""
+    mock_redis = _MagicMock()
+    mock_queue = _MagicMock()
+    mock_queue.enqueue.return_value = _MagicMock(id="mock-job-id")
+    mock_redis.return_value = mock_redis  # from_url returns itself
+    with _patch("src.worker.queue.Redis") as mock_redis_cls:
+        mock_redis_cls.from_url.return_value = mock_redis
+        with _patch("rq.Queue") as mock_q_cls:
+            mock_q_cls.return_value = mock_queue
+            yield mock_queue
