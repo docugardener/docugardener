@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * FEED-01: Analysis Feedback Signal endpoint.

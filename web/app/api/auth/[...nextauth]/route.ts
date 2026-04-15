@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import NextAuth, { AuthOptions } from "next-auth"
 import GithubProvider from "next-auth/providers/github"

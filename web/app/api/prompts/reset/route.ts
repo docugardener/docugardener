@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
