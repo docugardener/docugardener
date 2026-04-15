@@ -6,6 +6,17 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { encrypt } from "@/lib/encryption"
 
+// Use NEXTAUTH_URL as the base for all redirects so that reverse-proxy
+// deployments (where req.url contains the internal container hostname)
+// always redirect to the real external domain.
+const BASE_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
+
+function onboardingUrl(error?: string): URL {
+    const url = new URL("/onboarding", BASE_URL)
+    if (error) url.searchParams.set("error", error)
+    return url
+}
+
 export async function POST(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
@@ -13,9 +24,7 @@ export async function POST(req: NextRequest) {
         // We firmly require the user to be logged in to link the new GitHub App to a Tenant
         if (!session?.user?.email) {
             console.warn("Manifest Callback aborted: No active session.")
-            const errorUrl = new URL("/onboarding", req.url)
-            errorUrl.searchParams.set("error", "Session expired. Please log in and try again.")
-            return NextResponse.redirect(errorUrl)
+            return NextResponse.redirect(onboardingUrl("Session expired. Please log in and try again."))
         }
 
         const searchParams = req.nextUrl.searchParams
@@ -36,9 +45,7 @@ export async function POST(req: NextRequest) {
         if (!response.ok) {
             const errorText = await response.text()
             console.error("GitHub Manifest Conversion Error:", errorText)
-            const errorUrl = new URL("/onboarding", req.url)
-            errorUrl.searchParams.set("error", "Failed to negotiate App creation with GitHub API.")
-            return NextResponse.redirect(errorUrl)
+            return NextResponse.redirect(onboardingUrl("Failed to negotiate App creation with GitHub API."))
         }
 
         const data = await response.json()
@@ -79,9 +86,7 @@ export async function POST(req: NextRequest) {
 
     } catch (error) {
         console.error("Manifest Handler Error:", error)
-        const errorUrl = new URL("/onboarding", req.url)
-        errorUrl.searchParams.set("error", "Internal server error during app installation.")
-        return NextResponse.redirect(errorUrl)
+        return NextResponse.redirect(onboardingUrl("Internal server error during app installation."))
     }
 }
 
