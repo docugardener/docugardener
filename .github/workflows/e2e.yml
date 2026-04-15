@@ -30,7 +30,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:password@localhost:5433/docugardener-web
       NEXTAUTH_SECRET: e2e-test-secret
       NEXTAUTH_URL: http://localhost:3001
-      NODE_ENV: development   # enables dev-login CredentialsProvider
+      E2E_DEV_CREDENTIALS: "1"  # enables dev-login CredentialsProvider without setting NODE_ENV=development (which breaks Turbopack builds)
 
     steps:
       - uses: actions/checkout@v4

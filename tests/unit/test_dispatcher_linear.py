@@ -220,11 +220,14 @@ class TestDispatchLinearGating:
         config = {"linear": {"apiToken": "enc_token"}}
         dispatcher = NotificationDispatcher(config, tenant_plan="PRO")
 
-        with patch.object(
-            dispatcher,
-            "_create_linear_issue",
-            new_callable=AsyncMock,
-            side_effect=Exception("network error"),
-        ), patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"):
+        with (
+            patch.object(
+                dispatcher,
+                "_create_linear_issue",
+                new_callable=AsyncMock,
+                side_effect=Exception("network error"),
+            ),
+            patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"),
+        ):
             # Must not raise
             await dispatcher.dispatch_drift_alert(_drift_record())

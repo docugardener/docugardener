@@ -9,7 +9,9 @@ import { prisma } from "@/lib/prisma"
 import { writeAuditLog, AuditEvent } from "@/lib/audit"
 import { sendMagicLink } from "@/lib/email"
 
-const isDev = process.env.NODE_ENV !== "production"
+// E2E_DEV_CREDENTIALS=1 enables the dev login provider in CI without
+// requiring NODE_ENV=development (which breaks Turbopack static builds).
+const isDev = process.env.NODE_ENV !== "production" || process.env.E2E_DEV_CREDENTIALS === "1"
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000"
 
 /**
