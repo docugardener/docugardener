@@ -26,6 +26,15 @@ jobs:
       security-events: write  # Required to upload SARIF to GitHub Security tab
 
     steps:
+      - name: Free up runner disk space
+        run: |
+          # GitHub-hosted runners ship with ~14 GB free; large Docker builds + Trivy DB exhaust it.
+          # Remove pre-installed tooling that is not needed for image scanning.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          docker system prune -af --volumes || true
+          df -h
+
       - name: Checkout code
         uses: actions/checkout@v4
 
