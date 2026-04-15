@@ -273,6 +273,7 @@ class GitCommitter:
         except GithubException as e:
             logger.error("auto_merge_pr: merge failed", pr=pr_number, error=str(e))
             return "error"
+        return "error"  # unreachable but satisfies mypy control-flow analysis
 
     def find_open_fix_pr(self, original_pr_number: int) -> str | None:
         """Return the HTML URL of an existing open fix PR for the given original PR number.

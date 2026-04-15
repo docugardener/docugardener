@@ -56,10 +56,16 @@ class WeaviateDB(VectorDB):
 
         # Connect to Weaviate
         if self.api_key:
+            _host = self.url.replace("http://", "").replace("https://", "").split(":")[0]
+            _port = int(self.url.split(":")[-1]) if ":" in self.url.split("/")[-1] else 8080
+            _secure = self.url.startswith("https")
             self._client = weaviate.connect_to_custom(
-                http_host=self.url.replace("http://", "").replace("https://", "").split(":")[0],
-                http_port=int(self.url.split(":")[-1]) if ":" in self.url.split("/")[-1] else 8080,
-                http_secure=self.url.startswith("https"),
+                http_host=_host,
+                http_port=_port,
+                http_secure=_secure,
+                grpc_host=_host,
+                grpc_port=50051,
+                grpc_secure=_secure,
                 auth_credentials=weaviate.auth.AuthApiKey(self.api_key),
             )
         else:

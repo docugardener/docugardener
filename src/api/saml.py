@@ -193,7 +193,7 @@ def _get_or_create_user(email: str, tenant_id: str, role: str) -> User:
     try:
         user = db.query(User).filter(User.email == email).first()
         if user is None:
-            import cuid  # type: ignore — fallback to uuid if not available
+            import cuid  # type: ignore[import-untyped]  # fallback to uuid if not available
 
             try:
                 new_id = cuid.cuid()

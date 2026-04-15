@@ -127,7 +127,7 @@ def _get_policy_violations(
         if not rules:
             return []
 
-        violations = evaluate_policies(rules, changed_paths, docs_present=[])
+        violations = evaluate_policies(rules, changed_paths, [])
 
         result = []
         for v in violations:

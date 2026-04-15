@@ -1,0 +1,44 @@
+name: VPS Housekeeping
+
+# Runs every Sunday at 02:00 UTC to reclaim disk space on the production VPS.
+# Also available as a manual trigger for on-demand cleanup.
+on:
+  schedule:
+    - cron: "0 2 * * 0"   # every Sunday 02:00 UTC
+  workflow_dispatch:        # manual trigger
+
+jobs:
+  cleanup:
+    name: Docker cleanup on VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH — prune unused Docker resources
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            set -e
+            echo "=== Disk before cleanup ==="
+            df -h /
+
+            # Remove stopped containers
+            docker container prune -f
+
+            # Remove dangling images (untagged layers left by rebuilds)
+            docker image prune -f
+
+            # Remove images not used by any running container older than 48 h
+            # Keeps the currently running image tags so the app stays up.
+            docker image prune -af --filter "until=48h" || true
+
+            # Remove unused build cache (safe — next build just re-fetches layers)
+            docker builder prune -af --filter "until=48h" || true
+
+            # Remove unused volumes (SKIP — could wipe Postgres data if misconfigured)
+            # docker volume prune -f
+
+            echo "=== Disk after cleanup ==="
+            df -h /
