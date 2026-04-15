@@ -10,13 +10,14 @@ Covers:
   on_failure: _on_job_failure callback calls fail_job with 0 lag
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, call, ANY
+from unittest.mock import ANY, MagicMock, patch
 
+import pytest
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GAP-3: process_fix_pr re-raises after fail_job
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestProcessFixPrReRaises:
     """
@@ -27,8 +28,6 @@ class TestProcessFixPrReRaises:
     @patch("src.pipeline.handler.job_manager")
     def test_reraises_on_exception(self, mock_jm):
         """Outer except block re-raises after fail_job."""
-        from src.pipeline.handler import process_fix_pr
-        import asyncio
 
         # Patch get_db to raise immediately after the job lookup (simulates mid-flow crash)
         boom = RuntimeError("disk full")
@@ -39,6 +38,7 @@ class TestProcessFixPrReRaises:
         # We test via create_fix_pr_job wrapper which calls asyncio.run(process_fix_pr(...))
         with patch("src.pipeline.handler.process_fix_pr", side_effect=boom):
             from src.worker.jobs import create_fix_pr_job
+
             with pytest.raises(RuntimeError, match="disk full"):
                 create_fix_pr_job("job-123")
 
@@ -75,7 +75,9 @@ class TestProcessFixPrReRaises:
             with patch("src.security.encryption.decrypt_credential", return_value="plain-key"):
                 with patch("src.github.app.get_installation_token", side_effect=boom):
                     import asyncio
+
                     from src.pipeline.handler import process_fix_pr
+
                     with pytest.raises(ValueError, match="git push failed"):
                         asyncio.run(process_fix_pr("job-xyz"))
 
@@ -89,6 +91,7 @@ class TestProcessFixPrReRaises:
 # GAP-5: Priority queue routing
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestPriorityQueueRouting:
     """
     create_fix_pr_job and ignore_drift_job must be enqueued on 'high' queue.
@@ -97,7 +100,7 @@ class TestPriorityQueueRouting:
 
     def test_get_queue_high_returns_high_named_queue(self):
         """get_queue('high') returns a Queue named 'high'."""
-        from src.worker.queue import get_queue, QUEUE_HIGH, QUEUE_DEFAULT
+        from src.worker.queue import QUEUE_HIGH, get_queue
 
         with patch("src.worker.queue.Redis.from_url") as mock_redis:
             with patch("src.worker.queue.Queue") as mock_q_cls:
@@ -107,7 +110,7 @@ class TestPriorityQueueRouting:
 
     def test_get_queue_default_returns_default_named_queue(self):
         """get_queue() (no args) still defaults to 'default'."""
-        from src.worker.queue import get_queue, QUEUE_DEFAULT
+        from src.worker.queue import QUEUE_DEFAULT, get_queue
 
         with patch("src.worker.queue.Redis.from_url"):
             with patch("src.worker.queue.Queue") as mock_q_cls:
@@ -116,14 +119,17 @@ class TestPriorityQueueRouting:
 
     def test_queue_constants_exist(self):
         """QUEUE_HIGH and QUEUE_DEFAULT constants are exported from queue module."""
-        from src.worker.queue import QUEUE_HIGH, QUEUE_DEFAULT
+        from src.worker.queue import QUEUE_DEFAULT, QUEUE_HIGH
+
         assert QUEUE_HIGH == "high"
         assert QUEUE_DEFAULT == "default"
 
     def test_inbox_accept_uses_high_queue_in_source(self):
         """inbox.py ACCEPTED path calls get_queue(QUEUE_HIGH), not get_queue()."""
         import inspect
+
         from src.api import inbox
+
         source = inspect.getsource(inbox)
         # Both ACCEPTED and IGNORED paths must reference QUEUE_HIGH
         assert source.count("get_queue(QUEUE_HIGH)") >= 2, (
@@ -133,7 +139,9 @@ class TestPriorityQueueRouting:
     def test_handler_epic05_uses_high_queue_in_source(self):
         """handler.py EPIC-05 and SCALE-04 enqueue create_fix_pr_job on 'high' queue."""
         import inspect
+
         from src.pipeline import handler
+
         source = inspect.getsource(handler)
         assert "get_queue(QUEUE_HIGH)" in source, (
             "handler.py must enqueue create_fix_pr_job on QUEUE_HIGH"
@@ -143,6 +151,7 @@ class TestPriorityQueueRouting:
 # ─────────────────────────────────────────────────────────────────────────────
 # GAP-1: Retry configuration
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestRetryConfiguration:
     """All enqueue() calls must include Retry(max=3, interval=[30, 60, 120])."""
@@ -161,6 +170,7 @@ class TestRetryConfiguration:
     def test_retry_object_has_correct_config(self):
         """Retry(max=3, interval=[30, 60, 120]) is the expected retry configuration."""
         from rq import Retry
+
         r = Retry(max=3, interval=[30, 60, 120])
         assert r.max == 3
         assert r.intervals == [30, 60, 120]
@@ -168,7 +178,9 @@ class TestRetryConfiguration:
     def test_webhooks_analyze_pr_has_retry_in_source(self):
         """webhooks.py enqueue for analyze_pr_job includes retry= kwarg in source."""
         import inspect
+
         from src.api import webhooks
+
         source = inspect.getsource(webhooks)
         assert "retry=" in source, "webhooks.py enqueue must include retry= kwarg"
         assert "Retry(" in source, "webhooks.py must use rq.Retry"
@@ -176,14 +188,18 @@ class TestRetryConfiguration:
     def test_inbox_enqueue_has_retry_in_source(self):
         """inbox.py enqueue calls include retry= kwarg."""
         import inspect
+
         from src.api import inbox
+
         source = inspect.getsource(inbox)
         assert "retry=" in source, "inbox.py enqueue must include retry= kwarg"
 
     def test_handler_enqueue_has_retry_in_source(self):
         """handler.py EPIC-05/SCALE-04 enqueue calls include retry= kwarg."""
         import inspect
+
         from src.pipeline import handler
+
         source = inspect.getsource(handler)
         assert "retry=" in source, "handler.py enqueue calls must include retry= kwarg"
 
@@ -191,6 +207,7 @@ class TestRetryConfiguration:
 # ─────────────────────────────────────────────────────────────────────────────
 # GAP-7: TTL configuration
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestTTLConfiguration:
     """result_ttl=3600, failure_ttl=604800 must be set on all enqueue calls."""
@@ -219,7 +236,9 @@ class TestTTLConfiguration:
     def test_webhooks_enqueue_has_ttls_in_source(self):
         """webhooks.py enqueue includes result_ttl and failure_ttl."""
         import inspect
+
         from src.api import webhooks
+
         source = inspect.getsource(webhooks)
         assert "result_ttl=" in source
         assert "failure_ttl=" in source
@@ -227,7 +246,9 @@ class TestTTLConfiguration:
     def test_inbox_enqueue_has_ttls_in_source(self):
         """inbox.py enqueue includes result_ttl and failure_ttl."""
         import inspect
+
         from src.api import inbox
+
         source = inspect.getsource(inbox)
         assert "result_ttl=" in source
         assert "failure_ttl=" in source
@@ -235,7 +256,9 @@ class TestTTLConfiguration:
     def test_handler_enqueue_has_ttls_in_source(self):
         """handler.py EPIC-05/SCALE-04 enqueue includes result_ttl and failure_ttl."""
         import inspect
+
         from src.pipeline import handler
+
         source = inspect.getsource(handler)
         assert "result_ttl=" in source
         assert "failure_ttl=" in source
@@ -244,6 +267,7 @@ class TestTTLConfiguration:
 # ─────────────────────────────────────────────────────────────────────────────
 # GAP-8: reporter.report_to_pr in finally block
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestReporterInFinally:
     """
@@ -260,7 +284,9 @@ class TestReporterInFinally:
         report_to_pr must appear inside that finally block (not after it).
         """
         import inspect
+
         from src.pipeline import handler
+
         source = inspect.getsource(handler.process_pull_request)
 
         # The main try block (the one that wraps analysis + complete_job) must
@@ -288,12 +314,14 @@ class TestReporterInFinally:
 # on_failure callback
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestOnFailureCallback:
     """_on_job_failure callback must call fail_job instantly on RQ timeout/crash."""
 
     def test_on_failure_callback_exists(self):
         """_on_job_failure function is importable from src.worker.jobs."""
         from src.worker.jobs import _on_job_failure
+
         assert callable(_on_job_failure)
 
     def test_on_failure_calls_fail_job(self):
@@ -308,9 +336,9 @@ class TestOnFailureCallback:
             _on_job_failure(
                 mock_rq_job,
                 MagicMock(),  # connection
-                Exception,    # exc_type
+                Exception,  # exc_type
                 Exception("timeout"),  # exc_value
-                None,         # traceback
+                None,  # traceback
             )
             mock_jm.fail_job.assert_called_once()
             call_args = mock_jm.fail_job.call_args[0]

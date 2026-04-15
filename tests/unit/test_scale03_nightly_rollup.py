@@ -10,10 +10,7 @@ Covers:
     correct summary counters, skips tenants missing credentials.
 """
 
-from datetime import datetime
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from src.jobs.nightly_rollup import (
     HIGH_DRIFT_THRESHOLD,
@@ -24,8 +21,8 @@ from src.jobs.nightly_rollup import (
     run_nightly_rollup,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_job(
     pr_number: int,
@@ -40,7 +37,7 @@ def _make_job(
         job.result = {}  # No drift_score key — fast-path job
     else:
         job.result = {
-            "repo_full_name": repo,   # BUG-05 fix: handler stores repo_full_name
+            "repo_full_name": repo,  # BUG-05 fix: handler stores repo_full_name
             "drift_score": drift_score,
             "sender_type": sender_type,  # SCALE-03
             "drift_analysis": {
@@ -75,8 +72,8 @@ def _make_repo(repo_id: str = "r-1", name: str = "acme/api") -> MagicMock:
 
 # ── aggregate_repo_jobs ───────────────────────────────────────────────────────
 
-class TestAggregateRepoJobs:
 
+class TestAggregateRepoJobs:
     def test_returns_correct_avg_and_max(self):
         jobs = [_make_job(1, 60), _make_job(2, 80), _make_job(3, 40)]
         result = aggregate_repo_jobs(jobs)
@@ -96,9 +93,9 @@ class TestAggregateRepoJobs:
 
     def test_high_drift_jobs_filtered_correctly(self):
         jobs = [
-            _make_job(1, HIGH_DRIFT_THRESHOLD - 1),   # below threshold
-            _make_job(2, HIGH_DRIFT_THRESHOLD),        # at threshold — included
-            _make_job(3, HIGH_DRIFT_THRESHOLD + 10),   # above threshold — included
+            _make_job(1, HIGH_DRIFT_THRESHOLD - 1),  # below threshold
+            _make_job(2, HIGH_DRIFT_THRESHOLD),  # at threshold — included
+            _make_job(3, HIGH_DRIFT_THRESHOLD + 10),  # above threshold — included
         ]
         result = aggregate_repo_jobs(jobs)
 
@@ -125,7 +122,7 @@ class TestAggregateRepoJobs:
         """Mixed batch: only scored jobs count toward the aggregation."""
         jobs = [
             _make_job(1, drift_score=None),  # fast-path — excluded
-            _make_job(2, drift_score=50),    # scored — included
+            _make_job(2, drift_score=50),  # scored — included
         ]
         result = aggregate_repo_jobs(jobs)
 
@@ -151,7 +148,7 @@ class TestAggregateRepoJobs:
         job = MagicMock()
         job.prNumber = 8
         job.result = {
-            "repo": "org/stale-key",        # old key — must be ignored
+            "repo": "org/stale-key",  # old key — must be ignored
             "drift_score": 40,
         }
         result = aggregate_repo_jobs([job])
@@ -163,11 +160,16 @@ class TestAggregateRepoJobs:
 
 # ── build_issue_title / build_issue_body ─────────────────────────────────────
 
-class TestIssueFormatting:
 
+class TestIssueFormatting:
     def _rollup(self, avg: float = 72.0, peak: int = 90, high_count: int = 2) -> RepoRollupResult:
         high = [
-            {"pr_number": i, "drift_score": 70 + i * 5, "severity": "significant", "summary": f"Change {i}"}
+            {
+                "pr_number": i,
+                "drift_score": 70 + i * 5,
+                "severity": "significant",
+                "summary": f"Change {i}",
+            }
             for i in range(high_count)
         ]
         return RepoRollupResult(
@@ -220,6 +222,7 @@ class TestIssueFormatting:
 
 
 # ── run_nightly_rollup ────────────────────────────────────────────────────────
+
 
 class TestRunNightlyRollup:
     """
@@ -282,7 +285,9 @@ class TestRunNightlyRollup:
     @patch("src.jobs.nightly_rollup.post_rollup_issue", return_value="https://github.com/issue/1")
     @patch("src.jobs.nightly_rollup.decrypt_credential", return_value="decrypted-pk")
     @patch("src.jobs.nightly_rollup.SessionLocal")
-    def test_skips_repo_when_all_jobs_have_no_drift_score(self, mock_session_cls, mock_decrypt, mock_post):
+    def test_skips_repo_when_all_jobs_have_no_drift_score(
+        self, mock_session_cls, mock_decrypt, mock_post
+    ):
         """Fast-path jobs have no drift_score — rollup should produce no issue."""
         tenant = _make_tenant()
         repo = _make_repo()
@@ -299,7 +304,9 @@ class TestRunNightlyRollup:
     @patch("src.jobs.nightly_rollup.post_rollup_issue", return_value=None)
     @patch("src.jobs.nightly_rollup.decrypt_credential", return_value="decrypted-pk")
     @patch("src.jobs.nightly_rollup.SessionLocal")
-    def test_error_counter_incremented_when_post_returns_none(self, mock_session_cls, mock_decrypt, mock_post):
+    def test_error_counter_incremented_when_post_returns_none(
+        self, mock_session_cls, mock_decrypt, mock_post
+    ):
         """If GitHub issue posting fails, errors counter goes up but no exception is raised."""
         tenant = _make_tenant()
         repo = _make_repo()
@@ -316,7 +323,9 @@ class TestRunNightlyRollup:
     @patch("src.jobs.nightly_rollup.post_rollup_issue", return_value="https://github.com/issue/1")
     @patch("src.jobs.nightly_rollup.decrypt_credential", side_effect=Exception("bad key"))
     @patch("src.jobs.nightly_rollup.SessionLocal")
-    def test_decrypt_failure_skips_tenant_without_raising(self, mock_session_cls, mock_decrypt, mock_post):
+    def test_decrypt_failure_skips_tenant_without_raising(
+        self, mock_session_cls, mock_decrypt, mock_post
+    ):
         """A decrypt error logs a warning and skips the tenant — no exception propagates."""
         tenant = _make_tenant()
         repo = _make_repo()
@@ -369,6 +378,7 @@ class TestRunNightlyRollup:
 
 
 # ── SCALE-03: sender_type tracking ───────────────────────────────────────────
+
 
 class TestSenderTypeTracking:
     """Tests for SCALE-03 bot_count / human_count breakdown in aggregate_repo_jobs."""

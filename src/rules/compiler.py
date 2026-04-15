@@ -21,8 +21,8 @@ from datetime import date
 from src.core.logging import get_logger
 from src.pipeline.policy_parser import PolicyRule
 from src.rules.formats.agents_md import render_agents_md
-from src.rules.formats.copilot import render_copilot_instructions
 from src.rules.formats.claude_md import render_claude_md
+from src.rules.formats.copilot import render_copilot_instructions
 from src.rules.formats.cursor_rules import render_cursor_rules
 
 logger = get_logger(__name__)
@@ -40,11 +40,11 @@ DEFAULT_OUTPUT_PATHS: dict[str, str] = {
 
 @dataclass
 class CompileTarget:
-    format: str       # "agents_md" | "copilot_instructions" | "cursor_rules" | "claude_md"
+    format: str  # "agents_md" | "copilot_instructions" | "cursor_rules" | "claude_md"
     output_path: str  # path in repo, e.g. "AGENTS.md"
 
     @classmethod
-    def for_format(cls, fmt: str) -> "CompileTarget":
+    def for_format(cls, fmt: str) -> CompileTarget:
         if fmt not in SUPPORTED_FORMATS:
             raise ValueError(f"Unsupported format: {fmt!r}. Supported: {SUPPORTED_FORMATS}")
         return cls(format=fmt, output_path=DEFAULT_OUTPUT_PATHS[fmt])
@@ -53,7 +53,7 @@ class CompileTarget:
 @dataclass
 class CompileResult:
     content: str
-    content_hash: str   # SHA-256 hex digest
+    content_hash: str  # SHA-256 hex digest
     target: CompileTarget
 
 

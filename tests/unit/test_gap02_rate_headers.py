@@ -9,10 +9,9 @@ Verifies that POST /webhooks/github:
   E. Remaining count decrements with each call
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock, patch
 
+from fastapi.testclient import TestClient
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -50,8 +49,8 @@ HEADERS = {
 
 def _make_client(clear_limiters: bool = True) -> TestClient:
     """Return a TestClient with debug mode (no signature check) and fresh limiters."""
-    from src.main import create_app
     import src.api.webhooks as wh
+    from src.main import create_app
 
     if clear_limiters:
         wh._webhook_rate_limiters.clear()
@@ -59,12 +58,14 @@ def _make_client(clear_limiters: bool = True) -> TestClient:
     app = create_app()
     # Disable signature verification
     from src.core.config import settings
+
     settings.github_webhook_secret = ""
     settings.debug = True
     return TestClient(app)
 
 
 # ── A. Headers always present ─────────────────────────────────────────────────
+
 
 def test_rate_limit_headers_present_on_ping():
     client = _make_client()
@@ -76,6 +77,7 @@ def test_rate_limit_headers_present_on_ping():
 
 def test_rate_limit_limit_header_equals_burst():
     from src.api.webhooks import _WEBHOOK_BURST
+
     client = _make_client()
     resp = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
     assert int(resp.headers["x-ratelimit-limit"]) == _WEBHOOK_BURST
@@ -96,6 +98,7 @@ def test_rate_limit_remaining_not_negative():
 
 # ── E. Remaining decrements ───────────────────────────────────────────────────
 
+
 def test_remaining_decrements_on_successive_calls():
     client = _make_client()
     r1 = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
@@ -107,10 +110,11 @@ def test_remaining_decrements_on_successive_calls():
 
 # ── B. 429 when bucket exhausted ─────────────────────────────────────────────
 
+
 def test_429_when_rate_limited():
     """Exhausting the burst returns 429."""
-    from src.api.webhooks import _WEBHOOK_BURST, _get_rate_limiter, _webhook_rate_limiters
-    import asyncio
+
+    from src.api.webhooks import _get_rate_limiter, _webhook_rate_limiters
 
     _webhook_rate_limiters.clear()
     # Pre-drain the global bucket
@@ -124,7 +128,7 @@ def test_429_when_rate_limited():
 
 def test_retry_after_header_present_on_429():
     """Retry-After header is set when rate limited."""
-    from src.api.webhooks import _webhook_rate_limiters, _get_rate_limiter
+    from src.api.webhooks import _get_rate_limiter, _webhook_rate_limiters
 
     _webhook_rate_limiters.clear()
     limiter = _get_rate_limiter("global")
@@ -138,7 +142,7 @@ def test_retry_after_header_present_on_429():
 
 
 def test_429_body_indicates_rate_limit():
-    from src.api.webhooks import _webhook_rate_limiters, _get_rate_limiter
+    from src.api.webhooks import _get_rate_limiter, _webhook_rate_limiters
 
     _webhook_rate_limiters.clear()
     limiter = _get_rate_limiter("global")
@@ -153,9 +157,10 @@ def test_429_body_indicates_rate_limit():
 
 # ── C. Per-installation isolation ─────────────────────────────────────────────
 
+
 def test_per_installation_buckets_independent():
     """Exhausting one installation's bucket does not affect another."""
-    from src.api.webhooks import _webhook_rate_limiters, _get_rate_limiter
+    from src.api.webhooks import _get_rate_limiter, _webhook_rate_limiters
 
     _webhook_rate_limiters.clear()
     # Drain installation 1111
@@ -181,6 +186,7 @@ def test_per_installation_buckets_independent():
 
 # ── D. Lazy bucket creation ───────────────────────────────────────────────────
 
+
 def test_new_installation_gets_full_bucket():
     """A freshly-seen installation starts with a full burst bucket."""
     from src.api.webhooks import _WEBHOOK_BURST, _webhook_rate_limiters
@@ -196,7 +202,9 @@ def test_new_installation_gets_full_bucket():
 
 # ── Helper: module-level dict accessible ─────────────────────────────────────
 
+
 def test_rate_limiter_dict_is_module_level():
     """The _webhook_rate_limiters dict must be importable from the module."""
     from src.api.webhooks import _webhook_rate_limiters
+
     assert isinstance(_webhook_rate_limiters, dict)

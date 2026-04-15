@@ -10,6 +10,7 @@ both 'up' and 'down' signals, and verifies:
 
 Requires FEEDBACK_HMAC_SECRET to be set in the env; skips otherwise.
 """
+
 from __future__ import annotations
 
 import os
@@ -84,7 +85,9 @@ def test_beta07_feedback_signal(db, db_engine):
         print(f"         → job_id={job_id[:8]}...", flush=True)
 
         # Build token using the same algorithm as src/pipeline/feedback.py
-        import hashlib, hmac as _hmac
+        import hashlib
+        import hmac as _hmac
+
         key = hmac_secret.encode()
         msg = f"{job_id}:{TENANT_ID}".encode()
         token = _hmac.new(key, msg, hashlib.sha256).hexdigest()[:24]
@@ -100,7 +103,9 @@ def test_beta07_feedback_signal(db, db_engine):
         step(5, "Verify 'up' signal persisted in AnalysisFeedback")
         with db_engine.connect() as conn:
             row = conn.execute(
-                text('SELECT signal FROM "AnalysisFeedback" WHERE "jobId" = :jid AND source = \'pr_comment\''),
+                text(
+                    'SELECT signal FROM "AnalysisFeedback" WHERE "jobId" = :jid AND source = \'pr_comment\''
+                ),
                 {"jid": job_id},
             ).fetchone()
         assert row is not None, "No AnalysisFeedback row found after thumbs-up"
@@ -117,7 +122,9 @@ def test_beta07_feedback_signal(db, db_engine):
         step(7, "Verify signal updated to 'down' (not a duplicate row)")
         with db_engine.connect() as conn:
             rows = conn.execute(
-                text('SELECT signal FROM "AnalysisFeedback" WHERE "jobId" = :jid AND source = \'pr_comment\''),
+                text(
+                    'SELECT signal FROM "AnalysisFeedback" WHERE "jobId" = :jid AND source = \'pr_comment\''
+                ),
                 {"jid": job_id},
             ).fetchall()
         assert len(rows) == 1, f"Expected exactly 1 feedback row, got {len(rows)}"

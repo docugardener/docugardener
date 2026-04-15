@@ -10,16 +10,16 @@ Coverage:
 6. Multiple files → all entity changes collected and returned
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from httpx import AsyncClient, ASGITransport
 
-from src.main import app
-from src.pipeline.job_manager import get_db
+import pytest
+from httpx import ASGITransport, AsyncClient
+
 from src.agents.verifier import DriftAnalysis
 from src.analysis.diff import ChangeType, EntityChange
 from src.analysis.parser import CodeEntity
-
+from src.main import app
+from src.pipeline.job_manager import get_db
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -36,7 +36,9 @@ def _make_tenant(workflow_config: dict | None = None) -> MagicMock:
     return tenant
 
 
-def _make_entity_change(name: str = "my_func", change_type: ChangeType = ChangeType.LOGIC_MODIFIED) -> EntityChange:
+def _make_entity_change(
+    name: str = "my_func", change_type: ChangeType = ChangeType.LOGIC_MODIFIED
+) -> EntityChange:
     entity = CodeEntity(
         name=name,
         entity_type="function",
@@ -62,23 +64,28 @@ def _db_override(tenant: MagicMock):
     """Build a get_db dependency override.
     _get_tenant_by_api_key calls .filter().all() to scan tenants by API key.
     """
+
     def _override():
         session = MagicMock()
         session.query.return_value.filter.return_value.all.return_value = [tenant]
         yield session
+
     return _override
 
 
 def _empty_db_override():
     """get_db override that finds no tenant with a matching API key → 401."""
+
     def _override():
         session = MagicMock()
         session.query.return_value.filter.return_value.all.return_value = []
         yield session
+
     return _override
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_check_returns_drift_result_for_valid_request():
@@ -89,13 +96,20 @@ async def test_check_returns_drift_result_for_valid_request():
 
     app.dependency_overrides[get_db] = _db_override(tenant)
     try:
-        with patch("src.api.check.SemanticDiff.diff_files", return_value=changes), \
-             patch("src.api.check.VerificationAgent.analyze_drift", new=AsyncMock(return_value=drift)):
-
+        with (
+            patch("src.api.check.SemanticDiff.diff_files", return_value=changes),
+            patch(
+                "src.api.check.VerificationAgent.analyze_drift", new=AsyncMock(return_value=drift)
+            ),
+        ):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 res = await ac.post(
                     "/check",
-                    json={"files": [{"path": "src/utils.py", "old_content": "old", "new_content": "new"}]},
+                    json={
+                        "files": [
+                            {"path": "src/utils.py", "old_content": "old", "new_content": "new"}
+                        ]
+                    },
                     headers={"Authorization": f"Bearer {VALID_KEY}"},
                 )
     finally:
@@ -118,13 +132,16 @@ async def test_check_returns_none_when_no_semantic_changes():
 
     app.dependency_overrides[get_db] = _db_override(tenant)
     try:
-        with patch("src.api.check.SemanticDiff.diff_files", return_value=[]), \
-             patch("src.api.check.VerificationAgent") as mock_agent_cls:
-
+        with (
+            patch("src.api.check.SemanticDiff.diff_files", return_value=[]),
+            patch("src.api.check.VerificationAgent") as mock_agent_cls,
+        ):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 res = await ac.post(
                     "/check",
-                    json={"files": [{"path": "src/utils.py", "old_content": "x", "new_content": "x"}]},
+                    json={
+                        "files": [{"path": "src/utils.py", "old_content": "x", "new_content": "x"}]
+                    },
                     headers={"Authorization": f"Bearer {VALID_KEY}"},
                 )
     finally:
@@ -208,16 +225,21 @@ async def test_check_aggregates_changes_across_multiple_files():
 
     app.dependency_overrides[get_db] = _db_override(tenant)
     try:
-        with patch("src.api.check.SemanticDiff.diff_files", side_effect=_diff_files_side_effect), \
-             patch("src.api.check.VerificationAgent.analyze_drift", new=AsyncMock(return_value=drift)):
-
+        with (
+            patch("src.api.check.SemanticDiff.diff_files", side_effect=_diff_files_side_effect),
+            patch(
+                "src.api.check.VerificationAgent.analyze_drift", new=AsyncMock(return_value=drift)
+            ),
+        ):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
                 res = await ac.post(
                     "/check",
-                    json={"files": [
-                        {"path": "src/file1.py", "old_content": "old", "new_content": "new"},
-                        {"path": "src/file2.py", "old_content": "old", "new_content": "new"},
-                    ]},
+                    json={
+                        "files": [
+                            {"path": "src/file1.py", "old_content": "old", "new_content": "new"},
+                            {"path": "src/file2.py", "old_content": "old", "new_content": "new"},
+                        ]
+                    },
                     headers={"Authorization": f"Bearer {VALID_KEY}"},
                 )
     finally:

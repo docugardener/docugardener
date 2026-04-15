@@ -9,11 +9,9 @@ Covers:
     posts PR comment; leaves job untouched when auto_merge=False
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from src.github.committer import GitCommitter
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -69,8 +67,8 @@ def _make_repo_mock(pr, status_state: str = "success") -> MagicMock:
 
 # ── auto_merge_pr tests ───────────────────────────────────────────────────────
 
-class TestAutoMergePr:
 
+class TestAutoMergePr:
     def test_ci_success_merges_and_returns_true(self):
         """CI passes immediately → merge called → None (success) returned."""
         committer = _make_committer()
@@ -116,10 +114,14 @@ class TestAutoMergePr:
         pr = _make_pr_mock()
         repo = _make_repo_mock(pr, status_state="pending")
 
-        with patch("src.github.committer.Github") as mock_gh, \
-             patch("src.github.committer.time.sleep") as mock_sleep:
+        with (
+            patch("src.github.committer.Github") as mock_gh,
+            patch("src.github.committer.time.sleep") as mock_sleep,
+        ):
             mock_gh.return_value.get_repo.return_value = repo
-            result = committer.auto_merge_pr(_PR_URL, wait_for_ci=True, max_retries=3, retry_delay=0)
+            result = committer.auto_merge_pr(
+                _PR_URL, wait_for_ci=True, max_retries=3, retry_delay=0
+            )
 
         assert result is not None  # non-None = skip/failure reason
         pr.merge.assert_not_called()
@@ -144,6 +146,7 @@ class TestAutoMergePr:
     def test_github_exception_returns_false(self):
         """GithubException during merge → non-None reason, no crash."""
         from github import GithubException
+
         committer = _make_committer()
         pr = _make_pr_mock(status_state="success")
         pr.merge.side_effect = GithubException(405, "method not allowed", {})
@@ -234,17 +237,18 @@ class TestAutoMergePr:
 
 # ── create_fix_pr_job passes auto_merge ──────────────────────────────────────
 
-class TestCreateFixPrJobAutoMerge:
 
+class TestCreateFixPrJobAutoMerge:
     def test_auto_merge_true_passed_to_process_fix_pr(self):
         """create_fix_pr_job(job_id, auto_merge=True) calls process_fix_pr with auto_merge=True."""
-        import asyncio
         from src.worker.jobs import create_fix_pr_job
 
         mock_process = MagicMock(return_value=None)
 
-        with patch("src.pipeline.handler.process_fix_pr", mock_process), \
-             patch("asyncio.run") as mock_run:
+        with (
+            patch("src.pipeline.handler.process_fix_pr", mock_process),
+            patch("asyncio.run") as mock_run,
+        ):
             mock_run.side_effect = lambda coro: None
             create_fix_pr_job("job-123", auto_merge=True)
 
@@ -256,6 +260,7 @@ class TestCreateFixPrJobAutoMerge:
         with patch("asyncio.run") as mock_run:
             mock_run.return_value = None
             from src.worker.jobs import create_fix_pr_job
+
             create_fix_pr_job("job-456")
 
         mock_run.assert_called_once()

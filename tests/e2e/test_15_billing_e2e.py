@@ -26,6 +26,7 @@ Run Group 1 only (no browser):
 Run both (with Stripe browser flow):
   E2E_ENABLED=1 E2E_INTERACTIVE=1 pytest tests/e2e/test_15_billing_e2e.py -v -s
 """
+
 from __future__ import annotations
 
 import json
@@ -50,8 +51,8 @@ from tests.e2e.helpers import (
 
 _QUOTA_LIMITS = {
     "FREE": {"prs": 50, "repos": 1},
-    "PRO":  {"prs": 500, "repos": 5},
-    "TEAM": {"prs": -1,  "repos": -1},
+    "PRO": {"prs": 500, "repos": 5},
+    "TEAM": {"prs": -1, "repos": -1},
 }
 
 
@@ -75,10 +76,7 @@ def _set_granted_features(db, features: list[str]) -> None:
 def _get_granted_features(db) -> list[str]:
     """Read grantedFeatures from workflowConfig."""
     row = db.execute(
-        text(
-            'SELECT "workflowConfig"->>\'grantedFeatures\' '
-            'FROM "Tenant" WHERE id = :tid'
-        ),
+        text('SELECT "workflowConfig"->>\'grantedFeatures\' FROM "Tenant" WHERE id = :tid'),
         {"tid": TENANT_ID},
     ).fetchone()
     if row and row[0]:
@@ -91,7 +89,7 @@ def _clear_granted_features(db) -> None:
     db.execute(
         text(
             'UPDATE "Tenant" SET "workflowConfig" = '
-            '"workflowConfig" - \'grantedFeatures\' WHERE id = :tid'
+            "\"workflowConfig\" - 'grantedFeatures' WHERE id = :tid"
         ),
         {"tid": TENANT_ID},
     )
@@ -111,6 +109,7 @@ def _poll_plan(db, expected_plan: str, timeout: int = 60) -> bool:
 
 
 # ── Group 1: Automated plan lifecycle ─────────────────────────────────────────
+
 
 @pytest.mark.e2e
 def test_15a_plan_upgrade_downgrade(db):
@@ -148,9 +147,7 @@ def test_15a_plan_upgrade_downgrade(db):
             f"GET /billing/profile returned {resp.status_code}: {resp.text}"
         )
         profile = resp.json()
-        assert "deployment_mode" in profile, (
-            f"billing/profile missing deployment_mode: {profile}"
-        )
+        assert "deployment_mode" in profile, f"billing/profile missing deployment_mode: {profile}"
         print(f"         → deployment_mode: {profile['deployment_mode']!r} ✓", flush=True)
 
         # ── Step 4: Clear feature override ────────────────────────────────────
@@ -160,7 +157,7 @@ def test_15a_plan_upgrade_downgrade(db):
         assert stored_after == [], (
             f"grantedFeatures should be empty after clear, got {stored_after}"
         )
-        print(f"         → grantedFeatures cleared ✓", flush=True)
+        print("         → grantedFeatures cleared ✓", flush=True)
 
         # ── Step 5: Downgrade to FREE ──────────────────────────────────────────
         step(5, "Downgrade tenant to FREE")
@@ -179,7 +176,7 @@ def test_15a_plan_upgrade_downgrade(db):
         assert resp2.status_code == 200, (
             f"GET /billing/profile returned {resp2.status_code} after downgrade"
         )
-        print(f"         → billing/profile OK after downgrade ✓", flush=True)
+        print("         → billing/profile OK after downgrade ✓", flush=True)
 
         # ── Step 7: Verify billing route is protected on Next.js ──────────────
         step(7, "Verify /api/billing/profile requires auth on Next.js frontend")
@@ -188,9 +185,14 @@ def test_15a_plan_upgrade_downgrade(db):
             assert r.status_code in (401, 403), (
                 f"/api/billing/profile must require session auth — got {r.status_code}"
             )
-            print(f"         → /api/billing/profile without session → {r.status_code} ✓", flush=True)
+            print(
+                f"         → /api/billing/profile without session → {r.status_code} ✓", flush=True
+            )
         except requests.exceptions.ConnectionError:
-            print(f"         ⚠ Next.js at {WEB_BASE} not reachable — skipping frontend check", flush=True)
+            print(
+                f"         ⚠ Next.js at {WEB_BASE} not reachable — skipping frontend check",
+                flush=True,
+            )
 
         step("✅", "BETA-24a (Plan Upgrade/Downgrade + Owner Override) PASSED")
 
@@ -208,6 +210,7 @@ def test_15a_plan_upgrade_downgrade(db):
 
 
 # ── Group 2: Interactive Stripe upgrade ────────────────────────────────────────
+
 
 @pytest.mark.e2e
 def test_15b_stripe_plan_change(db):
@@ -229,15 +232,17 @@ def test_15b_stripe_plan_change(db):
 
     step(1, "Record original plan and display upgrade instructions")
     billing_url = f"{WEB_BASE}/dashboard/billing"
-    print(f"\n\n  ┌─────────────────────────────────────────────────────────────────┐", flush=True)
-    print(f"  │  MANUAL STEP REQUIRED — UPGRADE                                   │", flush=True)
-    print(f"  │                                                                   │", flush=True)
+    print("\n\n  ┌─────────────────────────────────────────────────────────────────┐", flush=True)
+    print("  │  MANUAL STEP REQUIRED — UPGRADE                                   │", flush=True)
+    print("  │                                                                   │", flush=True)
     print(f"  │  1. Open: {billing_url:<55}  │", flush=True)
-    print(f"  │  2. Click 'Upgrade to Pro' (or Team)                             │", flush=True)
-    print(f"  │  3. Complete Stripe Checkout with test card: 4242 4242 4242 4242 │", flush=True)
-    print(f"  │  4. Return here — test will auto-detect the plan change           │", flush=True)
-    print(f"  └─────────────────────────────────────────────────────────────────┘\n", flush=True)
-    print(f"  Current plan: {original_plan!r}  |  Waiting up to 120s for DB update...\n", flush=True)
+    print("  │  2. Click 'Upgrade to Pro' (or Team)                             │", flush=True)
+    print("  │  3. Complete Stripe Checkout with test card: 4242 4242 4242 4242 │", flush=True)
+    print("  │  4. Return here — test will auto-detect the plan change           │", flush=True)
+    print("  └─────────────────────────────────────────────────────────────────┘\n", flush=True)
+    print(
+        f"  Current plan: {original_plan!r}  |  Waiting up to 120s for DB update...\n", flush=True
+    )
 
     step(2, "Poll DB for plan upgrade (waiting for Stripe webhook)")
     # Allow either PRO or TEAM — user picks which to upgrade to
@@ -271,15 +276,17 @@ def test_15b_stripe_plan_change(db):
 
     # ── Downgrade ─────────────────────────────────────────────────────────────
     step(3, "Display downgrade instructions")
-    print(f"\n\n  ┌─────────────────────────────────────────────────────────────────┐", flush=True)
-    print(f"  │  MANUAL STEP REQUIRED — DOWNGRADE                                 │", flush=True)
-    print(f"  │                                                                   │", flush=True)
+    print("\n\n  ┌─────────────────────────────────────────────────────────────────┐", flush=True)
+    print("  │  MANUAL STEP REQUIRED — DOWNGRADE                                 │", flush=True)
+    print("  │                                                                   │", flush=True)
     print(f"  │  1. Return to: {billing_url:<51}  │", flush=True)
-    print(f"  │  2. Click 'Manage Subscription' → Stripe Customer Portal          │", flush=True)
-    print(f"  │  3. Cancel or downgrade to Free                                   │", flush=True)
-    print(f"  │  4. Return here — test will detect the plan reversal              │", flush=True)
-    print(f"  └─────────────────────────────────────────────────────────────────┘\n", flush=True)
-    print(f"  Current plan: {upgraded_plan!r}  |  Waiting up to 180s for DB update...\n", flush=True)
+    print("  │  2. Click 'Manage Subscription' → Stripe Customer Portal          │", flush=True)
+    print("  │  3. Cancel or downgrade to Free                                   │", flush=True)
+    print("  │  4. Return here — test will detect the plan reversal              │", flush=True)
+    print("  └─────────────────────────────────────────────────────────────────┘\n", flush=True)
+    print(
+        f"  Current plan: {upgraded_plan!r}  |  Waiting up to 180s for DB update...\n", flush=True
+    )
 
     step(4, "Poll DB for plan downgrade (waiting for Stripe webhook)")
     deadline = time.time() + 180

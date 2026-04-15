@@ -10,13 +10,14 @@ Covers:
   - dispatch_drift_alert: Linear skipped when apiToken absent
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.notifications.dispatcher import NotificationDispatcher
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _drift_record(
     owner="acme",
@@ -60,19 +61,13 @@ def _issue_created_response(identifier="ENG-42", url="https://linear.app/eng/iss
 
 
 def _teams_response(team_id="team-uuid-1", team_name="Engineering") -> dict:
-    return {
-        "data": {
-            "teams": {
-                "nodes": [{"id": team_id, "name": team_name}]
-            }
-        }
-    }
+    return {"data": {"teams": {"nodes": [{"id": team_id, "name": team_name}]}}}
 
 
 # ── _create_linear_issue ──────────────────────────────────────────────────────
 
-class TestCreateLinearIssue:
 
+class TestCreateLinearIssue:
     @pytest.mark.asyncio
     async def test_creates_issue_with_team_id(self):
         dispatcher = NotificationDispatcher({}, tenant_plan="PRO")
@@ -118,7 +113,9 @@ class TestCreateLinearIssue:
         empty_teams = _http_response({"data": {"teams": {"nodes": []}}})
 
         with patch("httpx.AsyncClient") as MockClient:
-            MockClient.return_value.__aenter__.return_value.post = AsyncMock(return_value=empty_teams)
+            MockClient.return_value.__aenter__.return_value.post = AsyncMock(
+                return_value=empty_teams
+            )
             result = await dispatcher._create_linear_issue(
                 api_token="lin_api_test",
                 team_id=None,
@@ -171,15 +168,17 @@ class TestCreateLinearIssue:
 
 # ── dispatch_drift_alert — Linear plan gating ─────────────────────────────────
 
-class TestDispatchLinearGating:
 
+class TestDispatchLinearGating:
     @pytest.mark.asyncio
     async def test_linear_skipped_on_free_plan(self):
         """FREE tenants must not trigger Linear (plan gate)."""
         config = {"linear": {"apiToken": "enc_token"}}
         dispatcher = NotificationDispatcher(config, tenant_plan="FREE")
 
-        with patch.object(dispatcher, "_create_linear_issue", new_callable=AsyncMock) as mock_linear:
+        with patch.object(
+            dispatcher, "_create_linear_issue", new_callable=AsyncMock
+        ) as mock_linear:
             with patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"):
                 await dispatcher.dispatch_drift_alert(_drift_record())
 
@@ -191,7 +190,9 @@ class TestDispatchLinearGating:
         config = {"linear": {"apiToken": "enc_token", "teamId": "team-1"}}
         dispatcher = NotificationDispatcher(config, tenant_plan="PRO")
 
-        with patch.object(dispatcher, "_create_linear_issue", new_callable=AsyncMock, return_value="id-1") as mock_linear:
+        with patch.object(
+            dispatcher, "_create_linear_issue", new_callable=AsyncMock, return_value="id-1"
+        ) as mock_linear:
             with patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"):
                 await dispatcher.dispatch_drift_alert(_drift_record())
 
@@ -206,7 +207,9 @@ class TestDispatchLinearGating:
         config = {"linear": {}}
         dispatcher = NotificationDispatcher(config, tenant_plan="PRO")
 
-        with patch.object(dispatcher, "_create_linear_issue", new_callable=AsyncMock) as mock_linear:
+        with patch.object(
+            dispatcher, "_create_linear_issue", new_callable=AsyncMock
+        ) as mock_linear:
             await dispatcher.dispatch_drift_alert(_drift_record())
 
         mock_linear.assert_not_called()
@@ -217,7 +220,11 @@ class TestDispatchLinearGating:
         config = {"linear": {"apiToken": "enc_token"}}
         dispatcher = NotificationDispatcher(config, tenant_plan="PRO")
 
-        with patch.object(dispatcher, "_create_linear_issue", new_callable=AsyncMock, side_effect=Exception("network error")):
-            with patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"):
-                # Must not raise
-                await dispatcher.dispatch_drift_alert(_drift_record())
+        with patch.object(
+            dispatcher,
+            "_create_linear_issue",
+            new_callable=AsyncMock,
+            side_effect=Exception("network error"),
+        ), patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"):
+            # Must not raise
+            await dispatcher.dispatch_drift_alert(_drift_record())

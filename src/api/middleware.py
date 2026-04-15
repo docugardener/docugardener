@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from contextvars import ContextVar
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
 from fastapi import Request, status
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 # Context variable to store the tenant ID for the current request/task
-tenant_id_context: ContextVar[Optional[str]] = ContextVar("tenant_id", default=None)
+tenant_id_context: ContextVar[str | None] = ContextVar("tenant_id", default=None)
 
 
 class TenantContextMiddleware(BaseHTTPMiddleware):
@@ -33,6 +34,7 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
             # Lazy import to avoid circular dependency at module load time;
             # falls back to the original header-based behaviour.
             from src.core.tenant import MultiTenantResolver
+
             resolver = MultiTenantResolver()
         self._resolver = resolver
 
@@ -47,7 +49,14 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
         # /check     — VS Code plugin: Bearer API key, tenant resolved by key lookup
         # /auth/saml — SAML flow: tenant from ?tenant_id= query param
         # /scim/v2   — SCIM provisioning: Bearer scim token, tenant from token hash
-        self_auth_prefixes = ["/webhooks", "/check", "/auth/saml", "/scim/v2", "/metrics", "/api/feedback"]
+        self_auth_prefixes = [
+            "/webhooks",
+            "/check",
+            "/auth/saml",
+            "/scim/v2",
+            "/metrics",
+            "/api/feedback",
+        ]
 
         path = request.url.path
         tenant_id = await self._resolver.resolve(request)
@@ -69,10 +78,11 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
             # Reset context after request processed
             tenant_id_context.reset(token)
 
+
 def get_tenant_id() -> str:
     """
     Retrieve the current tenant ID from context.
-    
+
     Raises:
         RuntimeError: If no tenant ID is set in the current context.
     """
@@ -80,6 +90,7 @@ def get_tenant_id() -> str:
     if tid is None:
         raise RuntimeError("No tenant context established")
     return tid
+
 
 def set_tenant_id(tid: str):
     """Manually set tenant ID in context (useful for workers or webhooks)."""

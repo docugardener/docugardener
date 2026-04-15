@@ -16,13 +16,14 @@ Design rules:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from src.core.logging import get_logger
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
     from src.storage.sql_models import Tenant
 
 logger = get_logger(__name__)
@@ -30,11 +31,13 @@ logger = get_logger(__name__)
 
 # ── Plan limits ───────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class PlanLimits:
     """Quota caps for one pricing tier."""
-    max_prs_per_month: int   # -1 = unlimited
-    max_repos: int           # -1 = unlimited
+
+    max_prs_per_month: int  # -1 = unlimited
+    max_repos: int  # -1 = unlimited
     plan_display: str
 
 
@@ -63,7 +66,8 @@ _DEFAULT_LIMITS = PLAN_LIMITS["FREE"]
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def is_trial_active(tenant: "Tenant") -> bool:
+
+def is_trial_active(tenant: Tenant) -> bool:
     """
     GTM-01: Return True if the tenant has an active PRO trial (not yet expired).
     Handles missing attribute and non-datetime values gracefully.
@@ -74,7 +78,7 @@ def is_trial_active(tenant: "Tenant") -> bool:
     if expires.tzinfo is None:
         # Naive datetime — compare against naive UTC now
         return datetime.utcnow() < expires
-    return datetime.now(timezone.utc) < expires
+    return datetime.now(UTC) < expires
 
 
 def get_plan_limits(plan: str, server_pr_limit: int = 0) -> PlanLimits:
@@ -93,7 +97,7 @@ def get_plan_limits(plan: str, server_pr_limit: int = 0) -> PlanLimits:
     return base
 
 
-def count_monthly_analyses(session: "Session", tenant_id: str) -> int:
+def count_monthly_analyses(session: Session, tenant_id: str) -> int:
     """
     Count QUEUED + PROCESSING + COMPLETED jobs for *tenant_id* in the current
     calendar month (UTC).  FAILED jobs are excluded — they did not consume
@@ -101,35 +105,34 @@ def count_monthly_analyses(session: "Session", tenant_id: str) -> int:
     """
     from src.storage.sql_models import Job, JobStatus
 
-    month_start = datetime.now(timezone.utc).replace(
-        day=1, hour=0, minute=0, second=0, microsecond=0
-    )
+    month_start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     return (
         session.query(Job)
         .filter(
             Job.tenantId == tenant_id,
-            Job.status.in_([
-                JobStatus.QUEUED,
-                JobStatus.PROCESSING,
-                JobStatus.COMPLETED,
-            ]),
+            Job.status.in_(
+                [
+                    JobStatus.QUEUED,
+                    JobStatus.PROCESSING,
+                    JobStatus.COMPLETED,
+                ]
+            ),
             Job.createdAt >= month_start,
         )
         .count()
     )
 
 
-def count_active_repos(session: "Session", tenant_id: str) -> int:
+def count_active_repos(session: Session, tenant_id: str) -> int:
     """Count repositories stored for *tenant_id*."""
     from src.storage.sql_models import Repository
 
     return session.query(Repository).filter(Repository.tenantId == tenant_id).count()
 
 
-
 def check_repo_quota(
-    tenant: "Tenant",
-    session: "Session",
+    tenant: Tenant,
+    session: Session,
     *,
     repo_full_name: str = "",
 ) -> tuple[bool, str]:
@@ -173,15 +176,16 @@ def check_repo_quota(
 AGENT_RULES_LIMIT_FREE = 3
 
 
-def count_agent_rules(session: "Session", tenant_id: str) -> int:
+def count_agent_rules(session: Session, tenant_id: str) -> int:
     """Count RulesArtifact records for *tenant_id*."""
     from src.storage.sql_models import RulesArtifact
+
     return session.query(RulesArtifact).filter(RulesArtifact.tenantId == tenant_id).count()
 
 
 def check_agent_rules_quota(
-    tenant: "Tenant",
-    session: "Session",
+    tenant: Tenant,
+    session: Session,
 ) -> tuple[bool, str]:
     """Check whether *tenant* may create another agent rules artifact.
 
@@ -217,8 +221,8 @@ def check_agent_rules_quota(
 
 
 def check_pr_quota(
-    tenant: "Tenant",
-    session: "Session",
+    tenant: Tenant,
+    session: Session,
 ) -> tuple[bool, str]:
     """
     Check whether *tenant* may run another PR analysis this month.

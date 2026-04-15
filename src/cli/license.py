@@ -19,7 +19,6 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
 import httpx
@@ -34,6 +33,7 @@ def _run(coro):
 
 # ── license group ─────────────────────────────────────────────────────────────
 
+
 @click.group()
 def license_group():
     """Manage DocuGardener license keys."""
@@ -41,12 +41,17 @@ def license_group():
 
 # ── activate ──────────────────────────────────────────────────────────────────
 
+
 @license_group.command("activate")
 @click.argument("key")
-@click.option("--cloud-url", envvar="CLOUD_SERVICE_URL", default=DEFAULT_CLOUD_URL,
-              help="PlatformCloud service URL", show_default=True)
-@click.option("--org-id", envvar="GITHUB_ORG", default="",
-              help="Your GitHub organization name")
+@click.option(
+    "--cloud-url",
+    envvar="CLOUD_SERVICE_URL",
+    default=DEFAULT_CLOUD_URL,
+    help="PlatformCloud service URL",
+    show_default=True,
+)
+@click.option("--org-id", envvar="GITHUB_ORG", default="", help="Your GitHub organization name")
 def activate(key: str, cloud_url: str, org_id: str) -> None:
     """Validate a license key against the cloud service.
 
@@ -78,22 +83,39 @@ def activate(key: str, cloud_url: str, org_id: str) -> None:
 
     click.echo("\n💡 Set in your .env file:")
     click.echo(f"   LICENSE_KEY={key}")
-    click.echo(f"   DEPLOYMENT_MODE=client-installed")
+    click.echo("   DEPLOYMENT_MODE=client-installed")
 
 
 # ── status ────────────────────────────────────────────────────────────────────
 
+
 @license_group.command("status")
-@click.option("--key", envvar="LICENSE_KEY", default="",
-              help="License key (reads LICENSE_KEY env var by default)")
-@click.option("--cloud-url", envvar="CLOUD_SERVICE_URL", default=DEFAULT_CLOUD_URL,
-              help="PlatformCloud service URL", show_default=True)
-@click.option("--mode", envvar="DEPLOYMENT_MODE", default="saas",
-              type=click.Choice(["saas", "client-installed", "air-gap"]),
-              help="Deployment mode")
-@click.option("--license-file", envvar="LICENSE_FILE_PATH",
-              default="/etc/docugardener/license.json",
-              help="Path to offline license file (air-gap mode)")
+@click.option(
+    "--key",
+    envvar="LICENSE_KEY",
+    default="",
+    help="License key (reads LICENSE_KEY env var by default)",
+)
+@click.option(
+    "--cloud-url",
+    envvar="CLOUD_SERVICE_URL",
+    default=DEFAULT_CLOUD_URL,
+    help="PlatformCloud service URL",
+    show_default=True,
+)
+@click.option(
+    "--mode",
+    envvar="DEPLOYMENT_MODE",
+    default="saas",
+    type=click.Choice(["saas", "client-installed", "air-gap"]),
+    help="Deployment mode",
+)
+@click.option(
+    "--license-file",
+    envvar="LICENSE_FILE_PATH",
+    default="/etc/docugardener/license.json",
+    help="Path to offline license file (air-gap mode)",
+)
 def status(key: str, cloud_url: str, mode: str, license_file: str) -> None:
     """Show current license status and plan."""
     if mode == "saas":
@@ -134,10 +156,15 @@ def status(key: str, cloud_url: str, mode: str, license_file: str) -> None:
 
 # ── offline-activate ──────────────────────────────────────────────────────────
 
+
 @license_group.command("offline-activate")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.option("--install-to", default="/etc/docugardener/license.json",
-              help="Target path for the license file", show_default=True)
+@click.option(
+    "--install-to",
+    default="/etc/docugardener/license.json",
+    help="Target path for the license file",
+    show_default=True,
+)
 def offline_activate(file: Path, install_to: str) -> None:
     """Validate and install an offline (Ed25519-signed) license file.
 
@@ -174,15 +201,17 @@ def offline_activate(file: Path, install_to: str) -> None:
         sys.exit(1)
 
     click.echo("\n💡 Add to your .env file:")
-    click.echo(f"   DEPLOYMENT_MODE=air-gap")
+    click.echo("   DEPLOYMENT_MODE=air-gap")
     click.echo(f"   LICENSE_FILE_PATH={install_to}")
 
 
 # ── deactivate ────────────────────────────────────────────────────────────────
 
+
 @license_group.command("deactivate")
-@click.option("--license-file", envvar="LICENSE_FILE_PATH",
-              default="/etc/docugardener/license.json")
+@click.option(
+    "--license-file", envvar="LICENSE_FILE_PATH", default="/etc/docugardener/license.json"
+)
 @click.confirmation_option(
     prompt="⚠️  This will remove your license. DocuGardener will revert to FREE plan. Continue?"
 )
@@ -203,6 +232,7 @@ def deactivate(license_file: str) -> None:
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
 
 async def _validate_key(cloud_url: str, key: str, org_id: str) -> dict:
     url = f"{cloud_url.rstrip('/')}/api/v1/license/validate"

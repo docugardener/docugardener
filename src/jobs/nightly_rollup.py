@@ -47,6 +47,7 @@ ROLLUP_ISSUE_LABEL = "docugardener-rollup"
 
 # ── Data class ────────────────────────────────────────────────────────────────
 
+
 class RepoRollupResult:
     """Aggregated drift statistics for one repository over the rollup window."""
 
@@ -72,6 +73,7 @@ class RepoRollupResult:
 
 
 # ── Aggregation helpers ───────────────────────────────────────────────────────
+
 
 def aggregate_repo_jobs(jobs: list[Job]) -> RepoRollupResult | None:
     """
@@ -186,6 +188,7 @@ def build_issue_body(rollup: RepoRollupResult, window_hours: int = 24) -> str:
 
 # ── GitHub Issue posting ──────────────────────────────────────────────────────
 
+
 def post_rollup_issue(
     installation_id: int,
     app_id: str,
@@ -245,6 +248,7 @@ def post_rollup_issue(
 
 # ── Per-tenant processing ─────────────────────────────────────────────────────
 
+
 def _process_tenant(
     session,
     tenant: Tenant,
@@ -264,21 +268,29 @@ def _process_tenant(
 
     installation_id = int(tenant.installationId)
 
-    repos = session.execute(
-        select(Repository).where(
-            Repository.tenantId == tenant.id,
-            Repository.enabled == True,  # noqa: E712
+    repos = (
+        session.execute(
+            select(Repository).where(
+                Repository.tenantId == tenant.id,
+                Repository.enabled == True,  # noqa: E712
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     for repo in repos:
-        jobs = session.execute(
-            select(Job).where(
-                Job.repositoryId == repo.id,
-                Job.status == JobStatus.COMPLETED,
-                Job.createdAt >= cutoff,
+        jobs = (
+            session.execute(
+                select(Job).where(
+                    Job.repositoryId == repo.id,
+                    Job.status == JobStatus.COMPLETED,
+                    Job.createdAt >= cutoff,
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         if not jobs:
             continue
@@ -305,6 +317,7 @@ def _process_tenant(
 
 # ── Main entry point ──────────────────────────────────────────────────────────
 
+
 def run_nightly_rollup(window_hours: int = 24) -> dict[str, Any]:
     """
     Main rollup entry point — called by the APScheduler cron at 02:00 UTC.
@@ -325,14 +338,18 @@ def run_nightly_rollup(window_hours: int = 24) -> dict[str, Any]:
     session = SessionLocal()
     try:
         # GTM-02: nightly rollup is a PRO+ feature; skip FREE tenants
-        tenants = session.execute(
-            select(Tenant).where(
-                Tenant.installationId.isnot(None),
-                Tenant.privateKey.isnot(None),
-                Tenant.appId.isnot(None),
-                Tenant.plan != "FREE",
+        tenants = (
+            session.execute(
+                select(Tenant).where(
+                    Tenant.installationId.isnot(None),
+                    Tenant.privateKey.isnot(None),
+                    Tenant.appId.isnot(None),
+                    Tenant.plan != "FREE",
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         for tenant in tenants:
             try:

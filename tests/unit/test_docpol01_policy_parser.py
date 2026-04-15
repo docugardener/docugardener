@@ -4,11 +4,10 @@ DOCPOL-01: Unit tests for policy_parser.py
 Tests the parse_policies() function — validation, defaults, and error handling.
 """
 
-import pytest
-from src.pipeline.policy_parser import parse_policies, PolicyRule, DEFAULT_ENFORCEMENT
-
+from src.pipeline.policy_parser import DEFAULT_ENFORCEMENT, parse_policies
 
 # ── Happy-path ──────────────────────────────────────────────────────────────────
+
 
 def test_parse_valid_two_rules():
     """Two well-formed rules are returned as PolicyRule objects."""
@@ -75,7 +74,12 @@ def test_parse_free_plan_accepts_basic_rules():
     """FREE plan can parse standard path-based rules (no restriction in V1)."""
     config = {
         "policies": [
-            {"name": "r1", "paths": ["src/**"], "require_docs": ["docs/**"], "enforcement": "advisory"}
+            {
+                "name": "r1",
+                "paths": ["src/**"],
+                "require_docs": ["docs/**"],
+                "enforcement": "advisory",
+            }
         ]
     }
     rules = parse_policies(config, tenant_plan="FREE")
@@ -83,6 +87,7 @@ def test_parse_free_plan_accepts_basic_rules():
 
 
 # ── Error handling — returns [] ──────────────────────────────────────────────────
+
 
 def test_missing_policies_key_returns_empty():
     """Config with no `policies` key returns empty list."""

@@ -16,10 +16,10 @@ from __future__ import annotations
 import base64
 from datetime import datetime
 
-from github import GithubException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from github import GithubException
 from src.core.config import settings
 from src.core.logging import get_logger
 from src.github.app import get_github_client
@@ -46,11 +46,7 @@ def run_rules_staleness_check() -> None:
     """
     db = SessionLocal()
     try:
-        artifacts = (
-            db.query(RulesArtifact)
-            .filter(RulesArtifact.lastHash.isnot(None))
-            .all()
-        )
+        artifacts = db.query(RulesArtifact).filter(RulesArtifact.lastHash.isnot(None)).all()
 
         if not artifacts:
             logger.info("RULES-01 staleness: no artifacts to check")
@@ -106,6 +102,7 @@ def _check_artifact(artifact: RulesArtifact, db: object) -> None:
         app_id = int(tenant.appId) if tenant.appId else None
         private_key = tenant.privateKey or None
         from src.github.app import get_installation_token
+
         token = get_installation_token(installation_id, app_id=app_id, private_key=private_key)
 
         # Resolve by numeric ID — repo.name may be short name without owner

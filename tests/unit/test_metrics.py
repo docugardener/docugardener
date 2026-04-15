@@ -7,29 +7,25 @@ Verifies that:
 - record_* helpers accept valid arguments without raising
 """
 
-import pytest
-
 from src.monitoring.metrics import (
-    WEBHOOKS_RECEIVED,
-    WEBHOOKS_PROCESSED,
-    WEBHOOKS_FAILED,
     ANALYSES_TOTAL,
     ANALYSIS_DURATION,
-    DRIFT_SCORE,
-    LLM_REQUESTS,
-    LLM_LATENCY,
     LLM_ERRORS,
-    VECTORDB_OPERATIONS,
+    LLM_LATENCY,
+    LLM_REQUESTS,
     VECTORDB_LATENCY,
-    record_webhook,
+    VECTORDB_OPERATIONS,
+    WEBHOOKS_FAILED,
+    WEBHOOKS_PROCESSED,
+    WEBHOOKS_RECEIVED,
     record_analysis,
     record_llm_request,
     record_vectordb_operation,
+    record_webhook,
 )
 
 
 class TestMetricRegistration:
-
     def test_webhooks_received_is_counter(self):
         # prometheus_client Counter exposes .labels()
         assert hasattr(WEBHOOKS_RECEIVED, "labels")
@@ -63,7 +59,6 @@ class TestMetricRegistration:
 
 
 class TestRecordWebhook:
-
     def test_success_does_not_raise(self):
         record_webhook("pull_request", success=True)
 
@@ -79,7 +74,6 @@ class TestRecordWebhook:
 
 
 class TestRecordAnalysis:
-
     def test_successful_analysis_does_not_raise(self):
         record_analysis(
             repo="org/repo",
@@ -112,7 +106,6 @@ class TestRecordAnalysis:
 
 
 class TestRecordLLMRequest:
-
     def test_successful_request_does_not_raise(self):
         record_llm_request(
             provider="gemini",
@@ -140,7 +133,6 @@ class TestRecordLLMRequest:
 
 
 class TestRecordVectorDBOperation:
-
     def test_weaviate_store_does_not_raise(self):
         record_vectordb_operation(
             provider="weaviate",

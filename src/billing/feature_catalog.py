@@ -11,7 +11,7 @@ Used by DG-MAN-01 (manifest serializer) and DG-LPP-04 (pending changes).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 TierType = Literal["FREE", "PRO", "TEAM"]
@@ -41,16 +41,16 @@ class QuotaDimension:
 
 QUOTA_DIMENSIONS: list[QuotaDimension] = [
     QuotaDimension(key="pr_analyses_monthly", label="PR Analyses / Month", type="number"),
-    QuotaDimension(key="repos",               label="Repositories",        type="number"),
-    QuotaDimension(key="seats",               label="Team Seats",          type="number"),
+    QuotaDimension(key="repos", label="Repositories", type="number"),
+    QuotaDimension(key="seats", label="Team Seats", type="number"),
 ]
 
 # Plan quota limits — mirror PLAN_LIMITS in billing.ts / quota.py
 # -1 = unlimited
 PLAN_QUOTAS: dict[str, dict[str, int]] = {
-    "FREE": {"pr_analyses_monthly": 50,  "repos": 1,    "seats": 1},
-    "PRO":  {"pr_analyses_monthly": 500, "repos": 5,    "seats": 10},
-    "TEAM": {"pr_analyses_monthly": -1,  "repos": 9999, "seats": 100},
+    "FREE": {"pr_analyses_monthly": 50, "repos": 1, "seats": 1},
+    "PRO": {"pr_analyses_monthly": 500, "repos": 5, "seats": 10},
+    "TEAM": {"pr_analyses_monthly": -1, "repos": 9999, "seats": 100},
 }
 
 
@@ -90,7 +90,6 @@ FEATURES: list[Feature] = [
         gate="tier",
         min_tier="PRO",
     ),
-
     # ── AI / LLM ──────────────────────────────────────────────────────────────
     Feature(
         key="holistic_scoring",
@@ -125,7 +124,6 @@ FEATURES: list[Feature] = [
         gate="tier",
         min_tier="FREE",
     ),
-
     # ── Integrations ──────────────────────────────────────────────────────────
     Feature(
         key="slack_integration",
@@ -159,7 +157,6 @@ FEATURES: list[Feature] = [
         gate="tier",
         min_tier="FREE",
     ),
-
     # ── Enterprise / Security ─────────────────────────────────────────────────
     Feature(
         key="sso_saml",
@@ -185,7 +182,6 @@ FEATURES: list[Feature] = [
         gate="tier",
         min_tier="TEAM",
     ),
-
     # ── RBAC Roles ────────────────────────────────────────────────────────────
     Feature(
         key="role_auditor",
@@ -203,7 +199,6 @@ FEATURES: list[Feature] = [
         gate="tier",
         min_tier="PRO",
     ),
-
     # ── Repositories ──────────────────────────────────────────────────────────
     Feature(
         key="private_repos",

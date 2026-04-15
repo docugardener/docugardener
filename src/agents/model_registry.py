@@ -70,7 +70,6 @@ DEFAULT_CAPABILITY = ModelCapability()
 # Registry
 # ---------------------------------------------------------------------------
 MODEL_REGISTRY: dict[tuple[str, str], ModelCapability] = {
-
     # ── Google Gemini (standard) ─────────────────────────────────────────────
     ("gemini", "gemini-2.0-flash"): ModelCapability(
         input_format="gemini_generate",
@@ -118,7 +117,6 @@ MODEL_REGISTRY: dict[tuple[str, str], ModelCapability] = {
         max_context_tokens=1_048_576,
         capability_hint="standard",
     ),
-
     # ── Google Gemini (thinking / reasoning) ─────────────────────────────────
     ("gemini", "gemini-2.0-flash-thinking-exp"): ModelCapability(
         input_format="gemini_generate",
@@ -134,7 +132,6 @@ MODEL_REGISTRY: dict[tuple[str, str], ModelCapability] = {
         capability_hint="thinking",
         note="Emits thought parts alongside the answer; answer is extracted from non-thought parts.",
     ),
-
     # ── Gemma via Google AI Studio (OSS, no system_instruction support) ──────
     # Gemma models are served through the Gemini SDK but do not accept
     # system_instruction in the constructor — content must be injected as
@@ -168,7 +165,6 @@ MODEL_REGISTRY: dict[tuple[str, str], ModelCapability] = {
         max_context_tokens=8_192,
         capability_hint="oss",
     ),
-
     # ── OpenAI (standard chat) ───────────────────────────────────────────────
     ("openai", "gpt-4o"): ModelCapability(
         input_format="openai_chat",
@@ -190,7 +186,6 @@ MODEL_REGISTRY: dict[tuple[str, str], ModelCapability] = {
         max_context_tokens=8_192,
         capability_hint="standard",
     ),
-
     # ── OpenAI (reasoning / o-series) ────────────────────────────────────────
     # o1/o3 do not support: system role, temperature, top_p.
     # Thinking is internal — the API returns plain text, not structured thought parts.
@@ -245,7 +240,6 @@ MODEL_REGISTRY: dict[tuple[str, str], ModelCapability] = {
         max_context_tokens=200_000,
         capability_hint="reasoning",
     ),
-
     # ── Anthropic Claude ─────────────────────────────────────────────────────
     # Claude models use the Anthropic SDK natively; system prompt is a top-level
     # parameter (not a message role), so supports_system_prompt=True.

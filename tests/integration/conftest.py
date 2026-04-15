@@ -16,8 +16,6 @@ Architecture:
 
 import hashlib
 import hmac
-import json
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -26,10 +24,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.main import app
-from src.pipeline.analyzer import DriftAnalysis, DocumentationDraft, PRAnalysisResult
-from src.pipeline import job_manager as jm_module
-from src.storage.sql_models import Base, Job, Repository, Tenant, TriageStatus
-
+from src.pipeline.analyzer import DocumentationDraft, DriftAnalysis, PRAnalysisResult
+from src.storage.sql_models import Base, Tenant
 
 # ── In-memory SQLite ──────────────────────────────────────────────────────────
 
@@ -43,8 +39,6 @@ def fresh_schema():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
-
-
 
 
 # ── Tenant seed ───────────────────────────────────────────────────────────────
@@ -108,6 +102,7 @@ def make_signature(body: bytes, secret: str = WEBHOOK_SECRET) -> str:
 
 # ── Mock result factory ───────────────────────────────────────────────────────
 
+
 def make_analysis_result(
     pr_number: int = 42,
     score: int = 60,
@@ -141,6 +136,7 @@ def make_analysis_result(
 
 
 # ── Standard pipeline patch stack ─────────────────────────────────────────────
+
 
 def pipeline_patch_stack(analysis_result: PRAnalysisResult | None = None):
     """
@@ -182,16 +178,16 @@ def pipeline_patch_stack(analysis_result: PRAnalysisResult | None = None):
 
 # ── HTTP client ───────────────────────────────────────────────────────────────
 
+
 @pytest.fixture()
 async def http_client():
     """AsyncClient wired to the real FastAPI app."""
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
 
 
 # ── Webhook payload builders ──────────────────────────────────────────────────
+
 
 def pr_opened_payload(
     pr_number: int = 42,
@@ -248,6 +244,7 @@ def _webhook_headers(
     signature: str | None = None,
 ) -> dict:
     import uuid as _uuid
+
     # Use a unique delivery ID per call so Redis dedup (5-min TTL) never rejects
     # a later test that reuses the same payload. Callers can still pin a specific
     # ID when the test explicitly exercises dedup behaviour.

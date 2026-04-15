@@ -11,22 +11,21 @@ Covered:
   - Jira configured → post_jira_lifecycle_comment called with correct ticket key
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.storage.sql_models import Job, JobStatus, Repository, Tenant, TriageStatus
+import pytest
 
+from src.storage.sql_models import Job, JobStatus, Repository, Tenant, TriageStatus
 from tests.integration.conftest import (
-    INSTALLATION_ID,
     REPO_NAME,
     TENANT_ID,
     TestingSessionLocal,
-    pr_merged_payload,
     _webhook_headers,
+    pr_merged_payload,
 )
 
-
 # ── DB helpers ────────────────────────────────────────────────────────────────
+
 
 def _get_triage_status(pr_number: int = 42) -> TriageStatus | None:
     db = TestingSessionLocal()
@@ -115,8 +114,8 @@ def seed_job_with_jira(seed_tenant):
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestFixPrLifecycle:
 
+class TestFixPrLifecycle:
     @pytest.mark.asyncio
     async def test_fix_pr_merged_sets_resolved(self, http_client, seed_job):
         """
@@ -161,10 +160,13 @@ class TestFixPrLifecycle:
         mock_dispatcher = MagicMock()
         mock_dispatcher.post_jira_lifecycle_comment = AsyncMock()
 
-        with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal), \
-             patch("src.security.crypto.decrypt", return_value="fake-decrypted"), \
-             patch("src.notifications.dispatcher.NotificationDispatcher",
-                   return_value=mock_dispatcher):
+        with (
+            patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
+            patch("src.security.crypto.decrypt", return_value="fake-decrypted"),
+            patch(
+                "src.notifications.dispatcher.NotificationDispatcher", return_value=mock_dispatcher
+            ),
+        ):
             response = await http_client.post(
                 "/webhooks/github",
                 json=pr_merged_payload(head_ref="docugardener-fix-42-xyz"),

@@ -18,13 +18,13 @@ from datetime import date
 import pytest
 
 from src.pipeline.policy_parser import PolicyRule
-from src.rules.compiler import CompileTarget, RulesCompiler, SUPPORTED_FORMATS
-from src.rules.formats.cursor_rules import render_cursor_rules, _globs_from_rules
-
+from src.rules.compiler import SUPPORTED_FORMATS, CompileTarget, RulesCompiler
+from src.rules.formats.cursor_rules import _globs_from_rules, render_cursor_rules
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def compiler():
@@ -80,6 +80,7 @@ def fixed_date():
 # Format registration
 # ---------------------------------------------------------------------------
 
+
 class TestCursorFormatRegistration:
     def test_cursor_rules_in_supported_formats(self):
         assert "cursor_rules" in SUPPORTED_FORMATS
@@ -96,6 +97,7 @@ class TestCursorFormatRegistration:
 # ---------------------------------------------------------------------------
 # MDC frontmatter
 # ---------------------------------------------------------------------------
+
 
 class TestCursorFrontmatter:
     def test_starts_with_frontmatter_delimiter(self, single_rule):
@@ -139,6 +141,7 @@ class TestCursorFrontmatter:
 # Glob aggregation helper
 # ---------------------------------------------------------------------------
 
+
 class TestGlobsFromRules:
     def test_single_rule_single_path(self, single_rule):
         assert _globs_from_rules([single_rule]) == ["src/api/**"]
@@ -147,8 +150,12 @@ class TestGlobsFromRules:
         assert _globs_from_rules([multi_path_rule]) == ["src/api/**", "src/graphql/**"]
 
     def test_deduplicates_across_rules(self):
-        r1 = PolicyRule(name="a", paths=["src/**"], require_docs=["docs/a.md"], enforcement="advisory")
-        r2 = PolicyRule(name="b", paths=["src/**", "lib/**"], require_docs=["docs/b.md"], enforcement="advisory")
+        r1 = PolicyRule(
+            name="a", paths=["src/**"], require_docs=["docs/a.md"], enforcement="advisory"
+        )
+        r2 = PolicyRule(
+            name="b", paths=["src/**", "lib/**"], require_docs=["docs/b.md"], enforcement="advisory"
+        )
         result = _globs_from_rules([r1, r2])
         assert result == ["src/**", "lib/**"]
 
@@ -164,6 +171,7 @@ class TestGlobsFromRules:
 # ---------------------------------------------------------------------------
 # Body content
 # ---------------------------------------------------------------------------
+
 
 class TestCursorBody:
     def test_contains_rule_name(self, single_rule):
@@ -204,7 +212,9 @@ class TestCursorBody:
         assert "DocuGardener validates these requirements in CI" in output
 
     def test_multiple_rules_each_get_a_bullet(self, single_rule, advisory_rule, bwr_rule):
-        output = render_cursor_rules([single_rule, advisory_rule, bwr_rule], generated_on="2026-03-14")
+        output = render_cursor_rules(
+            [single_rule, advisory_rule, bwr_rule], generated_on="2026-03-14"
+        )
         assert output.count("- **") == 3
 
     def test_multi_path_rule_shows_all_patterns(self, multi_path_rule):
@@ -216,6 +226,7 @@ class TestCursorBody:
 # ---------------------------------------------------------------------------
 # Empty rules
 # ---------------------------------------------------------------------------
+
 
 class TestCursorEmptyRules:
     def test_empty_rules_produces_valid_output(self):
@@ -232,6 +243,7 @@ class TestCursorEmptyRules:
 # ---------------------------------------------------------------------------
 # Compiler integration
 # ---------------------------------------------------------------------------
+
 
 class TestCursorCompilerIntegration:
     target = CompileTarget.for_format("cursor_rules")

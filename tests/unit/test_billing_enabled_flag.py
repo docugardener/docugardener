@@ -9,11 +9,10 @@ Tests cover:
 - Billing API endpoints return 404 when disabled
 - Safe endpoints (profile, pending-changes) remain accessible when disabled
 """
+
 from __future__ import annotations
 
-import importlib
-import types
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -60,10 +59,12 @@ class TestGetStripeClientGuard:
     def test_raises_when_billing_disabled(self) -> None:
         """get_stripe_client() must raise RuntimeError when billing_enabled=False."""
         from src.core.config import settings as real_settings
+
         original = real_settings.billing_enabled
         try:
             real_settings.billing_enabled = False
             from src.stripe.client import get_stripe_client
+
             with pytest.raises(RuntimeError, match="BILLING_ENABLED=false"):
                 get_stripe_client()
         finally:
@@ -72,12 +73,14 @@ class TestGetStripeClientGuard:
     def test_does_not_raise_when_billing_enabled(self) -> None:
         """get_stripe_client() must not raise the billing guard when enabled."""
         from src.core.config import settings as real_settings
+
         original = real_settings.billing_enabled
         original_key = real_settings.stripe_secret_key
         try:
             real_settings.billing_enabled = True
             real_settings.stripe_secret_key = "sk_test_xxx"
             from src.stripe.client import get_stripe_client
+
             try:
                 get_stripe_client()
             except RuntimeError as e:
@@ -109,10 +112,12 @@ class TestStripeWebhookGuard:
 
     def test_returns_404_when_disabled(self) -> None:
         from src.core.config import settings as real_settings
+
         original = real_settings.billing_enabled
         try:
             real_settings.billing_enabled = False
             from src.stripe.webhooks import router
+
             app = FastAPI()
             app.include_router(router)
             client = TestClient(app, raise_server_exceptions=False)
@@ -171,17 +176,22 @@ class TestBillingApiGuards:
     # ------------------------------------------------------------------
     # Safe routes (should NOT return 404 due to billing flag)
     # ------------------------------------------------------------------
-    @pytest.mark.parametrize("path", [
-        "/profile",
-        "/pending-changes",
-    ])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/profile",
+            "/pending-changes",
+        ],
+    )
     def test_safe_routes_bypass_billing_guard(self, path: str) -> None:
         """Profile and pending-changes are pure read-only; must not be gated by billing flag."""
         from src.core.config import settings as real_settings
+
         original = real_settings.billing_enabled
         try:
             real_settings.billing_enabled = False
             from src.api import billing as billing_module
+
             app = FastAPI()
             app.include_router(billing_module.router)
             client = TestClient(app, raise_server_exceptions=False)

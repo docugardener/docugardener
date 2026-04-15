@@ -19,10 +19,10 @@ Supported events:
 
 from __future__ import annotations
 
-import stripe
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
+import stripe
 from src.core.config import settings
 from src.core.logging import get_logger
 from src.pipeline.job_manager import SessionLocal
@@ -125,6 +125,7 @@ async def handle_stripe_webhook(
 # ---------------------------------------------------------------------------
 # Event handlers
 # ---------------------------------------------------------------------------
+
 
 async def _handle_checkout_completed(session: dict) -> None:
     """checkout.session.completed — onboard a new paying customer.

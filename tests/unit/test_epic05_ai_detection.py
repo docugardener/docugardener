@@ -12,10 +12,11 @@ Tests cover:
 """
 
 import pytest
-from src.api.webhooks import detect_ai_author, _matches_ai_pattern
 
+from src.api.webhooks import _matches_ai_pattern, detect_ai_author
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_data(
     sender_login: str = "alice",
@@ -33,8 +34,8 @@ def _make_data(
 
 # ── Signal 1: bot suffix ──────────────────────────────────────────────────────
 
-class TestBotSuffixSignal:
 
+class TestBotSuffixSignal:
     def test_copilot_bot_detected(self):
         data = _make_data(sender_login="copilot-swe-agent[bot]")
         detected, signal = detect_ai_author(data)
@@ -62,14 +63,17 @@ class TestBotSuffixSignal:
 
 # ── Signal 2: branch prefix ───────────────────────────────────────────────────
 
-class TestBranchPrefixSignal:
 
-    @pytest.mark.parametrize("branch,expected_signal", [
-        ("copilot/fix-null-pointer", "branch_prefix"),
-        ("devin/add-logging", "branch_prefix"),
-        ("cursor/refactor-auth", "branch_prefix"),
-        ("claude/update-tests", "branch_prefix"),
-    ])
+class TestBranchPrefixSignal:
+    @pytest.mark.parametrize(
+        "branch,expected_signal",
+        [
+            ("copilot/fix-null-pointer", "branch_prefix"),
+            ("devin/add-logging", "branch_prefix"),
+            ("cursor/refactor-auth", "branch_prefix"),
+            ("claude/update-tests", "branch_prefix"),
+        ],
+    )
     def test_known_ai_branch_prefixes(self, branch, expected_signal):
         data = _make_data(branch=branch)
         detected, signal = detect_ai_author(data)
@@ -90,15 +94,18 @@ class TestBranchPrefixSignal:
 
 # ── Signal 3: body marker ─────────────────────────────────────────────────────
 
-class TestBodyMarkerSignal:
 
-    @pytest.mark.parametrize("body", [
-        "Generated with GitHub Copilot",
-        "This PR was Generated with Cursor.",
-        "Changes Generated with Devin — see attached",
-        "Auto-generated. Generated with Claude Code",
-        "Co-authored-by: GitHub Copilot <noreply@github.com>",
-    ])
+class TestBodyMarkerSignal:
+    @pytest.mark.parametrize(
+        "body",
+        [
+            "Generated with GitHub Copilot",
+            "This PR was Generated with Cursor.",
+            "Changes Generated with Devin — see attached",
+            "Auto-generated. Generated with Claude Code",
+            "Co-authored-by: GitHub Copilot <noreply@github.com>",
+        ],
+    )
     def test_known_body_markers(self, body):
         data = _make_data(body=body)
         detected, signal = detect_ai_author(data)
@@ -126,8 +133,8 @@ class TestBodyMarkerSignal:
 
 # ── Signal 4: tenant custom patterns ─────────────────────────────────────────
 
-class TestCustomPatterns:
 
+class TestCustomPatterns:
     def test_wildcard_suffix_pattern_matches(self):
         """Custom '*-automator' pattern matches 'docs-automator' sender."""
         data = _make_data(sender_login="docs-automator")
@@ -166,8 +173,8 @@ class TestCustomPatterns:
 
 # ── Edge cases ────────────────────────────────────────────────────────────────
 
-class TestEdgeCases:
 
+class TestEdgeCases:
     def test_missing_sender_key(self):
         data = {"pull_request": {"head": {"ref": "main"}, "body": ""}}
         detected, _ = detect_ai_author(data)
@@ -192,8 +199,8 @@ class TestEdgeCases:
 
 # ── _matches_ai_pattern helper ────────────────────────────────────────────────
 
-class TestMatchesAiPattern:
 
+class TestMatchesAiPattern:
     def test_wildcard_suffix(self):
         assert _matches_ai_pattern("renovate[bot]", "*[bot]") is True
 

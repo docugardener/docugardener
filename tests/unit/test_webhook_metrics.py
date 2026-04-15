@@ -25,17 +25,19 @@ def _ping_payload() -> bytes:
 
 
 def _pr_payload(action: str = "opened") -> bytes:
-    return json.dumps({
-        "action": action,
-        "pull_request": {
-            "number": 1,
-            "head": {"sha": "abc123"},
-            "base": {"sha": "def456", "ref": "main"},
-        },
-        "repository": {"full_name": "org/repo", "id": 99},
-        "installation": {"id": 42},
-        "sender": {"login": "human", "type": "User"},
-    }).encode()
+    return json.dumps(
+        {
+            "action": action,
+            "pull_request": {
+                "number": 1,
+                "head": {"sha": "abc123"},
+                "base": {"sha": "def456", "ref": "main"},
+            },
+            "repository": {"full_name": "org/repo", "id": 99},
+            "installation": {"id": 42},
+            "sender": {"login": "human", "type": "User"},
+        }
+    ).encode()
 
 
 class TestWebhookMetricsWired:

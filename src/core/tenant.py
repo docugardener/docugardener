@@ -43,7 +43,7 @@ class SingleTenantResolver:
     resolver will immediately reflect the updated value on subsequent requests.
     """
 
-    def __init__(self, settings: "Settings") -> None:
+    def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
     async def resolve(self, request: Request) -> str | None:
@@ -52,7 +52,7 @@ class SingleTenantResolver:
         return self._settings.single_tenant_id
 
 
-def create_tenant_resolver(settings: "Settings") -> TenantResolver:
+def create_tenant_resolver(settings: Settings) -> TenantResolver:
     """Factory: select the correct TenantResolver based on deployment_mode.
 
     Called once at application startup in main.py and injected into

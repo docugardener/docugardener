@@ -11,8 +11,6 @@ PC canonical keys (PRODUCT_REGISTRY docugardener):
 These tests will catch any future drift between DG feature_catalog.py and the PC registry.
 """
 
-import pytest
-
 from src.billing.feature_catalog import FEATURES, get_feature
 
 # Keys that PC sends over the wire in granted_features for DG
@@ -35,9 +33,7 @@ def test_align01_renamed_keys_gone():
     """DG-ALIGN-01: Old keys must not exist in the catalog."""
     actual_keys = {f.key for f in FEATURES}
     for old_key in REMOVED_KEYS:
-        assert old_key not in actual_keys, (
-            f"Old key {old_key!r} still present — rename incomplete"
-        )
+        assert old_key not in actual_keys, f"Old key {old_key!r} still present — rename incomplete"
 
 
 def test_align01_canonical_keys_present():

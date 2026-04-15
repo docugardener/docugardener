@@ -4,6 +4,7 @@ BETA-24b-B — Auto-merge via "Create a merge commit".
 Verifies that when the tenant is configured with mergeMethod=merge, the fix PR
 is merged using a merge commit and autoMergeMethod="merge" is recorded.
 """
+
 import pytest
 
 from tests.e2e.helpers import (

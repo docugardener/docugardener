@@ -18,18 +18,18 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
-from github import GithubException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from github import GithubException
 from src.api.middleware import get_tenant_id
 from src.core.logging import get_logger
-from src.github.app import get_github_client, GitHubAppError
+from src.github.app import GitHubAppError, get_github_client
 from src.pipeline.job_manager import get_db
 from src.pipeline.policy_parser import parse_policies
 from src.pipeline.repo_config import load_repo_config
-from src.rules.compiler import CompileTarget, RulesCompiler, SUPPORTED_FORMATS
+from src.rules.compiler import SUPPORTED_FORMATS, CompileTarget, RulesCompiler
 from src.rules.sync import is_stale
 from src.storage.sql_models import Repository, RulesArtifact, Tenant
 
@@ -46,6 +46,7 @@ _FREE_ARTIFACT_LIMIT = 1
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
+
 
 class ArtifactOut(BaseModel):
     id: str
@@ -81,7 +82,7 @@ class GenerateRequest(BaseModel):
 
 
 class GenerateResponse(BaseModel):
-    status: str          # "in_sync" | "pr_opened" | "upgrade_required"
+    status: str  # "in_sync" | "pr_opened" | "upgrade_required"
     pr_url: str | None = None
     artifact: ArtifactOut | None = None
 
@@ -89,6 +90,7 @@ class GenerateResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_repo_for_tenant(repo_id: str, tenant_id: str, db: Session) -> Repository:
     repo = db.query(Repository).filter_by(id=repo_id, tenantId=tenant_id).first()
@@ -167,6 +169,7 @@ def _get_gh_repo(
 # GET /repos/{repo_id}/rules
 # ---------------------------------------------------------------------------
 
+
 @router.get("/{repo_id}/rules", response_model=list[ArtifactOut])
 def list_rules_artifacts(
     repo_id: str,
@@ -176,17 +179,14 @@ def list_rules_artifacts(
     tenant_id = get_tenant_id()
     _get_repo_for_tenant(repo_id, tenant_id, db)  # ownership check
 
-    artifacts = (
-        db.query(RulesArtifact)
-        .filter_by(tenantId=tenant_id, repoId=repo_id)
-        .all()
-    )
+    artifacts = db.query(RulesArtifact).filter_by(tenantId=tenant_id, repoId=repo_id).all()
     return [_artifact_out(a) for a in artifacts]
 
 
 # ---------------------------------------------------------------------------
 # POST /repos/{repo_id}/rules/preview
 # ---------------------------------------------------------------------------
+
 
 @router.post("/{repo_id}/rules/preview", response_model=PreviewResponse)
 def preview_rules(
@@ -213,17 +213,20 @@ def preview_rules(
 
     # Resolve tenant-level GitHub App credentials (may be None → fall back to env vars)
     from src.security.encryption import decrypt_credential
+
     tenant_app_id = int(tenant.appId) if tenant.appId else None
     tenant_private_key = decrypt_credential(tenant.privateKey) if tenant.privateKey else None
 
     try:
-        gh_repo = _get_gh_repo(installation_id, repo, app_id=tenant_app_id, private_key=tenant_private_key)
+        gh_repo = _get_gh_repo(
+            installation_id, repo, app_id=tenant_app_id, private_key=tenant_private_key
+        )
     except (GithubException, GitHubAppError) as e:
         logger.error("RULES-01: failed to resolve GitHub repo", repo=repo.name, error=str(e))
         raise HTTPException(
             status_code=502,
             detail=f"Could not access GitHub repository '{repo.name}'. "
-                   f"Check that the GitHub App installation is still active.",
+            f"Check that the GitHub App installation is still active.",
         )
     owner, repo_name = gh_repo.full_name.split("/", 1)
 
@@ -234,7 +237,7 @@ def preview_rules(
         raise HTTPException(
             status_code=502,
             detail="Could not obtain a GitHub installation token. "
-                   "Check the GitHub App credentials in Settings.",
+            "Check the GitHub App credentials in Settings.",
         )
 
     repo_config = load_repo_config(owner, repo_name, token)
@@ -254,14 +257,16 @@ def preview_rules(
                 status=e.status,
             )
             current = None  # treat as missing — preview still works
-        items.append(PreviewItem(
-            format=fmt,
-            output_path=target.output_path,
-            content=result.content,
-            content_hash=result.content_hash,
-            is_stale_vs_current=is_stale(current, result.content_hash),
-            current_content=current,
-        ))
+        items.append(
+            PreviewItem(
+                format=fmt,
+                output_path=target.output_path,
+                content=result.content,
+                content_hash=result.content_hash,
+                is_stale_vs_current=is_stale(current, result.content_hash),
+                current_content=current,
+            )
+        )
 
     return PreviewResponse(items=items)
 
@@ -269,6 +274,7 @@ def preview_rules(
 # ---------------------------------------------------------------------------
 # POST /repos/{repo_id}/rules/generate
 # ---------------------------------------------------------------------------
+
 
 @router.post("/{repo_id}/rules/generate", response_model=GenerateResponse)
 def generate_rules(
@@ -305,10 +311,13 @@ def generate_rules(
 
     # Resolve tenant-level GitHub App credentials (may be None → fall back to env vars)
     from src.security.encryption import decrypt_credential
+
     tenant_app_id = int(tenant.appId) if tenant.appId else None
     tenant_private_key = decrypt_credential(tenant.privateKey) if tenant.privateKey else None
 
-    gh_repo = _get_gh_repo(installation_id, repo, app_id=tenant_app_id, private_key=tenant_private_key)
+    gh_repo = _get_gh_repo(
+        installation_id, repo, app_id=tenant_app_id, private_key=tenant_private_key
+    )
     owner, repo_name = gh_repo.full_name.split("/", 1)
 
     token = _get_installation_token_for_tenant(tenant, installation_id)
@@ -420,10 +429,12 @@ def generate_rules(
 # Internal helper — token acquisition
 # ---------------------------------------------------------------------------
 
+
 def _get_installation_token_for_tenant(tenant: Tenant, installation_id: int) -> str:
     """Get a GitHub installation token, using the tenant's custom App if configured."""
     from src.github.app import get_installation_token
     from src.security.encryption import decrypt_credential
+
     app_id = int(tenant.appId) if tenant.appId else None
     private_key = decrypt_credential(tenant.privateKey) if tenant.privateKey else None
     return get_installation_token(installation_id, app_id=app_id, private_key=private_key)

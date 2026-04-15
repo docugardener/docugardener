@@ -15,23 +15,24 @@ Coverage:
 11. Existing LLMProvider values still present (no regression)
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from src.agents.llm import (
+    GeminiClient,
     LLMClient,
     LLMConfig,
     LLMProvider,
     LLMResponse,
     OpenAIClient,
-    GeminiClient,
     create_llm_client,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _openai_raw_response(content: str, pt: int = 100, ct: int = 50) -> MagicMock:
     """Mock openai ChatCompletion response object."""
@@ -60,6 +61,7 @@ def _make_openai_client(model: str = "gpt-4o", api_key: str = "sk-test") -> Open
 # LLMProvider enum
 # ---------------------------------------------------------------------------
 
+
 class TestLLMProviderEnum:
     def test_openai_member_exists(self):
         assert LLMProvider.OPENAI.value == "openai"
@@ -81,6 +83,7 @@ class TestLLMProviderEnum:
 # ---------------------------------------------------------------------------
 # create_llm_client factory
 # ---------------------------------------------------------------------------
+
 
 class TestCreateLLMClientFactory:
     def test_openai_provider_returns_openai_client(self):
@@ -110,6 +113,7 @@ class TestCreateLLMClientFactory:
 # OpenAIClient init
 # ---------------------------------------------------------------------------
 
+
 class TestOpenAIClientInit:
     def test_raises_on_missing_api_key(self):
         with patch("src.agents.llm.settings") as mock_settings:
@@ -133,6 +137,7 @@ class TestOpenAIClientInit:
 # ---------------------------------------------------------------------------
 # OpenAIClient.generate — standard model (gpt-4o)
 # ---------------------------------------------------------------------------
+
 
 class TestOpenAIClientGenerateStandard:
     @pytest.mark.asyncio
@@ -201,6 +206,7 @@ class TestOpenAIClientGenerateStandard:
 # OpenAIClient.generate — reasoning models (o1, o3-mini)
 # ---------------------------------------------------------------------------
 
+
 class TestOpenAIClientGenerateReasoning:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("model", ["o1", "o1-mini", "o3", "o3-mini"])
@@ -240,9 +246,7 @@ class TestOpenAIClientGenerateReasoning:
             MockOpenAI.return_value.chat.completions.create = capture
             await client.generate("Do X.", config=LLMConfig(temperature=0.5))
 
-        assert "temperature" not in captured_payload, (
-            f"{model}: temperature must not be sent"
-        )
+        assert "temperature" not in captured_payload, f"{model}: temperature must not be sent"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("model", ["o1", "o3-mini"])
@@ -265,6 +269,7 @@ class TestOpenAIClientGenerateReasoning:
 # ---------------------------------------------------------------------------
 # OpenAIClient.generate_with_history
 # ---------------------------------------------------------------------------
+
 
 class TestOpenAIClientGenerateWithHistory:
     @pytest.mark.asyncio
@@ -316,6 +321,7 @@ class TestOpenAIClientGenerateWithHistory:
 # GeminiClient regression — Gemma system prompt injection
 # ---------------------------------------------------------------------------
 
+
 class TestGeminiClientGemmaInjection:
     """Verify GeminiClient now uses the normalizer for Gemma models."""
 
@@ -345,6 +351,7 @@ class TestGeminiClientGemmaInjection:
     async def test_gemma_does_not_pass_system_instruction_to_sdk(self):
         """Gemma: system content must NOT appear as system_instruction in the SDK call."""
         import google.generativeai as genai
+
         client = self._make_gemini_client("gemma-3-27b-it")
         raw = self._make_gemini_raw("Gemma answer.")
 
@@ -356,9 +363,11 @@ class TestGeminiClientGemmaInjection:
             called_with_system_instruction.append(system_instruction)
             self_m.generate_content = MagicMock(return_value=raw)
 
-        with patch("google.generativeai.GenerativeModel.__init__", fake_init), \
-             patch("google.generativeai.GenerativeModel.generate_content", return_value=raw), \
-             patch("google.generativeai.GenerationConfig", return_value=MagicMock()):
+        with (
+            patch("google.generativeai.GenerativeModel.__init__", fake_init),
+            patch("google.generativeai.GenerativeModel.generate_content", return_value=raw),
+            patch("google.generativeai.GenerationConfig", return_value=MagicMock()),
+        ):
             result = await client.generate("Do X.", system_prompt="Be strict.")
 
         # system_instruction should be None for Gemma
@@ -378,9 +387,11 @@ class TestGeminiClientGemmaInjection:
 
         client._model.generate_content = fake_generate
 
-        with patch("google.generativeai.GenerativeModel") as MockModel, \
-             patch("google.generativeai.GenerationConfig", return_value=MagicMock()), \
-             patch("google.generativeai.configure"):
+        with (
+            patch("google.generativeai.GenerativeModel") as MockModel,
+            patch("google.generativeai.GenerationConfig", return_value=MagicMock()),
+            patch("google.generativeai.configure"),
+        ):
             MockModel.return_value.generate_content = fake_generate
             # Call directly on the client model (no system_instruction path for Gemma)
             client._model.generate_content = fake_generate

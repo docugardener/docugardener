@@ -8,20 +8,21 @@ Verifies that the lifespan event:
   D. Logs success when Weaviate is reachable
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 async def _run_lifespan(app):
     """Drive the lifespan async-context-manager through one full startup+shutdown."""
-    from contextlib import asynccontextmanager
     async with app.router.lifespan_context(app):
         pass  # simulate a started-then-stopped server
 
 
 # ── A / D. Successful startup ─────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_weaviate_initialize_called_on_startup():
@@ -31,6 +32,7 @@ async def test_weaviate_initialize_called_on_startup():
 
     with patch("src.storage.weaviate_db.WeaviateDB", return_value=mock_db):
         from src.main import app
+
         await _run_lifespan(app)
 
     mock_db.initialize.assert_awaited_once()
@@ -44,6 +46,7 @@ async def test_weaviate_close_called_after_initialize():
 
     with patch("src.storage.weaviate_db.WeaviateDB", return_value=mock_db):
         from src.main import app
+
         await _run_lifespan(app)
 
     mock_db.close.assert_awaited_once()
@@ -53,12 +56,16 @@ async def test_weaviate_close_called_after_initialize():
 async def test_successful_startup_logs_info(caplog):
     """INFO-level log is emitted when schema validation succeeds."""
     import logging
+
     mock_db = AsyncMock()
     mock_db.close = AsyncMock()
 
-    with patch("src.storage.weaviate_db.WeaviateDB", return_value=mock_db), \
-         caplog.at_level(logging.INFO):
+    with (
+        patch("src.storage.weaviate_db.WeaviateDB", return_value=mock_db),
+        caplog.at_level(logging.INFO),
+    ):
         from src.main import app
+
         await _run_lifespan(app)
 
     assert any("GAP-03" in r.message for r in caplog.records), (
@@ -68,6 +75,7 @@ async def test_successful_startup_logs_info(caplog):
 
 # ── B / C. Weaviate unreachable ───────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_weaviate_unreachable_does_not_raise():
     """App starts even when WeaviateDB.initialize() raises an exception."""
@@ -76,6 +84,7 @@ async def test_weaviate_unreachable_does_not_raise():
 
     with patch("src.storage.weaviate_db.WeaviateDB", return_value=mock_db):
         from src.main import app
+
         # Must not propagate the ConnectionError
         await _run_lifespan(app)  # no assertion — just must not raise
 
@@ -84,12 +93,16 @@ async def test_weaviate_unreachable_does_not_raise():
 async def test_weaviate_unreachable_logs_critical(caplog):
     """CRITICAL log is emitted when Weaviate is unreachable."""
     import logging
+
     mock_db = AsyncMock()
     mock_db.initialize.side_effect = RuntimeError("timeout")
 
-    with patch("src.storage.weaviate_db.WeaviateDB", return_value=mock_db), \
-         caplog.at_level(logging.CRITICAL):
+    with (
+        patch("src.storage.weaviate_db.WeaviateDB", return_value=mock_db),
+        caplog.at_level(logging.CRITICAL),
+    ):
         from src.main import app
+
         await _run_lifespan(app)
 
     critical_msgs = [r for r in caplog.records if r.levelno >= logging.CRITICAL]
@@ -101,19 +114,20 @@ async def test_weaviate_unreachable_logs_critical(caplog):
 async def test_weaviate_unreachable_error_message_included(caplog):
     """The CRITICAL log includes the original error string."""
     import logging
+
     mock_db = AsyncMock()
     mock_db.initialize.side_effect = RuntimeError("ECONNREFUSED 8080")
 
-    with patch("src.storage.weaviate_db.WeaviateDB", return_value=mock_db), \
-         caplog.at_level(logging.CRITICAL):
+    with (
+        patch("src.storage.weaviate_db.WeaviateDB", return_value=mock_db),
+        caplog.at_level(logging.CRITICAL),
+    ):
         from src.main import app
+
         await _run_lifespan(app)
 
     # structlog logs via stdlib bridge — check all record attributes
-    found = any(
-        "ECONNREFUSED 8080" in str(r.__dict__)
-        for r in caplog.records
-    )
+    found = any("ECONNREFUSED 8080" in str(r.__dict__) for r in caplog.records)
     assert found, "Expected the error message to appear in the CRITICAL log record"
 
 
@@ -124,4 +138,5 @@ async def test_weaviate_import_error_does_not_raise():
 
     with patch("src.storage.weaviate_db.WeaviateDB", mock_cls):
         from src.main import app
+
         await _run_lifespan(app)  # must not raise

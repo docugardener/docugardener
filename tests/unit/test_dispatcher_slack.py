@@ -10,13 +10,14 @@ Covers:
   - dispatch_drift_alert: Jira raises → Slack still sent (exception swallowed)
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
 
 from src.notifications.dispatcher import NotificationDispatcher
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _drift_record(
     owner: str = "acme",
@@ -40,7 +41,9 @@ def _drift_record(
     return r
 
 
-def _dispatcher_with_slack(webhook_url: str = "https://hooks.slack.com/test") -> NotificationDispatcher:
+def _dispatcher_with_slack(
+    webhook_url: str = "https://hooks.slack.com/test",
+) -> NotificationDispatcher:
     """Dispatcher pre-configured with an encrypted Slack webhookUrl."""
     # GTM-02: pass tenant_plan="PRO" so plan gate is transparent for dispatch tests
     return NotificationDispatcher({"slack": {"webhookUrl": "enc_url"}}, tenant_plan="PRO")
@@ -55,8 +58,8 @@ def _mock_http_ok() -> MagicMock:
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestDispatcherSlack:
 
+class TestDispatcherSlack:
     @pytest.mark.asyncio
     async def test_slack_block_kit_structure(self):
         """_send_slack_alert POSTs a payload with 'attachments' containing 'blocks'."""
@@ -146,18 +149,29 @@ class TestDispatcherSlack:
     @pytest.mark.asyncio
     async def test_dispatch_drift_alert_calls_slack_and_jira(self):
         """Both Slack and Jira configured → both _send_slack_alert and post_jira_lifecycle_comment called."""
-        dispatcher = NotificationDispatcher({
-            "slack": {"webhookUrl": "enc_slack"},
-            "jira": {"host": "https://j.example.com", "email": "a@b.com", "apiToken": "enc_jira"},
-        }, tenant_plan="PRO")
+        dispatcher = NotificationDispatcher(
+            {
+                "slack": {"webhookUrl": "enc_slack"},
+                "jira": {
+                    "host": "https://j.example.com",
+                    "email": "a@b.com",
+                    "apiToken": "enc_jira",
+                },
+            },
+            tenant_plan="PRO",
+        )
         record = _drift_record()
 
         mock_send_slack = AsyncMock()
         mock_post_jira = AsyncMock()
 
-        with patch.object(dispatcher, "_send_slack_alert", mock_send_slack), \
-             patch.object(dispatcher, "post_jira_lifecycle_comment", mock_post_jira), \
-             patch("src.notifications.dispatcher.decrypt", return_value="https://hooks.slack.com/real"):
+        with (
+            patch.object(dispatcher, "_send_slack_alert", mock_send_slack),
+            patch.object(dispatcher, "post_jira_lifecycle_comment", mock_post_jira),
+            patch(
+                "src.notifications.dispatcher.decrypt", return_value="https://hooks.slack.com/real"
+            ),
+        ):
             await dispatcher.dispatch_drift_alert(record, jira_ticket_key="PROJ-1")
 
         mock_send_slack.assert_called_once()
@@ -167,18 +181,29 @@ class TestDispatcherSlack:
     @pytest.mark.asyncio
     async def test_jira_exception_does_not_crash_slack(self):
         """Jira post raises → exception is caught, Slack alert still sent, no unhandled exception."""
-        dispatcher = NotificationDispatcher({
-            "slack": {"webhookUrl": "enc_slack"},
-            "jira": {"host": "https://j.example.com", "email": "a@b.com", "apiToken": "enc_jira"},
-        }, tenant_plan="PRO")
+        dispatcher = NotificationDispatcher(
+            {
+                "slack": {"webhookUrl": "enc_slack"},
+                "jira": {
+                    "host": "https://j.example.com",
+                    "email": "a@b.com",
+                    "apiToken": "enc_jira",
+                },
+            },
+            tenant_plan="PRO",
+        )
         record = _drift_record()
 
         mock_send_slack = AsyncMock()
         mock_post_jira = AsyncMock(side_effect=Exception("Jira is down"))
 
-        with patch.object(dispatcher, "_send_slack_alert", mock_send_slack), \
-             patch.object(dispatcher, "post_jira_lifecycle_comment", mock_post_jira), \
-             patch("src.notifications.dispatcher.decrypt", return_value="https://hooks.slack.com/real"):
+        with (
+            patch.object(dispatcher, "_send_slack_alert", mock_send_slack),
+            patch.object(dispatcher, "post_jira_lifecycle_comment", mock_post_jira),
+            patch(
+                "src.notifications.dispatcher.decrypt", return_value="https://hooks.slack.com/real"
+            ),
+        ):
             # Must not raise
             await dispatcher.dispatch_drift_alert(record, jira_ticket_key="PROJ-9")
 
@@ -187,17 +212,28 @@ class TestDispatcherSlack:
     @pytest.mark.asyncio
     async def test_dispatch_skips_jira_when_no_ticket_key(self):
         """No jira_ticket_key → post_jira_lifecycle_comment never called."""
-        dispatcher = NotificationDispatcher({
-            "slack": {"webhookUrl": "enc_slack"},
-            "jira": {"host": "https://j.example.com", "email": "a@b.com", "apiToken": "enc_jira"},
-        }, tenant_plan="PRO")
+        dispatcher = NotificationDispatcher(
+            {
+                "slack": {"webhookUrl": "enc_slack"},
+                "jira": {
+                    "host": "https://j.example.com",
+                    "email": "a@b.com",
+                    "apiToken": "enc_jira",
+                },
+            },
+            tenant_plan="PRO",
+        )
         record = _drift_record()
 
         mock_post_jira = AsyncMock()
 
-        with patch.object(dispatcher, "_send_slack_alert", AsyncMock()), \
-             patch.object(dispatcher, "post_jira_lifecycle_comment", mock_post_jira), \
-             patch("src.notifications.dispatcher.decrypt", return_value="https://hooks.slack.com/real"):
+        with (
+            patch.object(dispatcher, "_send_slack_alert", AsyncMock()),
+            patch.object(dispatcher, "post_jira_lifecycle_comment", mock_post_jira),
+            patch(
+                "src.notifications.dispatcher.decrypt", return_value="https://hooks.slack.com/real"
+            ),
+        ):
             await dispatcher.dispatch_drift_alert(record, jira_ticket_key=None)
 
         mock_post_jira.assert_not_called()

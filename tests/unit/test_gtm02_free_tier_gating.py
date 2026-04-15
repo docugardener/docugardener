@@ -7,15 +7,16 @@ Groups:
   C. TenantContext — plan field propagated
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
-from src.notifications.dispatcher import NotificationDispatcher
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from src.notifications.dispatcher import NotificationDispatcher
 
 # ── A. NotificationDispatcher plan gate ───────────────────────────────────────
 
-class TestDispatcherPlanGate:
 
+class TestDispatcherPlanGate:
     def _drift_record(self):
         r = MagicMock()
         r.owner = "org"
@@ -42,6 +43,7 @@ class TestDispatcherPlanGate:
     async def test_pro_tenant_dispatch_proceeds(self):
         """AC-1: PRO tenants proceed through dispatch (Slack attempted)."""
         from src.security.crypto import encrypt
+
         config = {"slack": {"webhookUrl": encrypt("https://hooks.slack.com/test")}}
         dispatcher = NotificationDispatcher(config, tenant_plan="PRO")
 
@@ -53,6 +55,7 @@ class TestDispatcherPlanGate:
     async def test_team_tenant_dispatch_proceeds(self):
         """AC-1: TEAM tenants also proceed."""
         from src.security.crypto import encrypt
+
         config = {"slack": {"webhookUrl": encrypt("https://hooks.slack.com/test")}}
         dispatcher = NotificationDispatcher(config, tenant_plan="TEAM")
 
@@ -73,18 +76,22 @@ class TestDispatcherPlanGate:
     @pytest.mark.asyncio
     async def test_jira_also_skipped_for_free(self):
         """AC-1: Jira post_jira_lifecycle_comment also skipped for FREE."""
-        config = {"jira": {"host": "https://jira.example.com", "email": "a@b.com", "apiToken": "tok"}}
+        config = {
+            "jira": {"host": "https://jira.example.com", "email": "a@b.com", "apiToken": "tok"}
+        }
         dispatcher = NotificationDispatcher(config, tenant_plan="FREE")
 
-        with patch.object(dispatcher, "post_jira_lifecycle_comment", new_callable=AsyncMock) as mock_jira:
+        with patch.object(
+            dispatcher, "post_jira_lifecycle_comment", new_callable=AsyncMock
+        ) as mock_jira:
             await dispatcher.dispatch_drift_alert(self._drift_record(), jira_ticket_key="BUG-1")
             mock_jira.assert_not_called()
 
 
 # ── B. nightly_rollup — FREE tenants excluded ─────────────────────────────────
 
-class TestNightlyRollupPlanFilter:
 
+class TestNightlyRollupPlanFilter:
     def test_free_tenants_excluded_from_query(self):
         """AC-4: run_nightly_rollup() must exclude FREE plan tenants."""
         from src.jobs.nightly_rollup import run_nightly_rollup
@@ -130,8 +137,8 @@ class TestNightlyRollupPlanFilter:
 
 # ── C. TenantContext plan propagation ─────────────────────────────────────────
 
-class TestTenantContextPlan:
 
+class TestTenantContextPlan:
     def test_plan_included_in_context(self):
         """plan field is available on TenantContext after get_tenant_context()."""
         from src.worker.context import TenantContext

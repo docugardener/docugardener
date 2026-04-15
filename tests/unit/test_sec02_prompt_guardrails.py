@@ -7,13 +7,16 @@ Groups:
   C. update_prompt() route       — DB integration + audit-log path (integration)
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, call
 from fastapi import HTTPException
 
-from src.api.prompts import _validate_prompt_content, _MAX_PROMPT_LENGTH, _FORBIDDEN_PATTERNS, _DOMAIN_KEYWORDS
-from src.storage.prompt_manager import PromptManager, _DOMAIN_PREAMBLE, _DOMAIN_POSTAMBLE
-
+from src.api.prompts import (
+    _MAX_PROMPT_LENGTH,
+    _validate_prompt_content,
+)
+from src.storage.prompt_manager import _DOMAIN_POSTAMBLE, _DOMAIN_PREAMBLE, PromptManager
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -28,8 +31,8 @@ MINIMAL_DOMAIN_CONTENT = "Review the code diff."  # 2+ keywords: "review", "code
 
 # ── A. _validate_prompt_content ───────────────────────────────────────────────
 
-class TestValidatePromptContent:
 
+class TestValidatePromptContent:
     def test_valid_prompt_passes(self):
         """A well-formed domain prompt must not raise."""
         _validate_prompt_content(VALID_CONTENT)  # no exception
@@ -128,8 +131,8 @@ class TestValidatePromptContent:
 
 # ── B. PromptManager.get_prompt (AC-5) ───────────────────────────────────────
 
-class TestDomainAnchoring:
 
+class TestDomainAnchoring:
     def _make_session(self, custom_content=None):
         """Build a mocked SQLAlchemy session."""
         mock_session = MagicMock()

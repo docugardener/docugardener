@@ -8,8 +8,6 @@ Tests are grouped into:
   D. Webhook integration     — HTTP 402 raised when quota exceeded
 """
 
-import json
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,13 +17,12 @@ from src.billing.quota import (
     PLAN_LIMITS,
     check_pr_quota,
     check_repo_quota,
-    get_plan_limits,
     count_monthly_analyses,
-    count_active_repos,
+    get_plan_limits,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _tenant(plan: str = "FREE", tenant_id: str = "t-1") -> MagicMock:
     t = MagicMock()
@@ -46,8 +43,8 @@ def _session(count: int = 0) -> MagicMock:
 
 # ── A. get_plan_limits ────────────────────────────────────────────────────────
 
-class TestGetPlanLimits:
 
+class TestGetPlanLimits:
     def test_free_plan_limit_is_50(self):
         limits = get_plan_limits("FREE")
         assert limits.max_prs_per_month == 50
@@ -61,7 +58,9 @@ class TestGetPlanLimits:
         assert limits.max_prs_per_month == -1
 
     def test_case_insensitive(self):
-        assert get_plan_limits("free").max_prs_per_month == get_plan_limits("FREE").max_prs_per_month
+        assert (
+            get_plan_limits("free").max_prs_per_month == get_plan_limits("FREE").max_prs_per_month
+        )
 
     def test_unknown_plan_falls_back_to_free(self):
         limits = get_plan_limits("ENTERPRISE_PLUS")
@@ -91,8 +90,8 @@ class TestGetPlanLimits:
 
 # ── B. count_monthly_analyses ─────────────────────────────────────────────────
 
-class TestCountMonthlyAnalyses:
 
+class TestCountMonthlyAnalyses:
     def test_returns_query_count(self):
         session = _session(count=17)
         result = count_monthly_analyses(session, "t-1")
@@ -112,8 +111,8 @@ class TestCountMonthlyAnalyses:
 
 # ── C. check_pr_quota ─────────────────────────────────────────────────────────
 
-class TestCheckPrQuota:
 
+class TestCheckPrQuota:
     def test_allowed_when_under_limit(self):
         tenant = _tenant("FREE")
         session = _session(count=10)  # 10 < 50
@@ -182,8 +181,8 @@ class TestCheckPrQuota:
 
 # ── C2. check_repo_quota ──────────────────────────────────────────────────────
 
-class TestCheckRepoQuota:
 
+class TestCheckRepoQuota:
     def test_free_allowed_when_one_repo(self):
         tenant = _tenant("FREE")
         session = _session(count=1)  # exactly at cap → still allowed
@@ -255,6 +254,7 @@ def _make_session_for_tenant(mock_tenant: MagicMock) -> MagicMock:
 
 # ── D. Webhook integration ────────────────────────────────────────────────────
 
+
 class TestWebhookQuotaGate:
     """
     Verify that handle_pull_request raises HTTP 402 when check_pr_quota
@@ -283,9 +283,12 @@ class TestWebhookQuotaGate:
     @patch("src.billing.quota.check_pr_quota", return_value=(False, "Limit reached"))
     @patch("src.billing.quota.check_repo_quota", return_value=(True, ""))
     @patch("src.pipeline.job_manager.SessionLocal")
-    def test_raises_http_402_when_quota_exceeded(self, mock_session_cls, mock_repo_quota, mock_pr_quota):
+    def test_raises_http_402_when_quota_exceeded(
+        self, mock_session_cls, mock_repo_quota, mock_pr_quota
+    ):
         """When check_pr_quota returns False the handler must raise HTTP 402."""
         import asyncio
+
         from src.api.webhooks import handle_pull_request
 
         mock_tenant = MagicMock()
@@ -297,9 +300,7 @@ class TestWebhookQuotaGate:
         mock_session_cls.return_value = _make_session_for_tenant(mock_tenant)
 
         with pytest.raises(HTTPException) as exc_info:
-            asyncio.run(
-                handle_pull_request(self._pr_data(), "delivery-1")
-            )
+            asyncio.run(handle_pull_request(self._pr_data(), "delivery-1"))
 
         assert exc_info.value.status_code == 402
         assert "quota_exceeded" in str(exc_info.value.detail)
@@ -308,9 +309,12 @@ class TestWebhookQuotaGate:
     @patch("src.billing.quota.check_repo_quota", return_value=(True, ""))
     @patch("src.pipeline.job_manager.SessionLocal")
     @patch("src.worker.queue.get_queue")
-    def test_enqueues_when_quota_ok(self, mock_get_queue, mock_session_cls, mock_repo_quota, mock_pr_quota):
+    def test_enqueues_when_quota_ok(
+        self, mock_get_queue, mock_session_cls, mock_repo_quota, mock_pr_quota
+    ):
         """When quota is OK, the job is enqueued normally."""
         import asyncio
+
         from src.api.webhooks import handle_pull_request
 
         mock_tenant = MagicMock()
@@ -324,9 +328,7 @@ class TestWebhookQuotaGate:
         mock_q = MagicMock()
         mock_get_queue.return_value = mock_q
 
-        asyncio.run(
-            handle_pull_request(self._pr_data(), "delivery-2")
-        )
+        asyncio.run(handle_pull_request(self._pr_data(), "delivery-2"))
 
         mock_q.enqueue.assert_called_once()
 
@@ -335,6 +337,7 @@ class TestWebhookQuotaGate:
     def test_raises_http_402_when_repo_quota_exceeded(self, mock_session_cls, mock_repo_quota):
         """When check_repo_quota returns False the handler must raise HTTP 402."""
         import asyncio
+
         from src.api.webhooks import handle_pull_request
 
         mock_tenant = MagicMock()
@@ -346,9 +349,7 @@ class TestWebhookQuotaGate:
         mock_session_cls.return_value = _make_session_for_tenant(mock_tenant)
 
         with pytest.raises(HTTPException) as exc_info:
-            asyncio.run(
-                handle_pull_request(self._pr_data(), "delivery-repo-1")
-            )
+            asyncio.run(handle_pull_request(self._pr_data(), "delivery-repo-1"))
 
         assert exc_info.value.status_code == 402
         assert "quota_exceeded" in str(exc_info.value.detail)
@@ -356,6 +357,7 @@ class TestWebhookQuotaGate:
     def test_db_failure_does_not_block_webhook(self):
         """A DB error in the quota check must not raise 402 — permissive failure."""
         import asyncio
+
         from src.api.webhooks import handle_pull_request
 
         # Patch SessionLocal at source so ALL DB calls in the handler raise
@@ -364,9 +366,7 @@ class TestWebhookQuotaGate:
                 mock_q = MagicMock()
                 mock_queue.return_value = mock_q
                 try:
-                    asyncio.run(
-                        handle_pull_request(self._pr_data(), "delivery-3")
-                    )
+                    asyncio.run(handle_pull_request(self._pr_data(), "delivery-3"))
                 except HTTPException as e:
                     assert e.status_code != 402, "DB failure must not produce 402"
                 except Exception:
@@ -375,10 +375,11 @@ class TestWebhookQuotaGate:
 
 # ── E. Agent rules quota (DG-SAAS-05) ─────────────────────────────────────────
 
-class TestCheckAgentRulesQuota:
 
+class TestCheckAgentRulesQuota:
     def test_free_allows_up_to_3_rules(self):
         from src.billing.quota import check_agent_rules_quota
+
         tenant = _tenant("FREE")
         session = _session(count=2)
         allowed, reason = check_agent_rules_quota(tenant, session)
@@ -387,6 +388,7 @@ class TestCheckAgentRulesQuota:
 
     def test_free_blocks_at_4_rules(self):
         from src.billing.quota import check_agent_rules_quota
+
         tenant = _tenant("FREE")
         session = _session(count=3)
         allowed, reason = check_agent_rules_quota(tenant, session)
@@ -395,6 +397,7 @@ class TestCheckAgentRulesQuota:
 
     def test_free_allows_exactly_3_rules(self):
         from src.billing.quota import check_agent_rules_quota
+
         tenant = _tenant("FREE")
         session = _session(count=3)
         # count=3 means limit hit — already at cap
@@ -403,6 +406,7 @@ class TestCheckAgentRulesQuota:
 
     def test_pro_is_unlimited(self):
         from src.billing.quota import check_agent_rules_quota
+
         tenant = _tenant("PRO")
         session = _session(count=999)
         allowed, reason = check_agent_rules_quota(tenant, session)
@@ -411,6 +415,7 @@ class TestCheckAgentRulesQuota:
 
     def test_team_is_unlimited(self):
         from src.billing.quota import check_agent_rules_quota
+
         tenant = _tenant("TEAM")
         session = _session(count=999)
         allowed, reason = check_agent_rules_quota(tenant, session)
@@ -419,6 +424,7 @@ class TestCheckAgentRulesQuota:
 
     def test_free_zero_rules_allowed(self):
         from src.billing.quota import check_agent_rules_quota
+
         tenant = _tenant("FREE")
         session = _session(count=0)
         allowed, _ = check_agent_rules_quota(tenant, session)
@@ -426,6 +432,7 @@ class TestCheckAgentRulesQuota:
 
     def test_reason_mentions_upgrade(self):
         from src.billing.quota import check_agent_rules_quota
+
         tenant = _tenant("FREE")
         session = _session(count=3)
         _, reason = check_agent_rules_quota(tenant, session)

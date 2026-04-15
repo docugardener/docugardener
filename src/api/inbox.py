@@ -1,33 +1,32 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from src.storage.sql_models import Job, Repository, Tenant, TriageStatus
+
 from src.pipeline.job_manager import get_db
-from typing import List, Optional
-from datetime import datetime
+from src.storage.sql_models import Job, Repository, TriageStatus
 
 router = APIRouter(prefix="/inbox", tags=["inbox"])
 
+
 @router.get("/")
-def get_inbox_jobs(
-    tenant_id: str,
-    repository_id: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
+def get_inbox_jobs(tenant_id: str, repository_id: str | None = None, db: Session = Depends(get_db)):
     """
     Get all jobs that require triage (PENDING status).
     Enriched with repository name, repo owner, and head SHA for LiveCodeBlock rendering.
     """
     from src.storage.sql_models import JobStatus as _JobStatus
+
     query = db.query(Job).filter(
         Job.tenantId == tenant_id,
         Job.triageStatus == TriageStatus.PENDING,
         Job.status != _JobStatus.QUOTA_EXCEEDED,
     )
-    
+
     if repository_id:
         query = query.filter(Job.repositoryId == repository_id)
-        
+
     jobs = query.order_by(Job.createdAt.desc()).all()
 
     # Batch-load repos for enrichment
@@ -45,7 +44,9 @@ def get_inbox_jobs(
             "id": job.id,
             "tenantId": job.tenantId,
             "repositoryId": job.repositoryId,
-            "repositoryName": repos[job.repositoryId].name if job.repositoryId in repos else "Unknown",
+            "repositoryName": repos[job.repositoryId].name
+            if job.repositoryId in repos
+            else "Unknown",
             "repoOwner": _extract_owner(job.result),
             "headSha": (job.result or {}).get("head_sha"),
             "prNumber": job.prNumber,
@@ -69,8 +70,8 @@ def get_inbox_jobs(
 def update_job_triage_status(
     job_id: str,
     status: TriageStatus,
-    dismiss_reason: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
+    dismiss_reason: str | None = Query(None),
+    db: Session = Depends(get_db),
 ):
     """
     Update the triage status of a specific job.
@@ -88,11 +89,13 @@ def update_job_triage_status(
         job.result = result
 
     db.commit()
-    
+
     if status == TriageStatus.ACCEPTED:
         from rq import Retry
-        from src.worker.queue import get_queue, QUEUE_HIGH
-        from src.worker.jobs import create_fix_pr_job, _on_job_failure
+
+        from src.worker.jobs import _on_job_failure, create_fix_pr_job
+        from src.worker.queue import QUEUE_HIGH, get_queue
+
         queue = get_queue(QUEUE_HIGH)
         queue.enqueue(
             create_fix_pr_job,
@@ -105,8 +108,10 @@ def update_job_triage_status(
 
     elif status == TriageStatus.IGNORED:
         from rq import Retry
-        from src.worker.queue import get_queue, QUEUE_HIGH
-        from src.worker.jobs import ignore_drift_job, _on_job_failure
+
+        from src.worker.jobs import _on_job_failure, ignore_drift_job
+        from src.worker.queue import QUEUE_HIGH, get_queue
+
         queue = get_queue(QUEUE_HIGH)
         queue.enqueue(
             ignore_drift_job,
@@ -121,17 +126,14 @@ def update_job_triage_status(
 
 
 @router.get("/{job_id}")
-def get_job(
-    job_id: str,
-    db: Session = Depends(get_db)
-):
+def get_job(job_id: str, db: Session = Depends(get_db)):
     """
     Get details of a specific job, useful for polling Auto-PR generation.
     """
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-        
+
     return {
         "id": job.id,
         "tenantId": job.tenantId,

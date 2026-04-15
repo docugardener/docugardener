@@ -14,14 +14,14 @@ with the test factory (not a fixed instance) and open a fresh verify session
 for assertions — this avoids SQLAlchemy detached-object errors.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.storage.sql_models import Base, Tenant
 from src.api.webhooks import handle_installation
-
+from src.storage.sql_models import Base, Tenant
 
 # ── DB fixture ────────────────────────────────────────────────────────────────
 
@@ -60,7 +60,9 @@ def _get_installation_id(tenant_id: str) -> str | None:
         db.close()
 
 
-def _install_payload(action: str = "created", org_id: int = 88888, installation_id: int = 55555) -> dict:
+def _install_payload(
+    action: str = "created", org_id: int = 88888, installation_id: int = 55555
+) -> dict:
     return {
         "action": action,
         "installation": {
@@ -72,13 +74,15 @@ def _install_payload(action: str = "created", org_id: int = 88888, installation_
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestHandleInstallation:
 
+class TestHandleInstallation:
     @pytest.mark.asyncio
     async def test_created_action_updates_installation_id(self, seed_tenant):
         """action='created' → tenant.installationId set to the installation id from payload."""
         with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal):
-            result = await handle_installation(_install_payload(action="created", installation_id=55555))
+            result = await handle_installation(
+                _install_payload(action="created", installation_id=55555)
+            )
 
         assert _get_installation_id(seed_tenant) == "55555"
         assert result["status"] == "success"

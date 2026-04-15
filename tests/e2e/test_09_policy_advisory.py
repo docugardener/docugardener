@@ -10,6 +10,7 @@ file does NOT exist in the repo, so the policy fires.  The test verifies:
 
 Cleanup: removes .github/docugardener.yml from main.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -82,7 +83,7 @@ def test_beta12_policy_advisory(db):
             code_snippet=_make_snippet(uid),
             pr_title=f"feat: add apply_credit_{uid} endpoint",
             uid=uid,
-            branch_prefix="e2e",   # non-copilot: no auto-fix, stays in PENDING
+            branch_prefix="e2e",  # non-copilot: no auto-fix, stays in PENDING
         )
         print(f"         → PR #{pr_number}  branch: {branch}", flush=True)
 
@@ -100,12 +101,15 @@ def test_beta12_policy_advisory(db):
         violations = result.get("policy_violations", [])
         assert violations, "Expected at least one policy_violation — got none"
         v = violations[0]
-        assert v["rule_name"] == "api-contract-required", \
+        assert v["rule_name"] == "api-contract-required", (
             f"Unexpected rule_name: {v['rule_name']!r}"
-        assert v["enforcement"] == "advisory", \
+        )
+        assert v["enforcement"] == "advisory", (
             f"Expected enforcement='advisory', got {v['enforcement']!r}"
-        assert "docs/api-contract.md" in v["docs_missing"], \
+        )
+        assert "docs/api-contract.md" in v["docs_missing"], (
             f"docs/api-contract.md not in docs_missing: {v['docs_missing']}"
+        )
 
         step(6, "Verify advisory policy does NOT block merge")
         assert result.get("policy_blocks_merge") is False, (

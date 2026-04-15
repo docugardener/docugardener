@@ -31,31 +31,29 @@ Deprovisioning:
 import hashlib
 import re
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
-from src.core.logging import get_logger
-from src.pipeline.job_manager import SessionLocal
-from src.storage.sql_models import Tenant, User
 from src.api.scim_models import (
-    SCIM_ERROR_SCHEMA,
     SCIM_LIST_SCHEMA,
     SCIM_SCHEMA_SCHEMA,
     SCIM_SP_CFG_SCHEMA,
     SCIM_USER_SCHEMA,
     VALID_ROLES,
+    ScimEmail,
     ScimError,
     ScimListResponse,
-    ScimPatchOp,
-    ScimUser,
-    ScimEmail,
     ScimMeta,
     ScimName,
+    ScimPatchOp,
     ScimRole,
+    ScimUser,
 )
+from src.core.logging import get_logger
+from src.pipeline.job_manager import SessionLocal
+from src.storage.sql_models import Tenant, User
 
 logger = get_logger(__name__)
 
@@ -65,6 +63,7 @@ SCIM_CONTENT_TYPE = "application/scim+json"
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
@@ -73,14 +72,14 @@ def _scim_response(data: dict, status: int = 200) -> JSONResponse:
     return JSONResponse(content=data, status_code=status, media_type=SCIM_CONTENT_TYPE)
 
 
-def _scim_error(status: int, detail: str, scim_type: Optional[str] = None) -> JSONResponse:
+def _scim_error(status: int, detail: str, scim_type: str | None = None) -> JSONResponse:
     body = ScimError(status=str(status), detail=detail, scimType=scim_type).model_dump(
         exclude_none=True
     )
     return JSONResponse(content=body, status_code=status, media_type=SCIM_CONTENT_TYPE)
 
 
-def _resolve_tenant(authorization: Optional[str]) -> Tenant:
+def _resolve_tenant(authorization: str | None) -> Tenant:
     """Validate Bearer token and return the matching Tenant. Raises 401 on failure."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -88,7 +87,7 @@ def _resolve_tenant(authorization: Optional[str]) -> Tenant:
             detail="Missing or invalid Authorization header",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    raw_token = authorization[len("Bearer "):]
+    raw_token = authorization[len("Bearer ") :]
     token_hash = _hash_token(raw_token)
     db = SessionLocal()
     try:
@@ -131,15 +130,19 @@ def _user_to_scim(user: User, base_url: str = "") -> dict:
         roles=[ScimRole(value=r["value"], primary=r["primary"]) for r in roles],
         meta=ScimMeta(
             resourceType="User",
-            created=user.createdAt.isoformat() if hasattr(user, "createdAt") and user.createdAt else None,
-            lastModified=user.updatedAt.isoformat() if hasattr(user, "updatedAt") and user.updatedAt else None,
+            created=user.createdAt.isoformat()
+            if hasattr(user, "createdAt") and user.createdAt
+            else None,
+            lastModified=user.updatedAt.isoformat()
+            if hasattr(user, "updatedAt") and user.updatedAt
+            else None,
             location=f"{base_url}/scim/v2/Users/{user.id}" if base_url else None,
         ),
     )
     return scim.model_dump(exclude_none=True)
 
 
-def _parse_filter(filter_str: str) -> Optional[tuple[str, str]]:
+def _parse_filter(filter_str: str) -> tuple[str, str] | None:
     """
     Parse a minimal SCIM filter: 'userName eq "value"' or 'emails.value eq "value"'.
     Returns (field, value) or None if unrecognised.
@@ -150,7 +153,7 @@ def _parse_filter(filter_str: str) -> Optional[tuple[str, str]]:
     return None
 
 
-def _role_from_scim(roles: Optional[list]) -> str:
+def _role_from_scim(roles: list | None) -> str:
     """Extract DocuGardener role from SCIM roles list; default VIEWER."""
     if not roles:
         return "VIEWER"
@@ -164,6 +167,7 @@ def _role_from_scim(roles: Optional[list]) -> str:
 def _generate_id() -> str:
     try:
         import cuid  # type: ignore
+
         return cuid.cuid()
     except Exception:
         return str(uuid.uuid4())
@@ -171,30 +175,33 @@ def _generate_id() -> str:
 
 # ── Discovery endpoints ────────────────────────────────────────────────────────
 
+
 @router.get("/ServiceProviderConfig")
-async def service_provider_config(authorization: Optional[str] = Header(None)):
+async def service_provider_config(authorization: str | None = Header(None)):
     _resolve_tenant(authorization)
-    return _scim_response({
-        "schemas": [SCIM_SP_CFG_SCHEMA],
-        "documentationUri": "https://docs.docugardener.io/scim",
-        "patch": {"supported": True},
-        "bulk": {"supported": False, "maxOperations": 0, "maxPayloadSize": 0},
-        "filter": {"supported": True, "maxResults": 200},
-        "changePassword": {"supported": False},
-        "sort": {"supported": False},
-        "etag": {"supported": False},
-        "authenticationSchemes": [
-            {
-                "type": "oauthbearertoken",
-                "name": "OAuth Bearer Token",
-                "description": "Authentication scheme using the OAuth Bearer Token standard",
-            }
-        ],
-    })
+    return _scim_response(
+        {
+            "schemas": [SCIM_SP_CFG_SCHEMA],
+            "documentationUri": "https://docs.docugardener.io/scim",
+            "patch": {"supported": True},
+            "bulk": {"supported": False, "maxOperations": 0, "maxPayloadSize": 0},
+            "filter": {"supported": True, "maxResults": 200},
+            "changePassword": {"supported": False},
+            "sort": {"supported": False},
+            "etag": {"supported": False},
+            "authenticationSchemes": [
+                {
+                    "type": "oauthbearertoken",
+                    "name": "OAuth Bearer Token",
+                    "description": "Authentication scheme using the OAuth Bearer Token standard",
+                }
+            ],
+        }
+    )
 
 
 @router.get("/Schemas")
-async def list_schemas(authorization: Optional[str] = Header(None)):
+async def list_schemas(authorization: str | None = Header(None)):
     _resolve_tenant(authorization)
     user_schema = {
         "schemas": [SCIM_SCHEMA_SCHEMA],
@@ -202,31 +209,74 @@ async def list_schemas(authorization: Optional[str] = Header(None)):
         "name": "User",
         "description": "User Account",
         "attributes": [
-            {"name": "userName", "type": "string", "required": True, "caseExact": False, "mutability": "readWrite", "returned": "default", "uniqueness": "server"},
-            {"name": "name", "type": "complex", "required": False, "mutability": "readWrite", "returned": "default"},
-            {"name": "displayName", "type": "string", "required": False, "mutability": "readWrite", "returned": "default"},
-            {"name": "emails", "type": "complex", "multiValued": True, "required": False, "mutability": "readWrite", "returned": "default"},
-            {"name": "active", "type": "boolean", "required": False, "mutability": "readWrite", "returned": "default"},
-            {"name": "roles", "type": "complex", "multiValued": True, "required": False, "mutability": "readWrite", "returned": "default"},
+            {
+                "name": "userName",
+                "type": "string",
+                "required": True,
+                "caseExact": False,
+                "mutability": "readWrite",
+                "returned": "default",
+                "uniqueness": "server",
+            },
+            {
+                "name": "name",
+                "type": "complex",
+                "required": False,
+                "mutability": "readWrite",
+                "returned": "default",
+            },
+            {
+                "name": "displayName",
+                "type": "string",
+                "required": False,
+                "mutability": "readWrite",
+                "returned": "default",
+            },
+            {
+                "name": "emails",
+                "type": "complex",
+                "multiValued": True,
+                "required": False,
+                "mutability": "readWrite",
+                "returned": "default",
+            },
+            {
+                "name": "active",
+                "type": "boolean",
+                "required": False,
+                "mutability": "readWrite",
+                "returned": "default",
+            },
+            {
+                "name": "roles",
+                "type": "complex",
+                "multiValued": True,
+                "required": False,
+                "mutability": "readWrite",
+                "returned": "default",
+            },
         ],
         "meta": {"resourceType": "Schema", "location": "/scim/v2/Schemas/" + SCIM_USER_SCHEMA},
     }
-    return _scim_response({
-        "schemas": [SCIM_LIST_SCHEMA],
-        "totalResults": 1,
-        "itemsPerPage": 1,
-        "startIndex": 1,
-        "Resources": [user_schema],
-    })
+    return _scim_response(
+        {
+            "schemas": [SCIM_LIST_SCHEMA],
+            "totalResults": 1,
+            "itemsPerPage": 1,
+            "startIndex": 1,
+            "Resources": [user_schema],
+        }
+    )
 
 
 # ── User CRUD ──────────────────────────────────────────────────────────────────
 
+
 @router.get("/Users")
 async def list_users(
     request: Request,
-    authorization: Optional[str] = Header(None),
-    filter: Optional[str] = Query(None),
+    authorization: str | None = Header(None),
+    filter: str | None = Query(None),
     startIndex: int = Query(1, ge=1),
     count: int = Query(100, ge=1, le=200),
 ):
@@ -262,7 +312,7 @@ async def list_users(
 
 
 @router.post("/Users", status_code=201)
-async def create_user(request: Request, authorization: Optional[str] = Header(None)):
+async def create_user(request: Request, authorization: str | None = Header(None)):
     tenant = _resolve_tenant(authorization)
     base_url = str(request.base_url).rstrip("/")
 
@@ -311,7 +361,7 @@ async def create_user(request: Request, authorization: Optional[str] = Header(No
         db.add(user)
         # Update last sync timestamp
         db.query(Tenant).filter(Tenant.id == tenant.id).update(
-            {"scimLastSyncAt": datetime.now(timezone.utc)}
+            {"scimLastSyncAt": datetime.now(UTC)}
         )
         db.commit()
         db.refresh(user)
@@ -325,7 +375,7 @@ async def create_user(request: Request, authorization: Optional[str] = Header(No
 async def get_user(
     user_id: str,
     request: Request,
-    authorization: Optional[str] = Header(None),
+    authorization: str | None = Header(None),
 ):
     tenant = _resolve_tenant(authorization)
     base_url = str(request.base_url).rstrip("/")
@@ -344,7 +394,7 @@ async def get_user(
 async def replace_user(
     user_id: str,
     request: Request,
-    authorization: Optional[str] = Header(None),
+    authorization: str | None = Header(None),
 ):
     tenant = _resolve_tenant(authorization)
     base_url = str(request.base_url).rstrip("/")
@@ -376,7 +426,7 @@ async def replace_user(
         user.scimActive = new_active
         user.externalId = payload.get("externalId", user.externalId)
         db.query(Tenant).filter(Tenant.id == tenant.id).update(
-            {"scimLastSyncAt": datetime.now(timezone.utc)}
+            {"scimLastSyncAt": datetime.now(UTC)}
         )
         db.commit()
         db.refresh(user)
@@ -395,7 +445,7 @@ async def replace_user(
 async def patch_user(
     user_id: str,
     request: Request,
-    authorization: Optional[str] = Header(None),
+    authorization: str | None = Header(None),
 ):
     tenant = _resolve_tenant(authorization)
     base_url = str(request.base_url).rstrip("/")
@@ -448,7 +498,7 @@ async def patch_user(
                     user.scimActive = False
 
         db.query(Tenant).filter(Tenant.id == tenant.id).update(
-            {"scimLastSyncAt": datetime.now(timezone.utc)}
+            {"scimLastSyncAt": datetime.now(UTC)}
         )
         db.commit()
         db.refresh(user)
@@ -467,7 +517,7 @@ async def patch_user(
 @router.delete("/Users/{user_id}", status_code=204)
 async def delete_user(
     user_id: str,
-    authorization: Optional[str] = Header(None),
+    authorization: str | None = Header(None),
 ):
     """Deactivate (soft-delete) a user. Data is preserved; sign-in is blocked."""
     tenant = _resolve_tenant(authorization)
@@ -479,12 +529,13 @@ async def delete_user(
             return _scim_error(404, f"User {user_id} not found")
         user.scimActive = False
         db.query(Tenant).filter(Tenant.id == tenant.id).update(
-            {"scimLastSyncAt": datetime.now(timezone.utc)}
+            {"scimLastSyncAt": datetime.now(UTC)}
         )
         db.commit()
         logger.info("scim.user_deactivated", user_id=user_id, tenant_id=tenant.id)
         # 204 No Content — no body
         from fastapi.responses import Response
+
         return Response(status_code=204)
     finally:
         db.close()

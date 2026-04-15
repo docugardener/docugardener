@@ -10,6 +10,7 @@ formats and verifies:
 
 No PR or GitHub commit required — this is a pure API test.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -26,10 +27,10 @@ from tests.e2e.helpers import (
 _ALL_FORMATS = ["agents_md", "copilot_instructions", "cursor_rules", "claude_md"]
 
 _EXPECTED_PATHS = {
-    "agents_md":            "AGENTS.md",
+    "agents_md": "AGENTS.md",
     "copilot_instructions": ".github/copilot-instructions.md",
-    "cursor_rules":         ".cursor/rules/docugardener.mdc",
-    "claude_md":            "CLAUDE.md",
+    "cursor_rules": ".cursor/rules/docugardener.mdc",
+    "claude_md": "CLAUDE.md",
 }
 
 
@@ -46,9 +47,7 @@ def test_beta19_agent_rules_all_formats():
         timeout=30,
     )
     print(f"         → status={resp.status_code}", flush=True)
-    assert resp.status_code == 200, (
-        f"Expected 200, got {resp.status_code}: {resp.text[:300]}"
-    )
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text[:300]}"
 
     items = resp.json().get("items", [])
     print(f"         → {len(items)} format(s) returned", flush=True)
@@ -74,16 +73,14 @@ def test_beta19_agent_rules_all_formats():
     assert cursor_content.startswith("---"), (
         f"cursor_rules must start with '---' YAML frontmatter, got: {cursor_content[:80]!r}"
     )
-    assert "alwaysApply" in cursor_content, (
-        "cursor_rules frontmatter missing 'alwaysApply' field"
-    )
-    print(f"         → cursor_rules frontmatter present ✓", flush=True)
+    assert "alwaysApply" in cursor_content, "cursor_rules frontmatter missing 'alwaysApply' field"
+    print("         → cursor_rules frontmatter present ✓", flush=True)
 
     step(5, "Verify CLAUDE.md has NO YAML frontmatter")
     claude_content = items_by_fmt["claude_md"]["content"]
     assert not claude_content.startswith("---"), (
-        f"claude_md must NOT have YAML frontmatter, but starts with '---'"
+        "claude_md must NOT have YAML frontmatter, but starts with '---'"
     )
-    print(f"         → claude_md: no frontmatter ✓", flush=True)
+    print("         → claude_md: no frontmatter ✓", flush=True)
 
     step("✅", "BETA-19 (Agent Rules Compiler — 4 Formats) PASSED")

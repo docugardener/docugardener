@@ -18,17 +18,18 @@ Environment variables:
   E2E_API_BASE            FastAPI backend URL          (default: http://localhost:8000)
   E2E_WEB_BASE            Next.js frontend URL         (default: http://localhost:3003)
 """
+
 from __future__ import annotations
 
 import os
 import subprocess
-import time
 
 import pytest
 import requests
 from sqlalchemy import create_engine, text
 
 # ── Guard: skip unless explicitly enabled ─────────────────────────────────────
+
 
 def pytest_collection_modifyitems(config, items):
     if os.getenv("E2E_ENABLED", "0") != "1":
@@ -50,6 +51,7 @@ _DB_URL = os.getenv(
 
 # ── Pre-flight checks ─────────────────────────────────────────────────────────
 
+
 def _check_service(url: str, name: str, timeout: int = 5) -> str | None:
     """Return None if reachable, error string if not."""
     try:
@@ -65,7 +67,8 @@ def _check_smee() -> bool:
     """Return True if a smee or smee-client process is running."""
     result = subprocess.run(
         ["pgrep", "-f", "smee"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     return result.returncode == 0
 
@@ -74,7 +77,8 @@ def _check_gh_auth() -> bool:
     """Return True if gh CLI is authenticated."""
     result = subprocess.run(
         ["gh", "auth", "status"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     return result.returncode == 0
 
@@ -132,14 +136,14 @@ def preflight_check():
 
     if failures:
         pytest.fail(
-            "E2E pre-flight failed — start the dev stack before running:\n\n"
-            + "\n".join(failures)
+            "E2E pre-flight failed — start the dev stack before running:\n\n" + "\n".join(failures)
         )
 
     yield
 
 
 # ── Database ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="session")
 def db_engine(preflight_check):
@@ -150,8 +154,7 @@ def db_engine(preflight_check):
         print(f"  ✓ PostgreSQL       ({_DB_URL.split('@')[-1]})")
     except Exception as exc:
         pytest.fail(
-            f"Cannot connect to database at {_DB_URL}.\n"
-            f"Is 'make dev-up' running? Error: {exc}"
+            f"Cannot connect to database at {_DB_URL}.\nIs 'make dev-up' running? Error: {exc}"
         )
     yield engine
     engine.dispose()

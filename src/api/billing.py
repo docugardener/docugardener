@@ -17,16 +17,18 @@ router = APIRouter()
 async def get_billing_profile() -> JSONResponse:
     """Return deployment identity fields for the Settings profile card."""
     license_key = settings.license_key or ""
-    return JSONResponse({
-        "deployment_mode": settings.deployment_mode,
-        "github_org": settings.github_org or None,
-        "cloud_service_url": settings.cloud_service_url or None,
-        # Show only last 8 chars — never expose the full key
-        "license_key_fingerprint": license_key[-8:] if license_key else None,
-        "license_status": None,
-        "current_plan": None,
-        "cancel_at": None,
-    })
+    return JSONResponse(
+        {
+            "deployment_mode": settings.deployment_mode,
+            "github_org": settings.github_org or None,
+            "cloud_service_url": settings.cloud_service_url or None,
+            # Show only last 8 chars — never expose the full key
+            "license_key_fingerprint": license_key[-8:] if license_key else None,
+            "license_status": None,
+            "current_plan": None,
+            "cancel_at": None,
+        }
+    )
 
 
 @router.get("/pending-changes")

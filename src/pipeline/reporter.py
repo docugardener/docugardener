@@ -6,16 +6,13 @@ Handles formatting and posting of drift analysis results
 to GitHub PRs via comments and Check Runs.
 """
 
-from dataclasses import dataclass
 from typing import Any
 
-from github import Github
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
-from src.core.config import settings
+from github import Github
 from src.core.logging import get_logger
-from src.github.app import get_installation_client
 from src.pipeline.analyzer import PRAnalysisResult
 from src.pipeline.feedback import build_feedback_urls
 
@@ -73,12 +70,15 @@ def _format_policy_violations_md(violations: list) -> str:
     # Extra callout for blocking-with-reason
     def _get_enf(v: any) -> str:
         return v.enforcement if hasattr(v, "enforcement") else v.get("enforcement", "advisory")
+
     bwr_rules = [v for v in violations if _get_enf(v) == "blocking-with-reason"]
     if bwr_rules:
-        lines.extend([
-            "> ⚠️ **Merge is blocked by policy.** A written reason is required to dismiss this alert in the DocuGardener inbox.",
-            "",
-        ])
+        lines.extend(
+            [
+                "> ⚠️ **Merge is blocked by policy.** A written reason is required to dismiss this alert in the DocuGardener inbox.",
+                "",
+            ]
+        )
 
     return "\n".join(lines)
 
@@ -121,13 +121,13 @@ Please check the logs for more details.
     files_list_str = ""
     if drift.required_updates:
         for update in drift.required_updates:
-            reason = f" - {update['reason']}" if update.get('reason') else ""
+            reason = f" - {update['reason']}" if update.get("reason") else ""
             files_list_str += f"- **{update.get('file', 'Unknown')}** → {update.get('section', 'Section')}{reason}\n"
 
     drafts_str = ""
     if result.documentation_updates:
         for i, draft in enumerate(result.documentation_updates, 1):
-            status = '✅ Verified' if draft.is_verified else '⚠️ Unverified'
+            status = "✅ Verified" if draft.is_verified else "⚠️ Unverified"
             drafts_str += f"<details>\n<summary><strong>{i}. {draft.entity_name}</strong> {status}</summary>\n\n{draft.content}\n\n</details>\n\n"
 
     # FEED-01: build feedback footer (appended after template OR default report)
@@ -146,7 +146,9 @@ Please check the logs for more details.
         report = template
         report = report.replace("{{drift_score}}", str(drift.drift_score))
         report = report.replace("{{summary}}", drift.summary)
-        report = report.replace("{{files_list}}", files_list_str if files_list_str else "(No required updates)")
+        report = report.replace(
+            "{{files_list}}", files_list_str if files_list_str else "(No required updates)"
+        )
         report = report.replace("{{drafts}}", drafts_str if drafts_str else "(No drafts generated)")
         return report + feedback_footer
 
@@ -165,37 +167,33 @@ Please check the logs for more details.
     if policy_md:
         lines.append(policy_md)
 
-    lines.extend([
-        f"### {emoji} Documentation Drift: **{drift.severity.upper()}** ({drift.drift_score}/100)",
-        "",
-        f"> {drift.summary}",
-        "",
-    ])
+    lines.extend(
+        [
+            f"### {emoji} Documentation Drift: **{drift.severity.upper()}** ({drift.drift_score}/100)",
+            "",
+            f"> {drift.summary}",
+            "",
+        ]
+    )
 
     # Add required updates if any
     if drift.required_updates:
-        lines.extend([
-            "### 📋 Required Documentation Updates",
-            "",
-            files_list_str
-        ])
+        lines.extend(["### 📋 Required Documentation Updates", "", files_list_str])
 
     # Add generated documentation suggestions
     if result.documentation_updates:
-        lines.extend([
-            "### 📝 Suggested Documentation Updates",
-            "",
-            drafts_str
-        ])
+        lines.extend(["### 📝 Suggested Documentation Updates", "", drafts_str])
 
     # Add entity changes summary
     if result.entity_changes:
-        lines.extend([
-            "### 📊 Code Changes Analyzed",
-            "",
-            "| Entity | Type | Change |",
-            "|--------|------|--------|",
-        ])
+        lines.extend(
+            [
+                "### 📊 Code Changes Analyzed",
+                "",
+                "| Entity | Type | Change |",
+                "|--------|------|--------|",
+            ]
+        )
         for change in result.entity_changes[:10]:  # Limit display
             lines.append(
                 f"| `{change.entity.qualified_name}` | {change.entity.entity_type} | {change.change_type.value} |"
@@ -207,20 +205,24 @@ Please check the logs for more details.
 
     # Add blocking notice if applicable
     if result.should_block:
-        lines.extend([
-            "---",
-            "",
-            "⛔ **This PR is blocked due to high documentation drift.**",
-            "",
-            "Please update the documentation before merging.",
-            "",
-        ])
+        lines.extend(
+            [
+                "---",
+                "",
+                "⛔ **This PR is blocked due to high documentation drift.**",
+                "",
+                "Please update the documentation before merging.",
+                "",
+            ]
+        )
 
     # Add footer
-    lines.extend([
-        "---",
-        f"_Analysis completed in {result.processing_time_ms}ms_",
-    ])
+    lines.extend(
+        [
+            "---",
+            f"_Analysis completed in {result.processing_time_ms}ms_",
+        ]
+    )
 
     return "\n".join(lines) + feedback_footer
 
@@ -228,36 +230,35 @@ Please check the logs for more details.
 def format_check_run_output(result: PRAnalysisResult) -> dict[str, Any]:
     """
     Format analysis result for GitHub Check Run API.
-    
+
     Args:
         result: The analysis result
-        
+
     Returns:
         Dictionary for Check Run output
     """
     drift = result.drift_analysis
-    
+
     if not result.success:
         return {
             "title": "Analysis Failed",
             "summary": f"Error: {result.error}",
             "conclusion": "failure",
         }
-    
+
     if drift is None:
         return {
             "title": "No Analysis",
             "summary": "No drift analysis performed",
             "conclusion": "neutral",
         }
-    
+
     conclusion = CHECK_RUN_CONCLUSION.get(drift.severity, "neutral")
 
     # DOCPOL-01: blocking policy violations override the conclusion
     raw_violations = getattr(result, "policy_violations", None) or []
     blocking_violations = [
-        v for v in raw_violations
-        if v.get("enforcement") in ("blocking", "blocking-with-reason")
+        v for v in raw_violations if v.get("enforcement") in ("blocking", "blocking-with-reason")
     ]
     if blocking_violations:
         conclusion = "failure"
@@ -305,10 +306,10 @@ def format_check_run_output(result: PRAnalysisResult) -> dict[str, Any]:
 class GitHubReporter:
     """
     Reports analysis results to GitHub.
-    
+
     Posts comments and updates Check Runs for PRs.
     """
-    
+
     def __init__(
         self,
         installation_id: int,
@@ -335,13 +336,14 @@ class GitHubReporter:
         """Get GitHub client for the installation."""
         if self._client is None:
             from src.github.app import get_github_client
+
             self._client = get_github_client(
                 self.installation_id,
                 app_id=self._app_id,
                 private_key=self._private_key,
             )
         return self._client
-    
+
     async def report_to_pr(
         self,
         result: PRAnalysisResult,
@@ -379,11 +381,11 @@ class GitHubReporter:
             comment = await self._post_comment(pr, result, job_id=job_id, tenant_id=tenant_id)
             report_result["comment_id"] = comment.id
             report_result["comment_url"] = comment.html_url
-        
+
         # Update Check Run
         if update_check_run:
             check_output = format_check_run_output(result)
-            
+
             if check_run_id:
                 check_run = await self._update_check_run(
                     repo=repo,
@@ -396,19 +398,19 @@ class GitHubReporter:
                     head_sha=pr.head.sha,
                     **check_output,
                 )
-            
+
             report_result["check_run_id"] = check_run.id
             report_result["check_run_url"] = check_run.html_url
-        
+
         logger.info(
             "Reported to GitHub",
             pr=result.pr_number,
             comment=report_result.get("comment_id"),
             check_run=report_result.get("check_run_id"),
         )
-        
+
         return report_result
-    
+
     async def _post_comment(
         self,
         pr: PullRequest,
@@ -440,7 +442,7 @@ class GitHubReporter:
             return existing_comment
         else:
             return pr.create_issue_comment(report_content)
-    
+
     async def _create_check_run(
         self,
         repo: Repository,
@@ -461,7 +463,7 @@ class GitHubReporter:
                 "summary": summary,
             },
         )
-    
+
     async def _update_check_run(
         self,
         repo: Repository,

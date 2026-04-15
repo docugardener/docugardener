@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import math
 import os
+from datetime import UTC
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
@@ -35,6 +36,7 @@ async def _post_quota_exceeded_check_run(
     """
     try:
         from src.github.app import get_github_client
+
         client = get_github_client(installation_id, app_id=app_id, private_key=private_key)
         github_repo = client.get_repo(f"{owner}/{repo}")
         github_repo.create_check_run(
@@ -72,35 +74,29 @@ _webhook_rate_limiters: dict[str, RateLimiter] = {}
 def _get_rate_limiter(key: str) -> RateLimiter:
     """Return (or lazily create) the RateLimiter for *key* (installation_id or 'global')."""
     if key not in _webhook_rate_limiters:
-        _webhook_rate_limiters[key] = RateLimiter(
-            rate=_WEBHOOK_RATE_PER_SEC, burst=_WEBHOOK_BURST
-        )
+        _webhook_rate_limiters[key] = RateLimiter(rate=_WEBHOOK_RATE_PER_SEC, burst=_WEBHOOK_BURST)
     return _webhook_rate_limiters[key]
 
 
 def verify_github_signature(payload: bytes, signature: str, secret: str) -> bool:
     """
     Verify the GitHub webhook signature.
-    
+
     Args:
         payload: Raw request body bytes
         signature: X-Hub-Signature-256 header value
         secret: Configured webhook secret
-        
+
     Returns:
         True if signature is valid, False otherwise
     """
     if not signature or not signature.startswith("sha256="):
         return False
-    
-    expected = hmac.new(
-        secret.encode("utf-8"),
-        payload,
-        hashlib.sha256
-    ).hexdigest()
-    
+
+    expected = hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+
     received = signature.replace("sha256=", "")
-    
+
     return hmac.compare_digest(expected, received)
 
 
@@ -114,20 +110,18 @@ async def handle_github_webhook(
 ) -> dict[str, Any]:
     """
     Handle incoming GitHub webhook events.
-    
+
     Primary entry point for all GitHub App events. Currently handles:
     - pull_request: Triggers documentation drift analysis
     - ping: Webhook registration confirmation
     """
     # Get raw payload for signature verification
     payload = await request.body()
-    
+
     # Verify webhook signature in production
     if settings.github_webhook_secret and not settings.debug:
         if not verify_github_signature(
-            payload, 
-            x_hub_signature_256 or "", 
-            settings.github_webhook_secret
+            payload, x_hub_signature_256 or "", settings.github_webhook_secret
         ):
             logger.warning(
                 "Invalid webhook signature",
@@ -135,25 +129,19 @@ async def handle_github_webhook(
                 event_type=x_github_event,
             )
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid signature"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature"
             )
-    
+
     # Parse JSON payload
     try:
         data = await request.json()
     except Exception as e:
         logger.error("Failed to parse webhook payload", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid JSON payload"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload")
 
     # GAP-02: Rate-limit per installation; fall back to "global" for ping / events
     # without an installation block.
-    _installation_id_str = str(
-        (data.get("installation") or {}).get("id") or "global"
-    )
+    _installation_id_str = str((data.get("installation") or {}).get("id") or "global")
     _limiter = _get_rate_limiter(_installation_id_str)
     _allowed = await _limiter.acquire()
     _remaining = max(0, int(_limiter._tokens))
@@ -177,6 +165,7 @@ async def handle_github_webhook(
     # before any DB writes or queue operations.
     try:
         import redis as _redis_mod
+
         _rd = _redis_mod.from_url(
             os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
             decode_responses=True,
@@ -225,14 +214,10 @@ async def handle_ping(data: dict[str, Any]) -> dict[str, Any]:
     """Handle GitHub ping event (webhook registration confirmation)."""
     zen = data.get("zen", "")
     hook_id = data.get("hook_id")
-    
+
     logger.info("GitHub App ping received", hook_id=hook_id, zen=zen)
-    
-    return {
-        "status": "pong",
-        "hook_id": hook_id,
-        "message": f"DocuGardener is ready! Zen: {zen}"
-    }
+
+    return {"status": "pong", "hook_id": hook_id, "message": f"DocuGardener is ready! Zen: {zen}"}
 
 
 def extract_jira_ticket_key(pull_request: dict[str, Any]) -> str | None:
@@ -242,11 +227,12 @@ def extract_jira_ticket_key(pull_request: dict[str, Any]) -> str | None:
     Pattern matches e.g. BUG-123, FEAT-4567, DOC-1.
     """
     import re
-    pattern = r'\b([A-Z][A-Z0-9]+-\d+)\b'
+
+    pattern = r"\b([A-Z][A-Z0-9]+-\d+)\b"
     sources = [
-        pull_request.get("head", {}).get("ref", ""),   # branch: feature/BUG-123-fix-auth
-        pull_request.get("title", ""),                  # title: [BUG-123] Fix auth handler
-        pull_request.get("body", "") or "",             # body: Fixes BUG-123
+        pull_request.get("head", {}).get("ref", ""),  # branch: feature/BUG-123-fix-auth
+        pull_request.get("title", ""),  # title: [BUG-123] Fix auth handler
+        pull_request.get("body", "") or "",  # body: Fixes BUG-123
     ]
     for source in sources:
         match = re.search(pattern, source)
@@ -329,24 +315,21 @@ def detect_ai_author(
     return False, ""
 
 
-async def handle_pull_request(
-    data: dict[str, Any],
-    delivery_id: str
-) -> dict[str, Any]:
+async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[str, Any]:
     """
     Handle pull_request webhook event.
-    
+
     This is the main entry point for documentation drift analysis.
     Triggers the analysis pipeline for opened/synchronized PRs.
     """
     action = data.get("action")
     pull_request = data.get("pull_request", {})
     repository = data.get("repository", {})
-    
+
     pr_number = pull_request.get("number")
     pr_title = pull_request.get("title")
     repo_full_name = repository.get("full_name")
-    
+
     logger.info(
         "Processing pull request event",
         action=action,
@@ -355,19 +338,20 @@ async def handle_pull_request(
         pr_title=pr_title,
         delivery_id=delivery_id,
     )
-    
+
     # Fix PR merged → auto-resolve the parent inbox alert
     head_ref_closed: str = pull_request.get("head", {}).get("ref", "")
-    if action == "closed" and pull_request.get("merged") is True and head_ref_closed.startswith("docugardener-fix-"):
+    if (
+        action == "closed"
+        and pull_request.get("merged") is True
+        and head_ref_closed.startswith("docugardener-fix-")
+    ):
         return await handle_fix_pr_merged(data, head_ref_closed)
 
     # Only process opened and synchronized (new commits) events
     if action not in ["opened", "synchronize", "reopened"]:
         logger.debug("Skipping PR action", action=action)
-        return {
-            "status": "skipped",
-            "reason": f"Action '{action}' does not require analysis"
-        }
+        return {"status": "skipped", "reason": f"Action '{action}' does not require analysis"}
 
     # Loop prevention: skip DocuGardener's own fix PRs to avoid infinite analysis cycles
     head_ref: str = pull_request.get("head", {}).get("ref", "")
@@ -391,11 +375,12 @@ async def handle_pull_request(
         try:
             from src.pipeline.job_manager import SessionLocal
             from src.storage.sql_models import Tenant
+
             _db = SessionLocal()
             try:
-                _tenant = _db.query(Tenant).filter(
-                    Tenant.installationId == str(installation_id)
-                ).first()
+                _tenant = (
+                    _db.query(Tenant).filter(Tenant.installationId == str(installation_id)).first()
+                )
                 if _tenant and _tenant.workflowConfig:
                     ignored_actors: list[str] = (
                         dict(_tenant.workflowConfig).get("ignoredActors") or []
@@ -423,16 +408,21 @@ async def handle_pull_request(
         try:
             from src.pipeline.job_manager import SessionLocal
             from src.storage.sql_models import Repository, Tenant
+
             _db2 = SessionLocal()
             try:
-                _tenant2 = _db2.query(Tenant).filter(
-                    Tenant.installationId == str(installation_id)
-                ).first()
+                _tenant2 = (
+                    _db2.query(Tenant).filter(Tenant.installationId == str(installation_id)).first()
+                )
                 if _tenant2:
-                    _repo = _db2.query(Repository).filter(
-                        Repository.tenantId == _tenant2.id,
-                        Repository.name == repo_name,
-                    ).first()
+                    _repo = (
+                        _db2.query(Repository)
+                        .filter(
+                            Repository.tenantId == _tenant2.id,
+                            Repository.name == repo_name,
+                        )
+                        .first()
+                    )
                     if _repo is not None and _repo.enabled is False:
                         logger.info(
                             "Repo is paused — skipping analysis",
@@ -461,17 +451,22 @@ async def handle_pull_request(
         try:
             from src.pipeline.job_manager import SessionLocal
             from src.storage.sql_models import Tenant as _Tenant
+
             _db_ai = SessionLocal()
             try:
-                _t = _db_ai.query(_Tenant).filter(
-                    _Tenant.installationId == str(installation_id)
-                ).first()
+                _t = (
+                    _db_ai.query(_Tenant)
+                    .filter(_Tenant.installationId == str(installation_id))
+                    .first()
+                )
                 if _t and _t.workflowConfig:
                     _tenant_patterns = dict(_t.workflowConfig).get("aiAuthorPatterns") or None
             finally:
                 _db_ai.close()
         except Exception as _exc:
-            logger.warning("EPIC-05: failed to load tenant patterns for AI detection", error=str(_exc))
+            logger.warning(
+                "EPIC-05: failed to load tenant patterns for AI detection", error=str(_exc)
+            )
 
     ai_authored, _ai_signal = detect_ai_author(data, tenant_patterns=_tenant_patterns)
     if ai_authored:
@@ -494,14 +489,19 @@ async def handle_pull_request(
     # ENT-03: Budget Guard — hard block when monthly spend exceeds tenant's budget
     if installation_id:
         try:
+            from datetime import datetime
+
             from src.pipeline.job_manager import SessionLocal
-            from src.storage.sql_models import Tenant as _BudgetTenant, Job as _BudgetJob
-            from datetime import datetime, timezone
+            from src.storage.sql_models import Job as _BudgetJob
+            from src.storage.sql_models import Tenant as _BudgetTenant
+
             _db_budget = SessionLocal()
             try:
-                _bt = _db_budget.query(_BudgetTenant).filter(
-                    _BudgetTenant.installationId == str(installation_id)
-                ).first()
+                _bt = (
+                    _db_budget.query(_BudgetTenant)
+                    .filter(_BudgetTenant.installationId == str(installation_id))
+                    .first()
+                )
                 if _bt:
                     # Platform safety cap: FREE tenants using the bundled key get max $0.50/mo
                     # regardless of their budget setting. This protects platform LLM costs.
@@ -509,12 +509,18 @@ async def handle_pull_request(
                     _llm_cfg = dict(_bt.llmConfig) if _bt.llmConfig else {}
                     _using_platform_llm = not _llm_cfg.get("apiKey") and not _llm_cfg.get("baseUrl")
                     if _bt.plan == "FREE" and _using_platform_llm:
-                        _month_start_cap = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                        _cap_jobs = _db_budget.query(_BudgetJob).filter(
-                            _BudgetJob.tenantId == _bt.id,
-                            _BudgetJob.status == "COMPLETED",
-                            _BudgetJob.createdAt >= _month_start_cap,
-                        ).all()
+                        _month_start_cap = datetime.now(UTC).replace(
+                            day=1, hour=0, minute=0, second=0, microsecond=0
+                        )
+                        _cap_jobs = (
+                            _db_budget.query(_BudgetJob)
+                            .filter(
+                                _BudgetJob.tenantId == _bt.id,
+                                _BudgetJob.status == "COMPLETED",
+                                _BudgetJob.createdAt >= _month_start_cap,
+                            )
+                            .all()
+                        )
                         _platform_spend = sum(
                             (j.result or {}).get("llm_usage", {}).get("estimated_cost_usd", 0.0)
                             for j in _cap_jobs
@@ -541,12 +547,18 @@ async def handle_pull_request(
                     _budget = _billing.get("monthlyBudgetUsd")
                     if _budget and float(_budget) > 0:
                         # Sum estimated_cost_usd for COMPLETED jobs this calendar month
-                        _month_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                        _month_jobs = _db_budget.query(_BudgetJob).filter(
-                            _BudgetJob.tenantId == _bt.id,
-                            _BudgetJob.status == "COMPLETED",
-                            _BudgetJob.createdAt >= _month_start,
-                        ).all()
+                        _month_start = datetime.now(UTC).replace(
+                            day=1, hour=0, minute=0, second=0, microsecond=0
+                        )
+                        _month_jobs = (
+                            _db_budget.query(_BudgetJob)
+                            .filter(
+                                _BudgetJob.tenantId == _bt.id,
+                                _BudgetJob.status == "COMPLETED",
+                                _BudgetJob.createdAt >= _month_start,
+                            )
+                            .all()
+                        )
                         _month_spend = sum(
                             (j.result or {}).get("llm_usage", {}).get("estimated_cost_usd", 0.0)
                             for j in _month_jobs
@@ -571,14 +583,17 @@ async def handle_pull_request(
     # GAP-01: Tier quota enforcement — block over-quota tenants before enqueue
     if installation_id:
         try:
+            from src.billing.quota import check_pr_quota, check_repo_quota
             from src.pipeline.job_manager import SessionLocal
             from src.storage.sql_models import Tenant as _QuotaTenant
-            from src.billing.quota import check_pr_quota, check_repo_quota
+
             _db_quota = SessionLocal()
             try:
-                _qt = _db_quota.query(_QuotaTenant).filter(
-                    _QuotaTenant.installationId == str(installation_id)
-                ).first()
+                _qt = (
+                    _db_quota.query(_QuotaTenant)
+                    .filter(_QuotaTenant.installationId == str(installation_id))
+                    .first()
+                )
                 if _qt:
                     # Shared data for GAP-D check run annotation
                     _quota_owner = repository.get("owner", {}).get("login", "")
@@ -589,21 +604,27 @@ async def handle_pull_request(
                     try:
                         if getattr(_qt, "privateKey", None):
                             from src.security.crypto import decrypt as _decrypt_key
+
                             _quota_pk = _decrypt_key(_qt.privateKey)
                     except Exception:
                         pass
 
                     # Repo quota — ensure tenant is not monitoring more repos than their plan allows
                     _repo_allowed, _repo_reason = check_repo_quota(
-                        _qt, _db_quota,
+                        _qt,
+                        _db_quota,
                         repo_full_name=f"{_quota_owner}/{_quota_repo}",
                     )
                     if not _repo_allowed:
                         if _quota_sha and _quota_owner and _quota_repo:
                             await _post_quota_exceeded_check_run(
-                                installation_id, _quota_owner, _quota_repo,
-                                _quota_sha, _repo_reason,
-                                app_id=_quota_app_id, private_key=_quota_pk,
+                                installation_id,
+                                _quota_owner,
+                                _quota_repo,
+                                _quota_sha,
+                                _repo_reason,
+                                app_id=_quota_app_id,
+                                private_key=_quota_pk,
                             )
                         raise HTTPException(
                             status_code=402,
@@ -617,23 +638,36 @@ async def handle_pull_request(
                     if not _allowed:
                         if _quota_sha and _quota_owner and _quota_repo:
                             await _post_quota_exceeded_check_run(
-                                installation_id, _quota_owner, _quota_repo,
-                                _quota_sha, _quota_reason,
-                                app_id=_quota_app_id, private_key=_quota_pk,
+                                installation_id,
+                                _quota_owner,
+                                _quota_repo,
+                                _quota_sha,
+                                _quota_reason,
+                                app_id=_quota_app_id,
+                                private_key=_quota_pk,
                             )
                         # QUOTA-UX-01: persist a QUOTA_EXCEEDED job so the PR
                         # is visible in the dashboard as "held back" — not silently dropped.
                         try:
-                            from src.storage.sql_models import Repository as _QRepo, JobStatus as _QJobStatus
                             import uuid as _uuid
-                            _qrepo = _db_quota.query(_QRepo).filter(
-                                _QRepo.tenantId == _qt.id,
-                                _QRepo.name == _quota_repo,
-                            ).first()
+
+                            from src.storage.sql_models import JobStatus as _QJobStatus
+                            from src.storage.sql_models import Repository as _QRepo
+
+                            _qrepo = (
+                                _db_quota.query(_QRepo)
+                                .filter(
+                                    _QRepo.tenantId == _qt.id,
+                                    _QRepo.name == _quota_repo,
+                                )
+                                .first()
+                            )
                             if _qrepo and pr_number:
-                                from src.storage.sql_models import Job as _QJob
                                 from datetime import datetime as _dt
+
+                                from src.storage.sql_models import Job as _QJob
                                 from src.storage.sql_models import TriageStatus as _QTriageStatus
+
                                 _qjob = _QJob(
                                     id=f"job-{_uuid.uuid4().hex}",
                                     tenantId=_qt.id,
@@ -655,10 +689,13 @@ async def handle_pull_request(
                                 _db_quota.commit()
                                 logger.info(
                                     "QUOTA-UX-01: quota-exceeded job recorded",
-                                    pr=pr_number, repo=f"{_quota_owner}/{_quota_repo}",
+                                    pr=pr_number,
+                                    repo=f"{_quota_owner}/{_quota_repo}",
                                 )
                         except Exception as _qjob_err:
-                            logger.warning("QUOTA-UX-01: failed to record quota job", error=str(_qjob_err))
+                            logger.warning(
+                                "QUOTA-UX-01: failed to record quota job", error=str(_qjob_err)
+                            )
                         raise HTTPException(
                             status_code=402,
                             detail={
@@ -680,7 +717,9 @@ async def handle_pull_request(
     if _head_sha_check:
         try:
             from src.pipeline.job_manager import SessionLocal as _IdemSession
-            from src.storage.sql_models import Job as _IdemJob, JobStatus as _IdemStatus
+            from src.storage.sql_models import Job as _IdemJob
+            from src.storage.sql_models import JobStatus as _IdemStatus
+
             _idem_db = _IdemSession()
             try:
                 _existing = (
@@ -689,7 +728,8 @@ async def handle_pull_request(
                         _IdemJob.prNumber == pr_number,
                         _IdemJob.result.op("->>")(  # type: ignore[attr-defined]
                             "head_sha"
-                        ) == _head_sha_check,
+                        )
+                        == _head_sha_check,
                         _IdemJob.status != _IdemStatus.FAILED,
                     )
                     .first()
@@ -709,8 +749,9 @@ async def handle_pull_request(
 
     # Enqueue the analysis job
     from rq import Retry
-    from src.worker.queue import get_queue, QUEUE_DEFAULT
-    from src.worker.jobs import analyze_pr_job, _on_job_failure
+
+    from src.worker.jobs import _on_job_failure, analyze_pr_job
+    from src.worker.queue import QUEUE_DEFAULT, get_queue
 
     queue = get_queue(QUEUE_DEFAULT)
     job = queue.enqueue(
@@ -734,21 +775,16 @@ async def handle_pull_request(
         failure_ttl=604800,
         on_failure=_on_job_failure,
     )
-    
-    logger.info(
-        "Queued PR analysis job",
-        job_id=job.id,
-        pr=pr_number,
-        repo=repo_full_name
-    )
-    
+
+    logger.info("Queued PR analysis job", job_id=job.id, pr=pr_number, repo=repo_full_name)
+
     return {
         "status": "queued",
         "job_id": job.id,
         "delivery_id": delivery_id,
         "repository": repo_full_name,
         "pull_request": pr_number,
-        "message": "Documentation drift analysis queued"
+        "message": "Documentation drift analysis queued",
     }
 
 
@@ -763,22 +799,27 @@ async def handle_fix_pr_merged(data: dict[str, Any], head_ref: str) -> dict[str,
     # Extract original PR number from branch name
     match = re.match(r"docugardener-fix-(\d+)-", head_ref)
     if not match:
-        logger.warning("handle_fix_pr_merged: could not parse PR number from branch", branch=head_ref)
+        logger.warning(
+            "handle_fix_pr_merged: could not parse PR number from branch", branch=head_ref
+        )
         return {"status": "skipped", "reason": "could not parse branch"}
 
     original_pr_number = int(match.group(1))
     installation_id = data.get("installation", {}).get("id")
 
     try:
+        from datetime import datetime
+
         from src.pipeline.job_manager import SessionLocal
         from src.storage.sql_models import Job, Tenant, TriageStatus
-        from datetime import datetime
 
         db = SessionLocal()
         try:
             tenant = db.query(Tenant).filter(Tenant.installationId == str(installation_id)).first()
             if not tenant:
-                logger.warning("handle_fix_pr_merged: tenant not found", installation_id=installation_id)
+                logger.warning(
+                    "handle_fix_pr_merged: tenant not found", installation_id=installation_id
+                )
                 return {"status": "skipped", "reason": "tenant not found"}
 
             # Resolve ALL jobs in FIX_PR_OPEN state for this PR number.
@@ -827,12 +868,21 @@ async def handle_fix_pr_merged(data: dict[str, Any], head_ref: str) -> dict[str,
             check_run_id = result_data_early.get("check_run_id")
             fix_installation_id = result_data_early.get("installation_id")
             repo_full_name = result_data_early.get("repo_full_name")
-            if check_run_id and fix_installation_id and repo_full_name and tenant.appId and tenant.privateKey:
+            if (
+                check_run_id
+                and fix_installation_id
+                and repo_full_name
+                and tenant.appId
+                and tenant.privateKey
+            ):
                 try:
                     from src.github.app import get_github_client
                     from src.security.encryption import decrypt_credential
+
                     _private_key = decrypt_credential(tenant.privateKey)
-                    client = get_github_client(int(fix_installation_id), app_id=int(tenant.appId), private_key=_private_key)
+                    client = get_github_client(
+                        int(fix_installation_id), app_id=int(tenant.appId), private_key=_private_key
+                    )
                     github_repo = client.get_repo(repo_full_name)
                     check_run = github_repo.get_check_run(int(check_run_id))
                     check_run.edit(
@@ -862,18 +912,24 @@ async def handle_fix_pr_merged(data: dict[str, Any], head_ref: str) -> dict[str,
             github_issue_number = result_data.get("github_issue_number")
             github_issue_repo = result_data.get("github_issue_repo")
             linear_issue_id = result_data.get("linear_issue_id")
-            if (jira_ticket_key or github_issue_number or linear_issue_id) and tenant.workflowConfig:
+            if (
+                jira_ticket_key or github_issue_number or linear_issue_id
+            ) and tenant.workflowConfig:
                 try:
+                    import asyncio
+
                     from src.notifications.dispatcher import NotificationDispatcher
                     from src.security.crypto import decrypt as _decrypt_key
-                    import asyncio
+
                     _wc = dict(tenant.workflowConfig)
                     _granted = _wc.get("grantedFeatures")  # list[str] | None
                     dispatcher = NotificationDispatcher(
                         workflow_config=_wc,
                         tenant_plan=getattr(tenant, "plan", "FREE"),
                         github_app_id=tenant.appId,
-                        github_private_key=_decrypt_key(tenant.privateKey) if tenant.privateKey else None,
+                        github_private_key=_decrypt_key(tenant.privateKey)
+                        if tenant.privateKey
+                        else None,
                         installation_id=tenant.installationId,
                         granted_features=_granted,
                     )
@@ -884,13 +940,17 @@ async def handle_fix_pr_merged(data: dict[str, Any], head_ref: str) -> dict[str,
                             f"has been merged{' — ' + fix_pr_url if fix_pr_url else ''}.\n"
                             f"Docs are now in sync."
                         )
-                        asyncio.run(dispatcher.post_jira_lifecycle_comment(jira_ticket_key, comment))
+                        asyncio.run(
+                            dispatcher.post_jira_lifecycle_comment(jira_ticket_key, comment)
+                        )
                     if github_issue_number:
-                        asyncio.run(dispatcher.close_github_issue(
-                            repo=github_issue_repo,
-                            issue_number=int(github_issue_number),
-                            comment=f"✅ Fixed by merged documentation PR. Drift for PR #{original_pr_number} is now resolved.",
-                        ))
+                        asyncio.run(
+                            dispatcher.close_github_issue(
+                                repo=github_issue_repo,
+                                issue_number=int(github_issue_number),
+                                comment=f"✅ Fixed by merged documentation PR. Drift for PR #{original_pr_number} is now resolved.",
+                            )
+                        )
                     if linear_issue_id:
                         asyncio.run(dispatcher.resolve_linear_issue(linear_issue_id))
                 except Exception as e:
@@ -917,19 +977,19 @@ async def handle_installation(data: dict[str, Any]) -> dict[str, Any]:
     account = installation.get("account", {})
     # owner_id is the GitHub Organization or User ID
     owner_id = str(account.get("id"))
-    
+
     logger.info(
         "Processing installation event",
         action=action,
         owner_id=owner_id,
-        installation_id=installation_id
+        installation_id=installation_id,
     )
-    
+
     # We care about new installations and updating permissions
     if action in ["created", "new_permissions_accepted"]:
         from src.pipeline.job_manager import SessionLocal
         from src.storage.sql_models import Tenant
-        
+
         db = SessionLocal()
         try:
             # Match by githubOrgId (which we save during manifest callback)
@@ -937,7 +997,11 @@ async def handle_installation(data: dict[str, Any]) -> dict[str, Any]:
             if tenant:
                 tenant.installationId = str(installation_id)
                 db.commit()
-                logger.info("Updated tenant installation ID", tenant_id=tenant.id, installation_id=installation_id)
+                logger.info(
+                    "Updated tenant installation ID",
+                    tenant_id=tenant.id,
+                    installation_id=installation_id,
+                )
             else:
                 logger.warning("Tenant not found for installation", owner_id=owner_id)
         except Exception as e:
@@ -945,5 +1009,5 @@ async def handle_installation(data: dict[str, Any]) -> dict[str, Any]:
             logger.error("Failed to update tenant installation", error=str(e))
         finally:
             db.close()
-            
+
     return {"status": "success", "action": action}

@@ -13,18 +13,20 @@ Covers:
 """
 
 import os
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 
 # ── get_secret_key() (src/security/crypto.py) ─────────────────────────────────
 
-class TestGetSecretKey:
 
+class TestGetSecretKey:
     def _reload_and_get(self, env_overrides: dict):
         """Re-import get_secret_key with patched env."""
         import importlib
+
         import src.security.crypto as crypto_mod
+
         with patch.dict(os.environ, env_overrides, clear=False):
             # Reload to pick up any module-level state (none here — function reads env at call time)
             importlib.reload(crypto_mod)
@@ -37,8 +39,10 @@ class TestGetSecretKey:
         env_without_key["APP_ENV"] = "production"
 
         with patch.dict(os.environ, env_without_key, clear=True):
-            from src.security.crypto import get_secret_key
-            import importlib, src.security.crypto as m
+            import importlib
+
+            import src.security.crypto as m
+
             importlib.reload(m)
             with pytest.raises(RuntimeError, match="ENCRYPTION_KEY is required"):
                 m.get_secret_key()
@@ -49,7 +53,10 @@ class TestGetSecretKey:
         env_without_key["APP_ENV"] = "staging"
 
         with patch.dict(os.environ, env_without_key, clear=True):
-            import importlib, src.security.crypto as m
+            import importlib
+
+            import src.security.crypto as m
+
             importlib.reload(m)
             with pytest.raises(RuntimeError, match="ENCRYPTION_KEY is required"):
                 m.get_secret_key()
@@ -60,7 +67,10 @@ class TestGetSecretKey:
         env_without_key["APP_ENV"] = "development"
 
         with patch.dict(os.environ, env_without_key, clear=True):
-            import importlib, src.security.crypto as m
+            import importlib
+
+            import src.security.crypto as m
+
             importlib.reload(m)
             key = m.get_secret_key()
             assert isinstance(key, bytes)
@@ -68,8 +78,13 @@ class TestGetSecretKey:
 
     def test_raises_on_non_hex_key(self):
         """ENCRYPTION_KEY with non-hex chars → RuntimeError regardless of env."""
-        with patch.dict(os.environ, {"ENCRYPTION_KEY": "this-is-not-hex-!!!!", "APP_ENV": "development"}):
-            import importlib, src.security.crypto as m
+        with patch.dict(
+            os.environ, {"ENCRYPTION_KEY": "this-is-not-hex-!!!!", "APP_ENV": "development"}
+        ):
+            import importlib
+
+            import src.security.crypto as m
+
             importlib.reload(m)
             with pytest.raises(RuntimeError, match="malformed"):
                 m.get_secret_key()
@@ -77,7 +92,10 @@ class TestGetSecretKey:
     def test_raises_on_short_hex_key(self):
         """ENCRYPTION_KEY with only 4 hex chars (2 bytes) → RuntimeError."""
         with patch.dict(os.environ, {"ENCRYPTION_KEY": "aabb", "APP_ENV": "development"}):
-            import importlib, src.security.crypto as m
+            import importlib
+
+            import src.security.crypto as m
+
             importlib.reload(m)
             with pytest.raises(RuntimeError, match="32 bytes"):
                 m.get_secret_key()
@@ -86,7 +104,10 @@ class TestGetSecretKey:
         """Valid 64-hex-char key → returns exactly 32 bytes."""
         valid_key = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
         with patch.dict(os.environ, {"ENCRYPTION_KEY": valid_key, "APP_ENV": "production"}):
-            import importlib, src.security.crypto as m
+            import importlib
+
+            import src.security.crypto as m
+
             importlib.reload(m)
             key = m.get_secret_key()
             assert isinstance(key, bytes)
@@ -96,11 +117,12 @@ class TestGetSecretKey:
 
 # ── src/security/encryption.py — regression guard ────────────────────────────
 
-class TestEncryptionModuleGuard:
 
+class TestEncryptionModuleGuard:
     def test_encryption_module_raises_without_key(self):
         """src/security/encryption.py already raises ValueError when key absent — regression."""
         from unittest.mock import patch as _patch
+
         import src.security.encryption as enc_mod
 
         with _patch.object(enc_mod, "settings") as mock_settings:
@@ -120,8 +142,8 @@ class TestEncryptionModuleGuard:
 
 # ── main.py lifespan startup validation ───────────────────────────────────────
 
-class TestLifespanStartupValidation:
 
+class TestLifespanStartupValidation:
     def _make_mock_settings(self, app_env: str, encryption_key=None):
         s = MagicMock()
         s.app_env = app_env
@@ -135,8 +157,9 @@ class TestLifespanStartupValidation:
     @pytest.mark.asyncio
     async def test_lifespan_raises_in_production_without_key(self):
         """lifespan startup raises RuntimeError when production + no ENCRYPTION_KEY."""
-        from src.main import lifespan
         from fastapi import FastAPI
+
+        from src.main import lifespan
 
         mock_settings = self._make_mock_settings("production", encryption_key=None)
 
@@ -149,8 +172,9 @@ class TestLifespanStartupValidation:
     @pytest.mark.asyncio
     async def test_lifespan_raises_in_production_with_malformed_key(self):
         """lifespan startup raises RuntimeError when key is not valid hex."""
-        from src.main import lifespan
         from fastapi import FastAPI
+
+        from src.main import lifespan
 
         mock_settings = self._make_mock_settings("production", encryption_key="not-hex-!!!")
 
@@ -163,8 +187,9 @@ class TestLifespanStartupValidation:
     @pytest.mark.asyncio
     async def test_lifespan_passes_in_development_without_key(self):
         """lifespan startup does NOT raise in development with no ENCRYPTION_KEY."""
-        from src.main import lifespan
         from fastapi import FastAPI
+
+        from src.main import lifespan
 
         valid_key = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
         mock_settings = self._make_mock_settings("development", encryption_key=None)

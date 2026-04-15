@@ -6,9 +6,11 @@ These functions are strictly compatible with the Node.js `crypto`
 implementation found in `web/lib/encryption.ts`.
 """
 
-import os
 import hashlib
+import os
+
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
 
 def get_secret_key() -> bytes:
     """
@@ -44,48 +46,50 @@ def get_secret_key() -> bytes:
     # Development fallback — matches Node.js web/lib/encryption.ts
     return hashlib.sha256(b"local-dev-secret-key-12345").digest()
 
+
 def decrypt(text: str) -> str:
     """
     Decrypts a string that was encrypted by Node.js web/lib/encryption.ts.
-    
+
     Args:
         text: String in the format "ivHex:authTagHex:encryptedHex"
-        
+
     Returns:
         The decrypted plaintext string.
     """
     try:
-        iv_hex, auth_tag_hex, encrypted_hex = text.split(':')
+        iv_hex, auth_tag_hex, encrypted_hex = text.split(":")
         iv = bytes.fromhex(iv_hex)
         auth_tag = bytes.fromhex(auth_tag_hex)
         encrypted = bytes.fromhex(encrypted_hex)
-        
+
         # In the Python cryptography library, the tag is appended to the ciphertext
         aesgcm = AESGCM(get_secret_key())
         decrypted = aesgcm.decrypt(iv, encrypted + auth_tag, None)
-        return decrypted.decode('utf-8')
+        return decrypted.decode("utf-8")
     except Exception as e:
         raise ValueError(f"Failed to decrypt string: {e}")
+
 
 def encrypt(text: str) -> str:
     """
     Encrypts a string in a format compatible with Node.js web/lib/encryption.ts.
-    
+
     Args:
         text: Plaintext string to encrypt.
-        
+
     Returns:
         String in the format "ivHex:authTagHex:encryptedHex"
     """
     import os as sys_os
-    
+
     iv = sys_os.urandom(12)
     aesgcm = AESGCM(get_secret_key())
-    
+
     # Python cryptography appends the 16-byte auth tag to the end of the ciphertext
-    ciphertext_and_tag = aesgcm.encrypt(iv, text.encode('utf-8'), None)
-    
+    ciphertext_and_tag = aesgcm.encrypt(iv, text.encode("utf-8"), None)
+
     encrypted = ciphertext_and_tag[:-16]
     auth_tag = ciphertext_and_tag[-16:]
-    
+
     return f"{iv.hex()}:{auth_tag.hex()}:{encrypted.hex()}"

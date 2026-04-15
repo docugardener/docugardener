@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from datetime import datetime
 import uuid
+from datetime import datetime
 from typing import Any
-from sqlalchemy import create_engine, update
+
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.core.config import settings
@@ -12,6 +13,7 @@ from src.storage.sql_models import Job, JobStatus, Repository
 engine = create_engine(settings.sql_database_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def get_db():
     """FastAPI dependency for database sessions."""
     db = SessionLocal()
@@ -20,12 +22,13 @@ def get_db():
     finally:
         db.close()
 
+
 class JobManager:
     """
     Manages the lifecycle of analysis jobs in the database.
     Querying happens via SQLAlchemy directly on the 'Job' table.
     """
-    
+
     def __init__(self):
         self._session_factory = SessionLocal
 
@@ -36,19 +39,23 @@ class JobManager:
         """
         session = self._session_factory()
         try:
-            repo = session.query(Repository).filter_by(tenantId=tenant_id, githubRepoId=str(github_repo_id)).first()
+            repo = (
+                session.query(Repository)
+                .filter_by(tenantId=tenant_id, githubRepoId=str(github_repo_id))
+                .first()
+            )
             if repo:
                 return repo.id
-            
+
             # Create if not exists (Lazy creation helpful for dev/testing)
             # In prod, repo should exist via onboarding, but this is safe fallback
-            new_id = f"repo-{uuid.uuid4().hex[:10]}" # Or use cuid generator if we had one
+            new_id = f"repo-{uuid.uuid4().hex[:10]}"  # Or use cuid generator if we had one
             repo = Repository(
                 id=new_id,
                 tenantId=tenant_id,
                 githubRepoId=str(github_repo_id),
                 name=name,
-                enabled=True
+                enabled=True,
             )
             session.add(repo)
             session.commit()
@@ -66,7 +73,7 @@ class JobManager:
         """
         session = self._session_factory()
         try:
-            # We assume repo_id is the internal DB ID here. 
+            # We assume repo_id is the internal DB ID here.
             # If caller has github ID, they should use resolve_repo first.
             job_id = f"job-{uuid.uuid4().hex}"
             job = Job(
@@ -76,7 +83,7 @@ class JobManager:
                 prNumber=pr_number,
                 status=JobStatus.QUEUED,
                 logs=[],
-                result={}
+                result={},
             )
             session.add(job)
             session.commit()
@@ -87,7 +94,9 @@ class JobManager:
         finally:
             session.close()
 
-    def update_status(self, job_id: str, status: JobStatus, result: dict[str, Any] | None = None) -> None:
+    def update_status(
+        self, job_id: str, status: JobStatus, result: dict[str, Any] | None = None
+    ) -> None:
         """Update job status and optionally the result."""
         session = self._session_factory()
         try:
@@ -146,6 +155,7 @@ class JobManager:
             raise
         finally:
             session.close()
+
 
 # Global Instance
 job_manager = JobManager()

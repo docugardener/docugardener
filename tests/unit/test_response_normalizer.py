@@ -11,7 +11,6 @@ Coverage:
 7. normalize_usage — never raises on malformed input
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 from src.agents.model_registry import ModelCapability
@@ -23,10 +22,10 @@ from src.agents.response_normalizer import (
     normalize_usage,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _gemini_response(texts: list[str], thought_flags: list[bool] | None = None) -> MagicMock:
     """Build a mock Gemini GenerateContentResponse."""
@@ -34,7 +33,7 @@ def _gemini_response(texts: list[str], thought_flags: list[bool] | None = None) 
     for i, text in enumerate(texts):
         p = MagicMock()
         p.text = text
-        p.thought = (thought_flags[i] if thought_flags else False)
+        p.thought = thought_flags[i] if thought_flags else False
         parts.append(p)
     content = MagicMock()
     content.parts = parts
@@ -68,6 +67,7 @@ def _cap(**overrides) -> ModelCapability:
 # ---------------------------------------------------------------------------
 # adapt_prompts
 # ---------------------------------------------------------------------------
+
 
 class TestAdaptPrompts:
     def test_standard_model_leaves_prompts_unchanged(self):
@@ -108,6 +108,7 @@ class TestAdaptPrompts:
 # ---------------------------------------------------------------------------
 # extract_content — Gemini
 # ---------------------------------------------------------------------------
+
 
 class TestExtractContentGemini:
     def test_standard_gemini_returns_text(self):
@@ -170,6 +171,7 @@ class TestExtractContentGemini:
 # extract_content — OpenAI
 # ---------------------------------------------------------------------------
 
+
 class TestExtractContentOpenAI:
     def _openai_response_obj(self, content: str) -> MagicMock:
         msg = MagicMock()
@@ -223,6 +225,7 @@ class TestExtractContentOpenAI:
 # extract_content — Ollama native
 # ---------------------------------------------------------------------------
 
+
 class TestExtractContentOllamaNative:
     def test_ollama_native_response_field(self):
         raw = {"response": "Llama answer.", "done": True}
@@ -242,6 +245,7 @@ class TestExtractContentOllamaNative:
 # ---------------------------------------------------------------------------
 # normalize_usage
 # ---------------------------------------------------------------------------
+
 
 class TestNormalizeUsage:
     # ── Gemini ────────────────────────────────────────────────────────────────

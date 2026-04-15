@@ -29,6 +29,7 @@ DEPLOYMENT_MD = ROOT / "DEPLOYMENT.md"
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def backup_script_content():
     return BACKUP_SCRIPT.read_text()
@@ -48,6 +49,7 @@ def deployment_content():
 # Backup script — existence and basics
 # ---------------------------------------------------------------------------
 
+
 class TestBackupScriptBasics:
     def test_script_exists(self):
         assert BACKUP_SCRIPT.exists()
@@ -62,6 +64,7 @@ class TestBackupScriptBasics:
 # ---------------------------------------------------------------------------
 # Backup script — PostgreSQL backup
 # ---------------------------------------------------------------------------
+
 
 class TestBackupScriptPostgres:
     def test_pg_dump_command_present(self, backup_script_content):
@@ -90,6 +93,7 @@ class TestBackupScriptPostgres:
 # Backup script — Weaviate backup
 # ---------------------------------------------------------------------------
 
+
 class TestBackupScriptWeaviate:
     def test_weaviate_backup_api_called(self, backup_script_content):
         assert "/v1/backups/filesystem" in backup_script_content
@@ -117,6 +121,7 @@ class TestBackupScriptWeaviate:
 # Backup script — S3 upload
 # ---------------------------------------------------------------------------
 
+
 class TestBackupScriptS3:
     def test_s3_upload_conditional(self, backup_script_content):
         assert "BACKUP_S3_BUCKET" in backup_script_content
@@ -132,6 +137,7 @@ class TestBackupScriptS3:
 # ---------------------------------------------------------------------------
 # Backup script — retention
 # ---------------------------------------------------------------------------
+
 
 class TestBackupScriptRetention:
     def test_retention_days_configurable(self, backup_script_content):
@@ -152,6 +158,7 @@ class TestBackupScriptRetention:
 # Docker Compose — backup-cron service
 # ---------------------------------------------------------------------------
 
+
 class TestComposeBackupService:
     def test_backup_cron_service_exists(self, compose_content):
         assert "backup-cron:" in compose_content
@@ -166,7 +173,12 @@ class TestComposeBackupService:
         for line in lines:
             if "backup-cron:" in line:
                 in_backup = True
-            elif in_backup and line.strip() and not line.startswith(" ") and not line.startswith("\t"):
+            elif (
+                in_backup
+                and line.strip()
+                and not line.startswith(" ")
+                and not line.startswith("\t")
+            ):
                 break
             elif in_backup and "image:" in line:
                 assert "postgres" in line.lower()
@@ -191,7 +203,12 @@ class TestComposeBackupService:
                 in_depends = True
             elif in_backup and in_depends and "postgres:" in line:
                 return
-            elif in_backup and line.strip() and not line.startswith(" ") and not line.startswith("\t"):
+            elif (
+                in_backup
+                and line.strip()
+                and not line.startswith(" ")
+                and not line.startswith("\t")
+            ):
                 break
         pytest.fail("backup-cron does not depend on postgres")
 
@@ -206,7 +223,12 @@ class TestComposeBackupService:
                 in_depends = True
             elif in_backup and in_depends and "weaviate:" in line:
                 return
-            elif in_backup and line.strip() and not line.startswith(" ") and not line.startswith("\t"):
+            elif (
+                in_backup
+                and line.strip()
+                and not line.startswith(" ")
+                and not line.startswith("\t")
+            ):
                 break
         pytest.fail("backup-cron does not depend on weaviate")
 
@@ -219,13 +241,19 @@ class TestComposeBackupService:
             elif in_backup and "restart:" in line:
                 assert "unless-stopped" in line
                 return
-            elif in_backup and line.strip() and not line.startswith(" ") and not line.startswith("\t"):
+            elif (
+                in_backup
+                and line.strip()
+                and not line.startswith(" ")
+                and not line.startswith("\t")
+            ):
                 break
 
 
 # ---------------------------------------------------------------------------
 # Docker Compose — Weaviate backup module
 # ---------------------------------------------------------------------------
+
 
 class TestComposeWeaviateBackup:
     def test_weaviate_backup_module_enabled(self, compose_content):
@@ -241,13 +269,22 @@ class TestComposeWeaviateBackup:
         in_weaviate = False
         in_volumes = False
         for line in lines:
-            if "weaviate:" in line and "docugardener-weaviate" not in line and "WEAVIATE" not in line:
+            if (
+                "weaviate:" in line
+                and "docugardener-weaviate" not in line
+                and "WEAVIATE" not in line
+            ):
                 in_weaviate = True
             elif in_weaviate and "volumes:" in line:
                 in_volumes = True
             elif in_weaviate and in_volumes and "backup-data:" in line:
                 return
-            elif in_weaviate and line.strip() and not line.startswith(" ") and not line.startswith("\t"):
+            elif (
+                in_weaviate
+                and line.strip()
+                and not line.startswith(" ")
+                and not line.startswith("\t")
+            ):
                 break
         pytest.fail("Weaviate does not mount backup-data volume")
 
@@ -255,6 +292,7 @@ class TestComposeWeaviateBackup:
 # ---------------------------------------------------------------------------
 # Docker Compose — backup-data volume declared
 # ---------------------------------------------------------------------------
+
 
 class TestComposeBackupVolume:
     def test_backup_data_volume_declared(self, compose_content):
@@ -267,7 +305,12 @@ class TestComposeBackupVolume:
                 in_top_volumes = True
             elif in_top_volumes and "backup-data:" in stripped:
                 return
-            elif in_top_volumes and not stripped.startswith(" ") and stripped and stripped != "volumes:":
+            elif (
+                in_top_volumes
+                and not stripped.startswith(" ")
+                and stripped
+                and stripped != "volumes:"
+            ):
                 break
         pytest.fail("backup-data volume not declared in top-level volumes")
 
@@ -275,6 +318,7 @@ class TestComposeBackupVolume:
 # ---------------------------------------------------------------------------
 # DEPLOYMENT.md — backup documentation
 # ---------------------------------------------------------------------------
+
 
 class TestDeploymentDocs:
     def test_backups_section_exists(self, deployment_content):

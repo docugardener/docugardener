@@ -24,11 +24,11 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from src.core.logging import get_logger
 
@@ -122,9 +122,7 @@ def validate_license_file(
 
     pub_key_bytes = key_path.read_bytes()
     if len(pub_key_bytes) != 32:
-        raise LicenseError(
-            f"HYB-07: Public key must be 32 raw bytes; got {len(pub_key_bytes)}"
-        )
+        raise LicenseError(f"HYB-07: Public key must be 32 raw bytes; got {len(pub_key_bytes)}")
 
     public_key = Ed25519PublicKey.from_public_bytes(pub_key_bytes)
 
@@ -149,7 +147,7 @@ def validate_license_file(
         raise LicenseError(f"HYB-07: Invalid date format in license: {exc}") from exc
 
     # Check expiry
-    current_time = now or datetime.now(tz=timezone.utc)
+    current_time = now or datetime.now(tz=UTC)
     if current_time > expires_at:
         raise LicenseExpiredError(
             f"HYB-07: License expired on {expires_at.date()}. "

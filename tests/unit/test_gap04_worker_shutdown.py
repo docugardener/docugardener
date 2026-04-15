@@ -9,10 +9,9 @@ Verifies that docker/docker-compose.yml:
 """
 
 import pathlib
-import yaml
-import re
-import pytest
 
+import pytest
+import yaml
 
 COMPOSE_PATH = pathlib.Path(__file__).parents[2] / "docker" / "docker-compose.yml"
 
@@ -34,6 +33,7 @@ def worker_service(compose: dict) -> dict:
 
 # ── A. stop_grace_period present ─────────────────────────────────────────────
 
+
 def test_stop_grace_period_is_set(worker_service):
     """worker service must define stop_grace_period."""
     assert "stop_grace_period" in worker_service, (
@@ -42,6 +42,7 @@ def test_stop_grace_period_is_set(worker_service):
 
 
 # ── B. Grace period >= 60 seconds ─────────────────────────────────────────────
+
 
 def _parse_duration_seconds(value: str | int) -> int:
     """Convert Docker duration string ('60s', '2m', '90s') to seconds."""
@@ -61,12 +62,11 @@ def test_stop_grace_period_at_least_60s(worker_service):
     """stop_grace_period must be >= 60 seconds so in-flight jobs can finish."""
     raw = worker_service.get("stop_grace_period", "0s")
     seconds = _parse_duration_seconds(raw)
-    assert seconds >= 60, (
-        f"GAP-04: stop_grace_period should be >= 60s, got {raw!r} ({seconds}s)"
-    )
+    assert seconds >= 60, f"GAP-04: stop_grace_period should be >= 60s, got {raw!r} ({seconds}s)"
 
 
 # ── C. Worker command targets the right queue ─────────────────────────────────
+
 
 def test_worker_command_targets_default_queue(worker_service):
     """The rq worker command must target the 'default' queue."""
@@ -85,11 +85,10 @@ def test_worker_command_includes_redis_url(worker_service):
 
 # ── D. Restart policy ─────────────────────────────────────────────────────────
 
+
 def test_worker_has_restart_policy(worker_service):
     """Worker should have a restart policy so it recovers from crashes."""
-    assert "restart" in worker_service, (
-        "GAP-04: worker service should define a restart policy"
-    )
+    assert "restart" in worker_service, "GAP-04: worker service should define a restart policy"
 
 
 def test_worker_restart_policy_is_not_always(worker_service):

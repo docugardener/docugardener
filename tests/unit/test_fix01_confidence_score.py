@@ -13,13 +13,12 @@ Covers:
   AC-FIX01-9  create_pr handles None confidence and None recheck gracefully
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 from dataclasses import dataclass, field
-from typing import Optional
 
+import pytest
 
 # ── helper stubs ──────────────────────────────────────────────────────────────
+
 
 @dataclass
 class _VerificationResult:
@@ -38,7 +37,7 @@ class _DocumentationDraft:
     entity_name: str
     file_path: str
     content: str
-    verification: Optional[_VerificationResult] = None
+    verification: _VerificationResult | None = None
     attempts: int = 1
 
     @property
@@ -58,8 +57,8 @@ class _DriftAnalysis:
 
 # ── AC-FIX01-1: confidence_score serialized into drift_analysis ───────────────
 
-class TestDriftAnalysisSerialization:
 
+class TestDriftAnalysisSerialization:
     def _build_drift_analysis_payload(self, drift_analysis: _DriftAnalysis) -> dict:
         """Replicate the handler.py serialization logic for drift_analysis."""
         return {
@@ -68,7 +67,9 @@ class TestDriftAnalysisSerialization:
             "confidence_score": round(drift_analysis.confidence_score, 4),
             "reasons": [
                 {
-                    "entity": (r.get("section") or r.get("entity_name") or "") if isinstance(r, dict) else "",
+                    "entity": (r.get("section") or r.get("entity_name") or "")
+                    if isinstance(r, dict)
+                    else "",
                     "file": r.get("file", "") if isinstance(r, dict) else "",
                     "reason": (r.get("reason") or "") if isinstance(r, dict) else "",
                 }
@@ -78,8 +79,12 @@ class TestDriftAnalysisSerialization:
 
     def test_confidence_score_present_in_serialized_payload(self):
         da = _DriftAnalysis(
-            drift_score=75, severity="significant", required_updates=[],
-            block_merge=True, summary="Large API surface change", confidence_score=0.87,
+            drift_score=75,
+            severity="significant",
+            required_updates=[],
+            block_merge=True,
+            summary="Large API surface change",
+            confidence_score=0.87,
         )
         payload = self._build_drift_analysis_payload(da)
         assert "confidence_score" in payload
@@ -87,16 +92,24 @@ class TestDriftAnalysisSerialization:
 
     def test_confidence_score_rounded_to_4_decimal_places(self):
         da = _DriftAnalysis(
-            drift_score=50, severity="moderate", required_updates=[],
-            block_merge=False, summary="Minor drift", confidence_score=0.666667,
+            drift_score=50,
+            severity="moderate",
+            required_updates=[],
+            block_merge=False,
+            summary="Minor drift",
+            confidence_score=0.666667,
         )
         payload = self._build_drift_analysis_payload(da)
         assert payload["confidence_score"] == 0.6667
 
     def test_default_confidence_score_is_1_0(self):
         da = _DriftAnalysis(
-            drift_score=30, severity="minor", required_updates=[],
-            block_merge=False, summary="Small change", confidence_score=1.0,
+            drift_score=30,
+            severity="minor",
+            required_updates=[],
+            block_merge=False,
+            summary="Small change",
+            confidence_score=1.0,
         )
         payload = self._build_drift_analysis_payload(da)
         assert payload["confidence_score"] == 1.0
@@ -104,26 +117,28 @@ class TestDriftAnalysisSerialization:
 
 # ── AC-FIX01-2/3: recheck_status per documentation update ────────────────────
 
-class TestDocumentationUpdateSerialization:
 
+class TestDocumentationUpdateSerialization:
     def _serialize_update(self, draft: _DocumentationDraft) -> dict:
         """Replicate the handler.py documentation_updates serialization."""
         return {
             "file_path": str(draft.file_path),
             "content": draft.content,
             "recheck_status": (
-                "passed" if draft.is_verified
+                "passed"
+                if draft.is_verified
                 else ("failed" if draft.verification is not None else "skipped")
             ),
             "recheck_confidence": (
-                round(draft.verification.confidence, 4)
-                if draft.verification is not None else None
+                round(draft.verification.confidence, 4) if draft.verification is not None else None
             ),
         }
 
     def test_recheck_status_passed_when_verified(self):
         draft = _DocumentationDraft(
-            entity_name="MyFunc", file_path="docs/api.md", content="# API",
+            entity_name="MyFunc",
+            file_path="docs/api.md",
+            content="# API",
             verification=_VerificationResult(verdict="ACCURATE", confidence=0.92),
         )
         result = self._serialize_update(draft)
@@ -132,7 +147,9 @@ class TestDocumentationUpdateSerialization:
 
     def test_recheck_status_failed_when_verification_ran_but_inaccurate(self):
         draft = _DocumentationDraft(
-            entity_name="MyFunc", file_path="docs/api.md", content="# API",
+            entity_name="MyFunc",
+            file_path="docs/api.md",
+            content="# API",
             verification=_VerificationResult(verdict="HALLUCINATION", confidence=0.35),
         )
         result = self._serialize_update(draft)
@@ -141,7 +158,9 @@ class TestDocumentationUpdateSerialization:
 
     def test_recheck_status_skipped_when_no_verification_ran(self):
         draft = _DocumentationDraft(
-            entity_name="MyFunc", file_path="docs/api.md", content="# API",
+            entity_name="MyFunc",
+            file_path="docs/api.md",
+            content="# API",
             verification=None,
         )
         result = self._serialize_update(draft)
@@ -150,7 +169,9 @@ class TestDocumentationUpdateSerialization:
 
     def test_recheck_confidence_rounded_to_4_places(self):
         draft = _DocumentationDraft(
-            entity_name="X", file_path="docs/x.md", content="X",
+            entity_name="X",
+            file_path="docs/x.md",
+            content="X",
             verification=_VerificationResult(verdict="ACCURATE", confidence=0.912345),
         )
         result = self._serialize_update(draft)
@@ -158,6 +179,7 @@ class TestDocumentationUpdateSerialization:
 
 
 # ── AC-FIX01-4/5/6/7: aggregate recheck in process_fix_pr ────────────────────
+
 
 class TestAggregateRecheckStatus:
     """
@@ -168,7 +190,8 @@ class TestAggregateRecheckStatus:
 
     def _aggregate(self, updates_raw: list) -> tuple[str, float | None]:
         _statuses = [
-            u.get("recheck_status") for u in updates_raw
+            u.get("recheck_status")
+            for u in updates_raw
             if isinstance(u, dict) and u.get("recheck_status")
         ]
         if not _statuses:
@@ -179,7 +202,8 @@ class TestAggregateRecheckStatus:
             agg_recheck = "failed"
 
         _confidences = [
-            u.get("recheck_confidence") for u in updates_raw
+            u.get("recheck_confidence")
+            for u in updates_raw
             if isinstance(u, dict) and u.get("recheck_confidence") is not None
         ]
         agg_conf = round(sum(_confidences) / len(_confidences), 4) if _confidences else None
@@ -229,6 +253,7 @@ class TestAggregateRecheckStatus:
 
 
 # ── AC-FIX01-8/9: create_pr PR body includes metadata ────────────────────────
+
 
 class TestCreatePrBody:
     """Tests for GitCommitter.create_pr PR body content."""

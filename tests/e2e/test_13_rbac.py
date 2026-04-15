@@ -7,6 +7,7 @@ sensitive endpoint and no route is accidentally left open.
 
 No PR creation needed — pure HTTP assertions against the running web server.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -17,17 +18,17 @@ from tests.e2e.helpers import WEB_BASE, reset_timer, step
 # Routes that must return 401 (or 403) for unauthenticated requests.
 # Format: (method, path, description)
 _PROTECTED_ROUTES = [
-    ("GET",   "/api/inbox",                   "Inbox list"),
-    ("GET",   "/api/repos",                   "Repository list"),
-    ("GET",   "/api/users",                   "User management"),
-    ("POST",  "/api/settings",                "Settings write"),
-    ("GET",   "/api/audit",                   "Audit log"),
-    ("GET",   "/api/audit/export",            "Audit CSV export"),
-    ("GET",   "/api/stats/ignores",           "Ignore-rate analytics"),
-    ("GET",   "/api/reports/risk-zones",      "Risk map"),
-    ("GET",   "/api/settings/scim",           "SCIM config"),
-    ("POST",  "/api/prompts/reset",           "Prompt reset"),
-    ("PATCH", "/api/users/fake-id",           "User role change"),
+    ("GET", "/api/inbox", "Inbox list"),
+    ("GET", "/api/repos", "Repository list"),
+    ("GET", "/api/users", "User management"),
+    ("POST", "/api/settings", "Settings write"),
+    ("GET", "/api/audit", "Audit log"),
+    ("GET", "/api/audit/export", "Audit CSV export"),
+    ("GET", "/api/stats/ignores", "Ignore-rate analytics"),
+    ("GET", "/api/reports/risk-zones", "Risk map"),
+    ("GET", "/api/settings/scim", "SCIM config"),
+    ("POST", "/api/prompts/reset", "Prompt reset"),
+    ("PATCH", "/api/users/fake-id", "User role change"),
 ]
 
 
@@ -60,8 +61,6 @@ def test_beta21_rbac_unauthenticated():
             failures.append(f"  {method} {path}: request failed — {exc}")
             print(f"         ❌ {method} {path} — {exc}", flush=True)
 
-    assert not failures, (
-        f"{len(failures)} route(s) did not enforce auth:\n" + "\n".join(failures)
-    )
+    assert not failures, f"{len(failures)} route(s) did not enforce auth:\n" + "\n".join(failures)
 
     step("✅", f"BETA-21 (RBAC — {len(_PROTECTED_ROUTES)} routes) PASSED")

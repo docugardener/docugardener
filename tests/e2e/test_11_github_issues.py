@@ -8,6 +8,7 @@ PR so AI Author Mode creates and auto-merges a fix PR, then verifies:
 
 GitHub Issues integration is available on all plans (FREE tier).
 """
+
 from __future__ import annotations
 
 import time
@@ -71,9 +72,12 @@ def test_beta16_github_issues_integration(db):
     try:
         step(1, "Enable GitHub Issues integration + auto-merge squash")
         set_merge_config(db, method="squash", wait_for_ci=False, enabled=True)
-        patch_workflow_config(db, {
-            "githubIssues": {"enabled": True, "repo": TEST_REPO},
-        })
+        patch_workflow_config(
+            db,
+            {
+                "githubIssues": {"enabled": True, "repo": TEST_REPO},
+            },
+        )
         print(f"         → githubIssues.enabled=True  repo={TEST_REPO}", flush=True)
 
         step(2, f"Create copilot/ PR on {TEST_REPO}")

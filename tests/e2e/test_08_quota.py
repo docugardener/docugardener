@@ -8,12 +8,12 @@ check run conclusion is 'neutral' (quota-exceeded path posts a neutral annotatio
 
 Cleanup: removes fake jobs and restores the original plan.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from tests.e2e.helpers import (
-    TEST_REPO,
     close_pr,
     create_pr,
     delete_fake_jobs,
@@ -27,7 +27,7 @@ from tests.e2e.helpers import (
     wait_for_check_run,
 )
 
-_FREE_LIMIT = 50   # must match billing/quota.py PLAN_LIMITS["FREE"].max_prs_per_month
+_FREE_LIMIT = 50  # must match billing/quota.py PLAN_LIMITS["FREE"].max_prs_per_month
 
 
 def _make_snippet(uid: str) -> str:
@@ -77,7 +77,7 @@ def test_beta08_quota_exhaustion(db):
         )
         print(f"         → PR #{pr_number}  branch: {branch}", flush=True)
 
-        step(4, f"Wait for DocuGardener check run (quota-exceeded = neutral conclusion)")
+        step(4, "Wait for DocuGardener check run (quota-exceeded = neutral conclusion)")
         conclusion = wait_for_check_run(pr_number, timeout=120)
         print(f"         → check run conclusion: {conclusion!r}", flush=True)
         assert conclusion == "neutral", (

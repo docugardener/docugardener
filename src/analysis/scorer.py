@@ -10,9 +10,9 @@ Implements two scoring models:
 """
 
 import math
-from pathlib import Path
-from typing import Iterable
-from src.analysis.diff import EntityChange, ChangeType
+from collections.abc import Iterable
+
+from src.analysis.diff import ChangeType, EntityChange
 from src.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 CHANGE_WEIGHTS = {
     ChangeType.SIGNATURE_CHANGED: 85,
     ChangeType.REMOVED: 80,
-    ChangeType.ADDED: 20,           # Base for new entities
+    ChangeType.ADDED: 20,  # Base for new entities
     ChangeType.LOGIC_MODIFIED: 20,  # Base for logic changes
     ChangeType.DOCSTRING_CHANGED: 5,
     ChangeType.COSMETIC: 0,
@@ -29,7 +29,7 @@ CHANGE_WEIGHTS = {
 
 # Multipliers for visibility
 VISIBILITY_MULTIPLIER = {
-    True: 1.2,   # Public API
+    True: 1.2,  # Public API
     False: 0.8,  # Private/Internal
 }
 
@@ -139,7 +139,7 @@ class DriftScorer:
             max_item_score=max_score,
             avg_score=avg_score,
             final_score=result,
-            change_count=len(individual_scores)
+            change_count=len(individual_scores),
         )
 
         return result
@@ -195,7 +195,7 @@ class DriftScorer:
             max_item_score=max_score,
             avg_score=avg_score,
             final_score=result,
-            change_count=len(individual_scores)
+            change_count=len(individual_scores),
         )
 
         return result

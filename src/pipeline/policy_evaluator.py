@@ -11,7 +11,7 @@ passes it in. This keeps the evaluator unit-testable without network mocks.
 """
 
 import fnmatch
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from src.core.logging import get_logger
 from src.pipeline.policy_parser import PolicyRule
@@ -22,12 +22,13 @@ logger = get_logger(__name__)
 @dataclass
 class PolicyViolation:
     """A triggered policy rule whose required documentation is not fully present."""
+
     rule_name: str
-    enforcement: str          # "advisory" | "blocking" | "blocking-with-reason"
+    enforcement: str  # "advisory" | "blocking" | "blocking-with-reason"
     paths_matched: list[str]  # actual PR file paths that triggered the rule
-    require_docs: list[str]   # full require_docs spec from the rule
-    docs_present: list[str]   # globs satisfied by the repo tree
-    docs_missing: list[str]   # globs NOT satisfied by the repo tree
+    require_docs: list[str]  # full require_docs spec from the rule
+    docs_present: list[str]  # globs satisfied by the repo tree
+    docs_missing: list[str]  # globs NOT satisfied by the repo tree
 
 
 def _matches_any(path: str, patterns: list[str]) -> bool:
@@ -79,17 +80,21 @@ def evaluate_policies(
             )
             continue
 
-        violations.append(PolicyViolation(
-            rule_name=rule.name,
-            enforcement=rule.enforcement,
-            paths_matched=matched,
-            require_docs=rule.require_docs,
-            docs_present=present,
-            docs_missing=missing,
-        ))
+        violations.append(
+            PolicyViolation(
+                rule_name=rule.name,
+                enforcement=rule.enforcement,
+                paths_matched=matched,
+                require_docs=rule.require_docs,
+                docs_present=present,
+                docs_missing=missing,
+            )
+        )
         logger.info(
             "DOCPOL-01: violation — rule=%r enforcement=%r missing_docs=%r",
-            rule.name, rule.enforcement, missing,
+            rule.name,
+            rule.enforcement,
+            missing,
         )
 
     return violations

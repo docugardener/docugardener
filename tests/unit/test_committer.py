@@ -1,23 +1,23 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
+
+from src.agents.verifier import DocumentationDraft
 from src.github.committer import GitCommitter
 from src.pipeline.analyzer import PRAnalysisResult
-from src.agents.verifier import DocumentationDraft
+
 
 @pytest.fixture
 def committer():
-    return GitCommitter(
-        installation_token="mock_token",
-        owner="TestOwner",
-        repo="TestRepo"
-    )
+    return GitCommitter(installation_token="mock_token", owner="TestOwner", repo="TestRepo")
+
 
 def test_sanitize_branch_name(committer):
     assert committer._sanitize_branch_name("feature/cool_stuff!!") == "feature-cool_stuff"
     assert committer._sanitize_branch_name("  spaces  and  dots.  ") == "spaces-and-dots"
     assert committer._sanitize_branch_name("PR-123+update") == "PR-123-update"
     assert committer._sanitize_branch_name("---weird----dashes---") == "weird-dashes"
+
 
 @patch("src.github.committer.git.Repo.clone_from")
 @patch("src.github.committer.shutil.rmtree")
@@ -27,16 +27,16 @@ def test_apply_and_push_success(mock_exists, mock_rmtree, mock_clone, committer)
     mock_exists.return_value = False
     mock_repo = MagicMock()
     mock_clone.return_value = mock_repo
-    
+
     result = PRAnalysisResult(pr_number=42, repo_full_name="TestOwner/TestRepo")
     result.documentation_updates = [
         DocumentationDraft(entity_name="test", file_path="docs/test.md", content="new content")
     ]
-    
+
     # Execute
     with patch("builtins.open", MagicMock()):
         branch = committer.apply_and_push(result, "base_sha")
-    
+
     # Verify
     assert branch.startswith("docugardener-fix-42-")
     mock_clone.assert_called_once()
@@ -45,6 +45,7 @@ def test_apply_and_push_success(mock_exists, mock_rmtree, mock_clone, committer)
     mock_repo.index.add.assert_called_once()
     mock_repo.index.commit.assert_called_once()
     mock_repo.remote().push.assert_called_once_with(branch)
+
 
 @patch("src.github.committer.Github")
 def test_create_pr_success(mock_github, committer):
@@ -56,10 +57,10 @@ def test_create_pr_success(mock_github, committer):
     mock_pr = MagicMock()
     mock_pr.html_url = "https://github.com/PR/URL"
     mock_repo.create_pull.return_value = mock_pr
-    
+
     # Execute
     url = committer.create_pr("fix-branch", 42, "main")
-    
+
     # Verify
     assert url == "https://github.com/PR/URL"
     mock_repo.create_pull.assert_called_once()
@@ -67,6 +68,7 @@ def test_create_pr_success(mock_github, committer):
     assert kwargs["head"] == "fix-branch"
     assert kwargs["base"] == "main"
     assert "documentation drift from #42" in kwargs["title"]
+
 
 def test_apply_and_push_no_updates(committer):
     result = PRAnalysisResult(pr_number=42, repo_full_name="TestOwner/TestRepo")

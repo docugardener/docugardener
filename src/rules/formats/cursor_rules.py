@@ -77,9 +77,7 @@ def render_cursor_rules(rules: list[PolicyRule], generated_on: str = "") -> str:
             "",
         ]
     else:
-        lines.append(
-            "When modifying code in this repository, follow these documentation rules:"
-        )
+        lines.append("When modifying code in this repository, follow these documentation rules:")
         lines.append("")
         for rule in rules:
             paths_str = ", ".join(f"`{p}`" for p in rule.paths)

@@ -11,13 +11,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.security.crypto import decrypt as decrypt_cert, encrypt as encrypt_cert
-
+from src.security.crypto import decrypt as decrypt_cert
+from src.security.crypto import encrypt as encrypt_cert
 
 # ── crypto round-trip ─────────────────────────────────────────────────────────
 
-class TestCryptoRoundTrip:
 
+class TestCryptoRoundTrip:
     def test_encrypt_decrypt_round_trip(self):
         plaintext = "-----BEGIN CERTIFICATE-----\nMIIDfake...\n-----END CERTIFICATE-----"
         encrypted = encrypt_cert(plaintext)
@@ -42,6 +42,7 @@ class TestCryptoRoundTrip:
 
 
 # ── _get_saml_auth cert decryption ────────────────────────────────────────────
+
 
 class TestSamlAuthCertDecryption:
     """
@@ -69,7 +70,9 @@ class TestSamlAuthCertDecryption:
         request_data = {}
 
         # Patch the import inside _get_saml_auth
-        with patch.dict("sys.modules", {"onelogin.saml2.auth": MagicMock(OneLogin_Saml2_Auth=mock_auth_cls)}):
+        with patch.dict(
+            "sys.modules", {"onelogin.saml2.auth": MagicMock(OneLogin_Saml2_Auth=mock_auth_cls)}
+        ):
             try:
                 _get_saml_auth(tenant, request_data)
             except Exception:
@@ -85,11 +88,14 @@ class TestSamlAuthCertDecryption:
         tenant = self._make_tenant(cert="PLAINTEXT_PEM_CERT")
         request_data = {}
 
-        with patch.dict("sys.modules", {
-            "onelogin": MagicMock(),
-            "onelogin.saml2": MagicMock(),
-            "onelogin.saml2.auth": MagicMock(),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "onelogin": MagicMock(),
+                "onelogin.saml2": MagicMock(),
+                "onelogin.saml2.auth": MagicMock(),
+            },
+        ):
             # Should not raise even when decrypt fails
             try:
                 _get_saml_auth(tenant, request_data)
@@ -106,9 +112,12 @@ class TestSamlAuthCertDecryption:
         request_data = {}
 
         with patch("src.api.saml.decrypt_cert") as mock_decrypt:
-            with patch.dict("sys.modules", {
-                "onelogin.saml2.auth": MagicMock(),
-            }):
+            with patch.dict(
+                "sys.modules",
+                {
+                    "onelogin.saml2.auth": MagicMock(),
+                },
+            ):
                 try:
                     _get_saml_auth(tenant, request_data)
                 except Exception:

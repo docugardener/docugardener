@@ -17,8 +17,8 @@ from fastapi.testclient import TestClient
 
 from src.api.middleware import TenantContextMiddleware
 
-
 # ── Minimal test app (does NOT import main.py to avoid lifespan/DB deps) ───────
+
 
 def _make_test_app() -> FastAPI:
     """Lightweight FastAPI app with just the middleware and minimal routes."""
@@ -71,8 +71,8 @@ def client():
 
 # ── Protected routes: enforce tenant header ─────────────────────────────────
 
-class TestProtectedRoutes:
 
+class TestProtectedRoutes:
     def test_inbox_without_tenant_header_returns_401(self, client):
         """/inbox/* without X-Tenant-ID → 401 Unauthorized."""
         response = client.get("/inbox/test")
@@ -102,8 +102,8 @@ class TestProtectedRoutes:
 
 # ── Public paths: no auth required ──────────────────────────────────────────
 
-class TestPublicPaths:
 
+class TestPublicPaths:
     def test_health_without_tenant_header_returns_200(self, client):
         """/health is public — no X-Tenant-ID required."""
         response = client.get("/health")
@@ -118,8 +118,8 @@ class TestPublicPaths:
 
 # ── Self-auth routes: bypass tenant header check ─────────────────────────────
 
-class TestSelfAuthRoutes:
 
+class TestSelfAuthRoutes:
     def test_webhooks_without_tenant_header_not_blocked(self, client):
         """/webhooks/* uses HMAC auth — must NOT be blocked by middleware."""
         response = client.post("/webhooks/github")

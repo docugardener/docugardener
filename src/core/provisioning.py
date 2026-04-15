@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 DEFAULT_TENANT_ID = "default"
 
 
-async def ensure_tenant_provisioned(db: Session, settings: "Settings") -> None:
+async def ensure_tenant_provisioned(db: Session, settings: Settings) -> None:
     """Create the default tenant and admin user for non-SaaS deployments.
 
     This function is idempotent — calling it multiple times produces the same
@@ -62,7 +62,8 @@ async def ensure_tenant_provisioned(db: Session, settings: "Settings") -> None:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _validate_required_env(settings: "Settings") -> None:
+
+def _validate_required_env(settings: Settings) -> None:
     """Raise RuntimeError for missing required env vars in non-SaaS modes."""
     if not settings.github_org:
         raise RuntimeError(
@@ -72,7 +73,7 @@ def _validate_required_env(settings: "Settings") -> None:
         )
 
 
-async def _ensure_tenant(db: Session, settings: "Settings") -> str:
+async def _ensure_tenant(db: Session, settings: Settings) -> str:
     """Find or create the single tenant. Returns the tenant ID."""
     # If SINGLE_TENANT_ID is pre-configured, verify it exists and use it directly
     if settings.single_tenant_id:
@@ -106,7 +107,7 @@ async def _ensure_tenant(db: Session, settings: "Settings") -> str:
         text(
             'INSERT INTO "Tenant" (id, name, plan, "createdAt", "updatedAt") '
             "VALUES (:id, :name, :plan, NOW(), NOW()) "
-            'ON CONFLICT (id) DO NOTHING'
+            "ON CONFLICT (id) DO NOTHING"
         ),
         {
             "id": tenant_id,

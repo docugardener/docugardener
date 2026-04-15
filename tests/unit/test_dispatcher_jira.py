@@ -10,12 +10,12 @@ Covers:
   - URL is constructed correctly from host + ticket_key
 """
 
-import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import httpx
-from unittest.mock import AsyncMock, MagicMock, patch, call
+import pytest
 
 from src.notifications.dispatcher import NotificationDispatcher
-
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -59,8 +59,8 @@ def _mock_http_response(status_code: int = 200) -> MagicMock:
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestPostJiraLifecycleComment:
 
+class TestPostJiraLifecycleComment:
     @pytest.mark.asyncio
     async def test_posts_comment_when_configured(self):
         """Valid jira config → httpx POST called with correct URL, auth, and body."""
@@ -72,8 +72,10 @@ class TestPostJiraLifecycleComment:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch("src.notifications.dispatcher.decrypt", return_value=_PLAIN_TOKEN), \
-             patch("src.notifications.dispatcher.httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch("src.notifications.dispatcher.decrypt", return_value=_PLAIN_TOKEN),
+            patch("src.notifications.dispatcher.httpx.AsyncClient", return_value=mock_client),
+        ):
             await dispatcher.post_jira_lifecycle_comment(_TICKET_KEY, _COMMENT)
 
         mock_client.post.assert_called_once()
@@ -125,8 +127,10 @@ class TestPostJiraLifecycleComment:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch("src.notifications.dispatcher.decrypt", return_value=_PLAIN_TOKEN), \
-             patch("src.notifications.dispatcher.httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch("src.notifications.dispatcher.decrypt", return_value=_PLAIN_TOKEN),
+            patch("src.notifications.dispatcher.httpx.AsyncClient", return_value=mock_client),
+        ):
             with pytest.raises(httpx.HTTPStatusError):
                 await dispatcher.post_jira_lifecycle_comment(_TICKET_KEY, _COMMENT)
 
@@ -141,8 +145,12 @@ class TestPostJiraLifecycleComment:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch("src.notifications.dispatcher.decrypt", return_value="DECRYPTED_VALUE") as mock_decrypt, \
-             patch("src.notifications.dispatcher.httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch(
+                "src.notifications.dispatcher.decrypt", return_value="DECRYPTED_VALUE"
+            ) as mock_decrypt,
+            patch("src.notifications.dispatcher.httpx.AsyncClient", return_value=mock_client),
+        ):
             await dispatcher.post_jira_lifecycle_comment(_TICKET_KEY, _COMMENT)
 
         mock_decrypt.assert_called_once_with("ENCRYPTED_VALUE")
@@ -161,8 +169,10 @@ class TestPostJiraLifecycleComment:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch("src.notifications.dispatcher.decrypt", return_value=_PLAIN_TOKEN), \
-             patch("src.notifications.dispatcher.httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch("src.notifications.dispatcher.decrypt", return_value=_PLAIN_TOKEN),
+            patch("src.notifications.dispatcher.httpx.AsyncClient", return_value=mock_client),
+        ):
             await dispatcher.post_jira_lifecycle_comment("PROJ-1", _COMMENT)
 
         url = mock_client.post.call_args[0][0]
@@ -179,8 +189,10 @@ class TestPostJiraLifecycleComment:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.post = AsyncMock(return_value=mock_response)
 
-        with patch("src.notifications.dispatcher.decrypt", return_value=_PLAIN_TOKEN), \
-             patch("src.notifications.dispatcher.httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch("src.notifications.dispatcher.decrypt", return_value=_PLAIN_TOKEN),
+            patch("src.notifications.dispatcher.httpx.AsyncClient", return_value=mock_client),
+        ):
             await dispatcher.post_jira_lifecycle_comment("BUG-5", _COMMENT)
 
         url = mock_client.post.call_args[0][0]

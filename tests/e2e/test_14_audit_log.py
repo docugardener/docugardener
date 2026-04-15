@@ -9,6 +9,7 @@ Queries the AuditLog table directly and verifies:
 
 No PR creation required — reads the DB state left by earlier tests.
 """
+
 from __future__ import annotations
 
 import re
@@ -57,18 +58,15 @@ def test_beta23_audit_log(db_engine):
     print(f"         → all {len(rows)} entries have non-null hashes ✓", flush=True)
 
     step(3, "Verify hash format is 64-char lowercase hex (SHA-256)")
-    bad_format = [
-        dict(r._mapping) for r in rows
-        if r[3] and not _SHA256_RE.match(r[3])
-    ]
-    assert not bad_format, (
-        f"{len(bad_format)} AuditLog entries have malformed hash:\n"
-        + "\n".join(f"  id={r['id']}  hash={r['hash'][:20]}…" for r in bad_format)
+    bad_format = [dict(r._mapping) for r in rows if r[3] and not _SHA256_RE.match(r[3])]
+    assert not bad_format, f"{len(bad_format)} AuditLog entries have malformed hash:\n" + "\n".join(
+        f"  id={r['id']}  hash={r['hash'][:20]}…" for r in bad_format
     )
-    print(f"         → all hash values are valid 64-char hex ✓", flush=True)
+    print("         → all hash values are valid 64-char hex ✓", flush=True)
 
     step(4, "Print event summary")
     from collections import Counter
+
     counts = Counter(r[1] for r in rows)
     for evt, cnt in counts.most_common():
         print(f"         → {evt:<30} × {cnt}", flush=True)

@@ -4,6 +4,7 @@ BETA-24b-F — MOAT-02: AI Authorship Signal in fix PR body.
 Verifies that when an AI-authored PR is processed, the generated fix PR body
 contains an "AI Authorship Signal" metadata row with the correct detection label.
 """
+
 import pytest
 
 from tests.e2e.helpers import (
@@ -89,7 +90,7 @@ def test_beta24b_moat02_signal(db):
 
         step(6, "Verify signal label identifies branch prefix detection")
         assert "Branch prefix" in body, (
-            f"MOAT-02 failed: expected 'Branch prefix' label in fix PR body"
+            "MOAT-02 failed: expected 'Branch prefix' label in fix PR body"
         )
 
         step(7, "Confirm fix PR is merged on GitHub")

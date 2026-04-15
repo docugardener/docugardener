@@ -7,13 +7,14 @@ must skip enqueueing the analysis job and return status="skipped".
 When enabled=True (or not found), normal processing proceeds.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from src.api.webhooks import handle_pull_request
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_pr_payload(repo_name: str = "api", action: str = "opened") -> dict:
     return {
@@ -88,8 +89,8 @@ def _make_queue(job_id: str = "job-1") -> MagicMock:
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-class TestRepoToggleGuard:
 
+class TestRepoToggleGuard:
     @pytest.mark.asyncio
     async def test_disabled_repo_skips_analysis(self):
         """
@@ -103,7 +104,6 @@ class TestRepoToggleGuard:
 
         with (
             patch("src.pipeline.job_manager.SessionLocal", return_value=db),
-
             patch("src.worker.queue.get_queue", return_value=mock_queue),
             patch("src.worker.jobs.analyze_pr_job", MagicMock()),
         ):
@@ -123,7 +123,6 @@ class TestRepoToggleGuard:
 
         with (
             patch("src.pipeline.job_manager.SessionLocal", return_value=db),
-
             patch("src.worker.queue.get_queue", return_value=mock_queue),
             patch("src.worker.jobs.analyze_pr_job", MagicMock()),
         ):
@@ -142,7 +141,6 @@ class TestRepoToggleGuard:
 
         with (
             patch("src.pipeline.job_manager.SessionLocal", return_value=db),
-
             patch("src.worker.queue.get_queue", return_value=mock_queue),
             patch("src.worker.jobs.analyze_pr_job", MagicMock()),
         ):
@@ -160,7 +158,6 @@ class TestRepoToggleGuard:
                 "src.pipeline.job_manager.SessionLocal",
                 side_effect=RuntimeError("DB is down"),
             ),
-
             patch("src.worker.queue.get_queue", return_value=mock_queue),
             patch("src.worker.jobs.analyze_pr_job", MagicMock()),
         ):

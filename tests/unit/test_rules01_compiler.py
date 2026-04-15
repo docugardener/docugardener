@@ -17,13 +17,13 @@ from datetime import date
 import pytest
 
 from src.pipeline.policy_parser import PolicyRule
-from src.rules.compiler import CompileTarget, CompileResult, RulesCompiler, SUPPORTED_FORMATS
-from src.rules.sync import is_stale, compute_content_hash
-
+from src.rules.compiler import SUPPORTED_FORMATS, CompileTarget, RulesCompiler
+from src.rules.sync import compute_content_hash, is_stale
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def compiler():
@@ -79,6 +79,7 @@ def fixed_date():
 # Compiler — AGENTS.md format
 # ---------------------------------------------------------------------------
 
+
 class TestAgentsMdFormat:
     target = CompileTarget.for_format("agents_md")
 
@@ -129,6 +130,7 @@ class TestAgentsMdFormat:
 # Compiler — Copilot instructions format
 # ---------------------------------------------------------------------------
 
+
 class TestCopilotFormat:
     target = CompileTarget.for_format("copilot_instructions")
 
@@ -156,14 +158,19 @@ class TestCopilotFormat:
         assert "# Documentation Requirements" in result.content
         assert "No custom rules configured" in result.content
 
-    def test_multiple_rules_each_get_a_bullet(self, compiler, single_rule, advisory_rule, fixed_date):
-        result = compiler.compile([single_rule, advisory_rule], self.target, generated_on=fixed_date)
+    def test_multiple_rules_each_get_a_bullet(
+        self, compiler, single_rule, advisory_rule, fixed_date
+    ):
+        result = compiler.compile(
+            [single_rule, advisory_rule], self.target, generated_on=fixed_date
+        )
         assert result.content.count("- Files matching") == 2
 
 
 # ---------------------------------------------------------------------------
 # Hash stability
 # ---------------------------------------------------------------------------
+
 
 class TestHashStability:
     def test_same_input_same_hash(self, compiler, single_rule, fixed_date):
@@ -195,6 +202,7 @@ class TestHashStability:
 # Staleness detection
 # ---------------------------------------------------------------------------
 
+
 class TestStalenessDetection:
     def test_none_content_is_stale(self):
         assert is_stale(None, "any-hash") is True
@@ -222,6 +230,7 @@ class TestStalenessDetection:
 # ---------------------------------------------------------------------------
 # Unsupported format guard
 # ---------------------------------------------------------------------------
+
 
 class TestUnsupportedFormat:
     def test_compile_target_for_unknown_format_raises(self):

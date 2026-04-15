@@ -1,25 +1,21 @@
 """Unit tests for the pipeline components."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-
+from src.agents.verifier import DocumentationDraft, DriftAnalysis, VerificationResult
 from src.pipeline.analyzer import (
     FileChange,
     PRAnalysisResult,
-    PRAnalyzer,
 )
 from src.pipeline.reporter import (
-    format_drift_report,
-    format_check_run_output,
-    SEVERITY_EMOJI,
     CHECK_RUN_CONCLUSION,
+    SEVERITY_EMOJI,
+    format_check_run_output,
+    format_drift_report,
 )
-from src.agents.verifier import DriftAnalysis, DocumentationDraft, VerificationResult
 
 
 class TestFileChange:
     """Tests for FileChange dataclass."""
-    
+
     def test_create_file_change(self):
         """Test creating a file change."""
         change = FileChange(
@@ -28,7 +24,7 @@ class TestFileChange:
             additions=10,
             deletions=5,
         )
-        
+
         assert change.path == "src/main.py"
         assert change.status == "modified"
         assert change.additions == 10
@@ -36,7 +32,7 @@ class TestFileChange:
 
 class TestPRAnalysisResult:
     """Tests for PRAnalysisResult dataclass."""
-    
+
     def test_successful_result(self):
         """Test a successful analysis result."""
         result = PRAnalysisResult(
@@ -51,11 +47,11 @@ class TestPRAnalysisResult:
             ),
             processing_time_ms=1500,
         )
-        
+
         assert result.success
         assert result.drift_score == 25
         assert not result.should_block
-    
+
     def test_failed_result(self):
         """Test a failed analysis result."""
         result = PRAnalysisResult(
@@ -63,10 +59,10 @@ class TestPRAnalysisResult:
             repo_full_name="owner/repo",
             error="Analysis failed",
         )
-        
+
         assert not result.success
         assert result.drift_score == 0
-    
+
     def test_blocking_result(self):
         """Test a result that should block merge."""
         result = PRAnalysisResult(
@@ -80,13 +76,13 @@ class TestPRAnalysisResult:
                 summary="Critical drift",
             ),
         )
-        
+
         assert result.should_block
 
 
 class TestFormatDriftReport:
     """Tests for drift report formatting."""
-    
+
     def test_format_successful_report(self):
         """Test formatting a successful report."""
         result = PRAnalysisResult(
@@ -101,14 +97,14 @@ class TestFormatDriftReport:
             ),
             processing_time_ms=1000,
         )
-        
+
         report = format_drift_report(result)
-        
+
         assert "DocuGardener" in report
         assert "30/100" in report
         assert "MODERATE" in report
         assert "1000ms" in report
-    
+
     def test_format_failed_report(self):
         """Test formatting a failed report."""
         result = PRAnalysisResult(
@@ -116,12 +112,12 @@ class TestFormatDriftReport:
             repo_full_name="owner/repo",
             error="Connection timeout",
         )
-        
+
         report = format_drift_report(result)
-        
+
         assert "Analysis Failed" in report
         assert "Connection timeout" in report
-    
+
     def test_format_blocking_report(self):
         """Test formatting a blocking report."""
         result = PRAnalysisResult(
@@ -138,13 +134,13 @@ class TestFormatDriftReport:
             ),
             processing_time_ms=2000,
         )
-        
+
         report = format_drift_report(result)
-        
+
         assert "blocked" in report.lower()
         assert "docs/api.md" in report
         assert "CRITICAL" in report
-    
+
     def test_format_with_doc_updates(self):
         """Test formatting with documentation updates."""
         result = PRAnalysisResult(
@@ -170,16 +166,16 @@ class TestFormatDriftReport:
             ],
             processing_time_ms=3000,
         )
-        
+
         report = format_drift_report(result)
-        
+
         assert "my_function" in report
         assert "Verified" in report
 
 
 class TestFormatCheckRunOutput:
     """Tests for Check Run output formatting."""
-    
+
     def test_success_output(self):
         """Test formatting success output."""
         result = PRAnalysisResult(
@@ -193,12 +189,12 @@ class TestFormatCheckRunOutput:
                 summary="Minor changes",
             ),
         )
-        
+
         output = format_check_run_output(result)
-        
+
         assert output["conclusion"] == "success"
         assert "10/100" in output["title"]
-    
+
     def test_failure_output(self):
         """Test formatting failure output."""
         result = PRAnalysisResult(
@@ -212,11 +208,11 @@ class TestFormatCheckRunOutput:
                 summary="Critical issues",
             ),
         )
-        
+
         output = format_check_run_output(result)
-        
+
         assert output["conclusion"] == "failure"
-    
+
     def test_error_output(self):
         """Test formatting error output."""
         result = PRAnalysisResult(
@@ -224,22 +220,22 @@ class TestFormatCheckRunOutput:
             repo_full_name="owner/repo",
             error="Analysis failed",
         )
-        
+
         output = format_check_run_output(result)
-        
+
         assert output["conclusion"] == "failure"
         assert "Failed" in output["title"]
 
 
 class TestSeverityConstants:
     """Tests for severity constants."""
-    
+
     def test_severity_emoji_coverage(self):
         """Test that all severities have emojis."""
         severities = ["none", "minor", "moderate", "significant", "critical"]
         for severity in severities:
             assert severity in SEVERITY_EMOJI
-    
+
     def test_check_run_conclusion_coverage(self):
         """Test that all severities have conclusions."""
         severities = ["none", "minor", "moderate", "significant", "critical"]

@@ -12,13 +12,14 @@ Covers:
   - linear_issue_id is NOT stamped when Linear not configured
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.notifications.dispatcher import NotificationDispatcher
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _drift() -> MagicMock:
     r = MagicMock()
@@ -42,8 +43,8 @@ def _linear_config() -> dict:
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestLinearIssueIdStamping:
 
+class TestLinearIssueIdStamping:
     @pytest.mark.asyncio
     async def test_linear_issue_id_stamped_on_drift_record(self):
         """dispatch_drift_alert stamps linear_issue_id on the record when Linear fires."""
@@ -55,8 +56,10 @@ class TestLinearIssueIdStamping:
 
         mock_create = AsyncMock(return_value="linear-issue-uuid-42")
 
-        with patch.object(dispatcher, "_create_linear_issue", mock_create), \
-             patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"):
+        with (
+            patch.object(dispatcher, "_create_linear_issue", mock_create),
+            patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"),
+        ):
             record = _drift()
             await dispatcher.dispatch_drift_alert(record)
 
@@ -91,8 +94,10 @@ class TestLinearIssueIdStamping:
 
         mock_create = AsyncMock(return_value=None)  # API error path
 
-        with patch.object(dispatcher, "_create_linear_issue", mock_create), \
-             patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"):
+        with (
+            patch.object(dispatcher, "_create_linear_issue", mock_create),
+            patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"),
+        ):
             record = _drift()
             await dispatcher.dispatch_drift_alert(record)
 

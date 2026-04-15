@@ -53,6 +53,6 @@ def build_feedback_urls(job_id: str, tenant_id: str) -> tuple[str, str] | tuple[
 
     token = make_feedback_token(job_id, tenant_id)
     base = settings.app_url.rstrip("/")
-    up_url   = f"{base}/api/feedback?j={job_id}&s=up&tid={tenant_id}&t={token}"
+    up_url = f"{base}/api/feedback?j={job_id}&s=up&tid={tenant_id}&t={token}"
     down_url = f"{base}/api/feedback?j={job_id}&s=down&tid={tenant_id}&t={token}"
     return up_url, down_url

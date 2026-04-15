@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from src.pipeline.job_manager import SessionLocal
-from src.storage.sql_models import PromptConfig
 from src.agents import prompts as default_prompts
 from src.core.logging import get_logger
+from src.pipeline.job_manager import SessionLocal
+from src.storage.sql_models import PromptConfig
 
 logger = get_logger(__name__)
 
@@ -51,8 +51,9 @@ class PromptManager:
         try:
             custom = session.query(PromptConfig).filter_by(tenantId=tenant_id, key=key).first()
             if custom:
-                logger.debug("Using custom prompt with domain anchoring",
-                             tenant_id=tenant_id, key=key)
+                logger.debug(
+                    "Using custom prompt with domain anchoring", tenant_id=tenant_id, key=key
+                )
                 # AC-5: wrap custom content between fixed anchors
                 return _DOMAIN_PREAMBLE + custom.content + _DOMAIN_POSTAMBLE
 
@@ -63,8 +64,9 @@ class PromptManager:
 
             return default_val
         except Exception as e:
-            logger.error("Failed to fetch prompt from DB",
-                         error=str(e), tenant_id=tenant_id, key=key)
+            logger.error(
+                "Failed to fetch prompt from DB", error=str(e), tenant_id=tenant_id, key=key
+            )
             return getattr(default_prompts, key, "")
         finally:
             session.close()

@@ -18,31 +18,37 @@ Covers:
   - llm_provider Literal includes "anthropic"
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 
 # ---------------------------------------------------------------------------
 # 1. Enum + factory
 # ---------------------------------------------------------------------------
 
+
 class TestLLMProviderEnum:
     def test_anthropic_in_provider_enum(self):
         from src.agents.llm import LLMProvider
+
         assert hasattr(LLMProvider, "ANTHROPIC")
         assert LLMProvider.ANTHROPIC.value == "anthropic"
 
     def test_create_llm_client_anthropic_returns_anthropic_client(self):
-        from src.agents.llm import create_llm_client, LLMProvider, AnthropicClient
+        from src.agents.llm import AnthropicClient, LLMProvider, create_llm_client
+
         with patch("src.agents.llm.AnthropicClient.__init__", return_value=None):
             client = create_llm_client(LLMProvider.ANTHROPIC, api_key="test-key")
         assert isinstance(client, AnthropicClient)
 
     def test_create_llm_client_anthropic_string_via_settings(self):
         """create_llm_client() works when settings.llm_provider = 'anthropic'."""
-        from src.agents.llm import create_llm_client, AnthropicClient
-        with patch("src.agents.llm.settings") as mock_settings, \
-             patch("src.agents.llm.AnthropicClient.__init__", return_value=None):
+        from src.agents.llm import AnthropicClient, create_llm_client
+
+        with (
+            patch("src.agents.llm.settings") as mock_settings,
+            patch("src.agents.llm.AnthropicClient.__init__", return_value=None),
+        ):
             mock_settings.llm_provider = "anthropic"
             mock_settings.anthropic_api_key = "ak-test"
             mock_settings.anthropic_model = "claude-sonnet-4-6"
@@ -54,9 +60,11 @@ class TestLLMProviderEnum:
 # 2. AnthropicClient instantiation
 # ---------------------------------------------------------------------------
 
+
 class TestAnthropicClientInit:
     def test_init_with_explicit_key_and_model(self):
         from src.agents.llm import AnthropicClient
+
         with patch("src.agents.llm.AnthropicClient._init_client"):
             client = AnthropicClient(api_key="sk-ant-test", model="claude-sonnet-4-6")
         assert client.api_key == "sk-ant-test"
@@ -64,8 +72,11 @@ class TestAnthropicClientInit:
 
     def test_init_falls_back_to_settings(self):
         from src.agents.llm import AnthropicClient
-        with patch("src.agents.llm.settings") as mock_settings, \
-             patch("src.agents.llm.AnthropicClient._init_client"):
+
+        with (
+            patch("src.agents.llm.settings") as mock_settings,
+            patch("src.agents.llm.AnthropicClient._init_client"),
+        ):
             mock_settings.anthropic_api_key = "sk-ant-from-settings"
             mock_settings.anthropic_model = "claude-haiku-4-5-20251001"
             client = AnthropicClient()
@@ -74,6 +85,7 @@ class TestAnthropicClientInit:
 
     def test_init_raises_without_api_key(self):
         from src.agents.llm import AnthropicClient
+
         with patch("src.agents.llm.settings") as mock_settings:
             mock_settings.anthropic_api_key = None
             mock_settings.anthropic_model = "claude-sonnet-4-6"
@@ -84,6 +96,7 @@ class TestAnthropicClientInit:
 # ---------------------------------------------------------------------------
 # 3. generate() — success path
 # ---------------------------------------------------------------------------
+
 
 class TestAnthropicClientGenerate:
     def _make_mock_response(self, text: str = "Test response"):
@@ -172,12 +185,14 @@ class TestAnthropicClientGenerate:
 # 4. generate() — error handling
 # ---------------------------------------------------------------------------
 
+
 class TestAnthropicClientErrors:
     @pytest.mark.asyncio
     async def test_generate_raises_on_auth_error(self):
         """401 AuthenticationError is non-transient — should not retry, should raise."""
-        from src.agents.llm import AnthropicClient
         import anthropic
+
+        from src.agents.llm import AnthropicClient
 
         auth_error = anthropic.AuthenticationError(
             message="Invalid API key",
@@ -200,8 +215,9 @@ class TestAnthropicClientErrors:
     @pytest.mark.asyncio
     async def test_generate_retries_on_overload_529(self):
         """529 (Anthropic overloaded) is transient — should retry up to max_attempts."""
-        from src.agents.llm import AnthropicClient
         import anthropic
+
+        from src.agents.llm import AnthropicClient
 
         overload_error = anthropic.APIStatusError(
             message="Overloaded",
@@ -224,8 +240,10 @@ class TestAnthropicClientErrors:
             side_effect=[overload_error, overload_error, mock_resp]
         )
 
-        with patch("src.agents.llm.AnthropicClient._init_client"), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with (
+            patch("src.agents.llm.AnthropicClient._init_client"),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
             client = AnthropicClient(api_key="sk-ant-test", model="claude-sonnet-4-6")
             client._client = mock_sdk
 
@@ -237,6 +255,7 @@ class TestAnthropicClientErrors:
 # ---------------------------------------------------------------------------
 # 5. generate_with_history()
 # ---------------------------------------------------------------------------
+
 
 class TestAnthropicClientHistory:
     @pytest.mark.asyncio
@@ -312,11 +331,13 @@ class TestAnthropicClientHistory:
 # 6. _is_transient — Anthropic error types
 # ---------------------------------------------------------------------------
 
+
 class TestIsTransientAnthropic:
     def test_overloaded_529_is_transient(self):
         """anthropic.APIStatusError with status_code=529 is transient."""
-        from src.agents.llm import _is_transient
         import anthropic
+
+        from src.agents.llm import _is_transient
 
         exc = anthropic.APIStatusError(
             message="Overloaded",
@@ -326,8 +347,9 @@ class TestIsTransientAnthropic:
         assert _is_transient(exc) is True
 
     def test_rate_limit_error_is_transient(self):
-        from src.agents.llm import _is_transient
         import anthropic
+
+        from src.agents.llm import _is_transient
 
         exc = anthropic.RateLimitError(
             message="Rate limited",
@@ -337,8 +359,9 @@ class TestIsTransientAnthropic:
         assert _is_transient(exc) is True
 
     def test_authentication_error_is_not_transient(self):
-        from src.agents.llm import _is_transient
         import anthropic
+
+        from src.agents.llm import _is_transient
 
         exc = anthropic.AuthenticationError(
             message="Bad key",
@@ -348,8 +371,9 @@ class TestIsTransientAnthropic:
         assert _is_transient(exc) is False
 
     def test_api_connection_error_is_transient(self):
-        from src.agents.llm import _is_transient
         import anthropic
+
+        from src.agents.llm import _is_transient
 
         exc = anthropic.APIConnectionError(request=MagicMock())
         assert _is_transient(exc) is True
@@ -359,32 +383,38 @@ class TestIsTransientAnthropic:
 # 7. Model registry
 # ---------------------------------------------------------------------------
 
+
 class TestAnthropicModelRegistry:
     def test_claude_sonnet_4_6_registered(self):
-        from src.agents.model_registry import get_capability, DEFAULT_CAPABILITY
+        from src.agents.model_registry import DEFAULT_CAPABILITY, get_capability
+
         cap = get_capability("anthropic", "claude-sonnet-4-6")
         assert cap is not DEFAULT_CAPABILITY
         assert cap.max_context_tokens >= 200_000
 
     def test_claude_opus_4_6_registered(self):
-        from src.agents.model_registry import get_capability, DEFAULT_CAPABILITY
+        from src.agents.model_registry import DEFAULT_CAPABILITY, get_capability
+
         cap = get_capability("anthropic", "claude-opus-4-6")
         assert cap is not DEFAULT_CAPABILITY
         assert cap.max_context_tokens >= 200_000
 
     def test_claude_haiku_4_5_registered(self):
-        from src.agents.model_registry import get_capability, DEFAULT_CAPABILITY
+        from src.agents.model_registry import DEFAULT_CAPABILITY, get_capability
+
         cap = get_capability("anthropic", "claude-haiku-4-5-20251001")
         assert cap is not DEFAULT_CAPABILITY
 
     def test_claude_models_support_system_prompt(self):
         from src.agents.model_registry import get_capability
+
         for model in ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5-20251001"]:
             cap = get_capability("anthropic", model)
             assert cap.supports_system_prompt is True, f"{model} should support system prompt"
 
     def test_claude_models_support_temperature(self):
         from src.agents.model_registry import get_capability
+
         for model in ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5-20251001"]:
             cap = get_capability("anthropic", model)
             assert cap.supports_temperature is True
@@ -394,19 +424,25 @@ class TestAnthropicModelRegistry:
 # 8. Config
 # ---------------------------------------------------------------------------
 
+
 class TestAnthropicConfig:
     def test_config_has_anthropic_api_key_field(self):
         from src.core.config import Settings
-        assert hasattr(Settings.model_fields, "anthropic_api_key") or \
-               "anthropic_api_key" in Settings.model_fields
+
+        assert (
+            hasattr(Settings.model_fields, "anthropic_api_key")
+            or "anthropic_api_key" in Settings.model_fields
+        )
 
     def test_config_has_anthropic_model_field(self):
         from src.core.config import Settings
+
         assert "anthropic_model" in Settings.model_fields
 
     def test_anthropic_in_llm_provider_literal(self):
         """settings.llm_provider should accept 'anthropic' without validation error."""
         from src.core.config import Settings
+
         # Pydantic will raise if "anthropic" is not in the Literal
         s = Settings(
             llm_provider="anthropic",

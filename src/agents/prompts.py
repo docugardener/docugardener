@@ -7,7 +7,6 @@ Contains carefully engineered prompts for:
 2. Hallucination verification
 """
 
-
 # System prompt for the documentation generator
 GENERATOR_SYSTEM_PROMPT = """You are DocuGardener, an expert technical documentation assistant.
 
@@ -161,7 +160,6 @@ Respond with JSON:
 ```"""
 
 
-
 # System prompt for the drift analysis generator
 DRIFT_ANALYSIS_SYSTEM_PROMPT = """You are DocuGardener's Drift Analyst.
 Your role is to explain documentation drift scores based on semantic code changes.
@@ -199,6 +197,3 @@ Respond with JSON:
   "issues": ["List any inaccuracies or contradictions found"]
 }}
 ```"""
-
-
-

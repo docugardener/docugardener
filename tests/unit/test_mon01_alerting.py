@@ -34,6 +34,7 @@ PROMETHEUS_YML = ROOT / "docker" / "prometheus.yml"
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def alerts_config():
     return yaml.safe_load(ALERTS_YML.read_text())
@@ -70,6 +71,7 @@ def alert_rules(alerts_config):
 # Alert provisioning — file basics
 # ---------------------------------------------------------------------------
 
+
 class TestAlertFileBasics:
     def test_alerts_yml_exists(self):
         assert ALERTS_YML.exists()
@@ -84,6 +86,7 @@ class TestAlertFileBasics:
 # ---------------------------------------------------------------------------
 # Contact point
 # ---------------------------------------------------------------------------
+
 
 class TestContactPoint:
     def test_contact_point_defined(self, alerts_config):
@@ -103,6 +106,7 @@ class TestContactPoint:
 # ---------------------------------------------------------------------------
 # Notification policy
 # ---------------------------------------------------------------------------
+
 
 class TestNotificationPolicy:
     def test_policy_defined(self, alerts_config):
@@ -140,6 +144,7 @@ class TestAlertRulesExist:
 # ---------------------------------------------------------------------------
 # Alert rules — content validation
 # ---------------------------------------------------------------------------
+
 
 class TestApiErrorRateAlert:
     def _get_rule(self, alert_rules):
@@ -229,6 +234,7 @@ class TestLlmErrorAlert:
 # Alert rules — all have annotations
 # ---------------------------------------------------------------------------
 
+
 class TestAlertAnnotations:
     def test_all_rules_have_summary(self, alert_rules):
         for rule in alert_rules:
@@ -236,7 +242,9 @@ class TestAlertAnnotations:
 
     def test_all_rules_have_description(self, alert_rules):
         for rule in alert_rules:
-            assert "description" in rule.get("annotations", {}), f"{rule['uid']} missing description"
+            assert "description" in rule.get("annotations", {}), (
+                f"{rule['uid']} missing description"
+            )
 
     def test_all_rules_have_severity_label(self, alert_rules):
         for rule in alert_rules:
@@ -250,6 +258,7 @@ class TestAlertAnnotations:
 # ---------------------------------------------------------------------------
 # Docker Compose — Prometheus service
 # ---------------------------------------------------------------------------
+
 
 class TestComposePrometheus:
     def test_prometheus_service_exists(self, compose_content):
@@ -270,7 +279,12 @@ class TestComposePrometheus:
                 in_ports = True
             elif in_prometheus and in_ports and "9090:" in line:
                 pytest.fail("Prometheus should not expose port 9090 to host in production")
-            elif in_prometheus and line.strip() and not line.startswith(" ") and not line.startswith("\t"):
+            elif (
+                in_prometheus
+                and line.strip()
+                and not line.startswith(" ")
+                and not line.startswith("\t")
+            ):
                 break
 
     def test_prometheus_30d_retention(self, compose_content):
@@ -283,6 +297,7 @@ class TestComposePrometheus:
 # ---------------------------------------------------------------------------
 # Docker Compose — Grafana service
 # ---------------------------------------------------------------------------
+
 
 class TestComposeGrafana:
     def test_grafana_service_exists(self, compose_content):
@@ -325,6 +340,7 @@ class TestComposeGrafana:
 # Prometheus config — scrapes docugardener
 # ---------------------------------------------------------------------------
 
+
 class TestPrometheusConfig:
     def test_prometheus_yml_exists(self):
         assert PROMETHEUS_YML.exists()
@@ -342,9 +358,13 @@ class TestPrometheusConfig:
 # DEPLOYMENT.md — monitoring documentation
 # ---------------------------------------------------------------------------
 
+
 class TestDeploymentMonitoringDocs:
     def test_monitoring_section_exists(self, deployment_content):
-        assert "## Monitoring" in deployment_content or "## Monitoring & Alerting" in deployment_content
+        assert (
+            "## Monitoring" in deployment_content
+            or "## Monitoring & Alerting" in deployment_content
+        )
 
     def test_documents_alert_rules(self, deployment_content):
         assert "API Error Rate" in deployment_content

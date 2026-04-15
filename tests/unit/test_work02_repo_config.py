@@ -13,14 +13,12 @@ Covers:
 """
 
 import base64
-import json
-import pytest
 from unittest.mock import MagicMock, patch
 
 from src.pipeline.repo_config import apply_ignore_patterns, load_repo_config
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _github_contents_response(raw_yaml: str) -> dict:
     """Build a fake GitHub API /contents response for the given YAML text."""
@@ -38,8 +36,8 @@ def _make_http_response(status_code: int, json_body: dict | None = None) -> Magi
 
 # ── load_repo_config ──────────────────────────────────────────────────────────
 
-class TestLoadRepoConfig:
 
+class TestLoadRepoConfig:
     @patch("src.pipeline.repo_config.httpx")
     def test_loads_yml_file_successfully(self, mock_httpx):
         """
@@ -136,8 +134,8 @@ class TestLoadRepoConfig:
 
 # ── apply_ignore_patterns ─────────────────────────────────────────────────────
 
-class TestApplyIgnorePatterns:
 
+class TestApplyIgnorePatterns:
     def test_no_patterns_keeps_all_files(self):
         files = ["src/foo.py", "docs/README.md", "tests/test_foo.py"]
         result = apply_ignore_patterns(files, [])

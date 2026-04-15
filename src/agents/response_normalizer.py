@@ -21,10 +21,10 @@ from typing import Any
 
 from src.agents.model_registry import ModelCapability, get_capability
 
-
 # ---------------------------------------------------------------------------
 # System prompt adaptation
 # ---------------------------------------------------------------------------
+
 
 def adapt_prompts(
     system_prompt: str | None,
@@ -60,6 +60,7 @@ def adapt_prompts_with_cap(
 # ---------------------------------------------------------------------------
 # Content extraction
 # ---------------------------------------------------------------------------
+
 
 def extract_content(
     raw: Any,
@@ -106,9 +107,7 @@ def _extract_gemini(raw: Any, cap: ModelCapability) -> str:
         # Thinking-exp models emit parts with thought=True (internal chain of
         # thought) and thought=False (the actual answer).  Return only answer.
         answer_parts = [
-            p.text
-            for p in parts
-            if hasattr(p, "text") and not getattr(p, "thought", False)
+            p.text for p in parts if hasattr(p, "text") and not getattr(p, "thought", False)
         ]
         if answer_parts:
             return "".join(answer_parts)
@@ -134,6 +133,7 @@ def _extract_openai_compat(raw: Any) -> str:
 # ---------------------------------------------------------------------------
 # Usage normalization
 # ---------------------------------------------------------------------------
+
 
 def normalize_usage(raw: Any, input_format: str) -> dict[str, int]:
     """

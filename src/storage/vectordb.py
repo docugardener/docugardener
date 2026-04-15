@@ -7,7 +7,7 @@ Provides a unified interface for different vector database backends
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -20,6 +20,7 @@ logger = get_logger(__name__)
 
 class VectorDBProvider(Enum):
     """Supported vector database providers."""
+
     PINECONE = "pinecone"
     WEAVIATE = "weaviate"
 
@@ -28,7 +29,7 @@ class VectorDBProvider(Enum):
 class DocumentRecord:
     """
     A record stored in the vector database.
-    
+
     Attributes:
         id: Unique identifier for the record
         vector: Embedding vector
@@ -36,12 +37,13 @@ class DocumentRecord:
         content: Original text content (optional, for retrieval)
         namespace: Tenant namespace for isolation
     """
+
     id: str
     vector: list[float]
     metadata: dict[str, Any]
     content: str | None = None
     namespace: str = "default"
-    
+
     @classmethod
     def from_numpy(
         cls,
@@ -65,13 +67,14 @@ class DocumentRecord:
 class SearchResult:
     """
     Result from a vector similarity search.
-    
+
     Attributes:
         id: Record identifier
         score: Similarity score (higher = more similar)
         metadata: Record metadata
         content: Original content if stored
     """
+
     id: str
     score: float
     metadata: dict[str, Any]
@@ -81,21 +84,21 @@ class SearchResult:
 class VectorDB(ABC):
     """
     Abstract base class for vector database operations.
-    
+
     Provides a unified interface for storing and retrieving
     document embeddings across different vector DB backends.
     """
-    
+
     @abstractmethod
     async def initialize(self) -> None:
         """Initialize connection to the vector database."""
         pass
-    
+
     @abstractmethod
     async def close(self) -> None:
         """Close connection to the vector database."""
         pass
-    
+
     @abstractmethod
     async def upsert(
         self,
@@ -104,16 +107,16 @@ class VectorDB(ABC):
     ) -> int:
         """
         Insert or update records in the database.
-        
+
         Args:
             records: List of records to upsert
             namespace: Namespace for tenant isolation
-            
+
         Returns:
             Number of records upserted
         """
         pass
-    
+
     @abstractmethod
     async def search(
         self,
@@ -124,18 +127,18 @@ class VectorDB(ABC):
     ) -> list[SearchResult]:
         """
         Search for similar vectors.
-        
+
         Args:
             query_vector: Query embedding vector
             namespace: Namespace to search in
             top_k: Maximum number of results
             filter: Metadata filter conditions
-            
+
         Returns:
             List of search results sorted by similarity
         """
         pass
-    
+
     @abstractmethod
     async def delete(
         self,
@@ -144,47 +147,47 @@ class VectorDB(ABC):
     ) -> int:
         """
         Delete records by ID.
-        
+
         Args:
             ids: List of record IDs to delete
             namespace: Namespace containing the records
-            
+
         Returns:
             Number of records deleted
         """
         pass
-    
+
     @abstractmethod
     async def delete_namespace(self, namespace: str) -> bool:
         """
         Delete an entire namespace.
-        
+
         Args:
             namespace: Namespace to delete
-            
+
         Returns:
             True if successful
         """
         pass
-    
+
     @abstractmethod
     async def list_namespaces(self) -> list[str]:
         """
         List all namespaces.
-        
+
         Returns:
             List of namespace names
         """
         pass
-    
+
     @abstractmethod
     async def get_stats(self, namespace: str = "default") -> dict[str, Any]:
         """
         Get statistics for a namespace.
-        
+
         Args:
             namespace: Namespace to get stats for
-            
+
         Returns:
             Statistics dictionary (record count, dimensions, etc.)
         """
@@ -198,16 +201,16 @@ def generate_record_id(
 ) -> str:
     """
     Generate a unique record ID for a code entity.
-    
+
     Args:
         file_path: Path to the file
         entity_name: Name of the entity
         entity_type: Type of entity (function, class, etc.)
-        
+
     Returns:
         Unique record ID
     """
     import hashlib
-    
+
     key = f"{file_path}:{entity_type}:{entity_name}"
     return hashlib.sha256(key.encode()).hexdigest()[:32]

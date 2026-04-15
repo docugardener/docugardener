@@ -1,7 +1,8 @@
 """HYB-03: TenantResolver abstraction tests."""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from src.core.tenant import (
     MultiTenantResolver,
@@ -28,6 +29,7 @@ def make_settings(deployment_mode: str = "saas", single_tenant_id: str | None = 
 # ---------------------------------------------------------------------------
 # MultiTenantResolver
 # ---------------------------------------------------------------------------
+
 
 class TestMultiTenantResolver:
     @pytest.mark.anyio
@@ -64,6 +66,7 @@ class TestMultiTenantResolver:
 # SingleTenantResolver
 # ---------------------------------------------------------------------------
 
+
 class TestSingleTenantResolver:
     @pytest.mark.anyio
     async def test_returns_configured_tenant_id(self):
@@ -75,7 +78,9 @@ class TestSingleTenantResolver:
     @pytest.mark.anyio
     async def test_ignores_x_tenant_id_header(self):
         """Header must be completely ignored in single-tenant mode."""
-        settings = make_settings(deployment_mode="client-installed", single_tenant_id="fixed-tenant")
+        settings = make_settings(
+            deployment_mode="client-installed", single_tenant_id="fixed-tenant"
+        )
         resolver = SingleTenantResolver(settings)
         req = make_request("attacker-tenant")
         assert await resolver.resolve(req) == "fixed-tenant"
@@ -114,6 +119,7 @@ class TestSingleTenantResolver:
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
+
 
 class TestCreateTenantResolver:
     def test_saas_returns_multi_tenant_resolver(self):

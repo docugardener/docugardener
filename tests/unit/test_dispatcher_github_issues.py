@@ -10,13 +10,14 @@ Covers:
   - dispatch_drift_alert: github_issue_number stored on drift record after creation
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.notifications.dispatcher import NotificationDispatcher
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _drift_record(
     owner="acme",
@@ -50,8 +51,8 @@ def _dispatcher_with_gh(enabled=True, repo=None, plan="FREE"):
 
 # ── _create_github_issue ──────────────────────────────────────────────────────
 
-class TestCreateGithubIssue:
 
+class TestCreateGithubIssue:
     @pytest.mark.asyncio
     async def test_returns_issue_number_on_success(self):
         dispatcher = NotificationDispatcher(
@@ -132,8 +133,8 @@ class TestCreateGithubIssue:
 
 # ── close_github_issue ────────────────────────────────────────────────────────
 
-class TestCloseGithubIssue:
 
+class TestCloseGithubIssue:
     @pytest.mark.asyncio
     async def test_closes_issue_with_comment(self):
         dispatcher = NotificationDispatcher(
@@ -195,14 +196,16 @@ class TestCloseGithubIssue:
 
 # ── dispatch_drift_alert — GitHub Issues plan gating ─────────────────────────
 
-class TestDispatchGithubIssuesGating:
 
+class TestDispatchGithubIssuesGating:
     @pytest.mark.asyncio
     async def test_github_issue_created_on_free_plan(self):
         """GitHub Issues must be available on FREE plan (all plans)."""
         dispatcher = _dispatcher_with_gh(enabled=True, plan="FREE")
 
-        with patch.object(dispatcher, "_create_github_issue", new_callable=AsyncMock, return_value=55) as mock_create:
+        with patch.object(
+            dispatcher, "_create_github_issue", new_callable=AsyncMock, return_value=55
+        ) as mock_create:
             await dispatcher.dispatch_drift_alert(_drift_record())
 
         mock_create.assert_called_once()
@@ -212,7 +215,9 @@ class TestDispatchGithubIssuesGating:
         """GitHub Issues must also work on PRO plan."""
         dispatcher = _dispatcher_with_gh(enabled=True, plan="PRO")
 
-        with patch.object(dispatcher, "_create_github_issue", new_callable=AsyncMock, return_value=99) as mock_create:
+        with patch.object(
+            dispatcher, "_create_github_issue", new_callable=AsyncMock, return_value=99
+        ) as mock_create:
             await dispatcher.dispatch_drift_alert(_drift_record())
 
         mock_create.assert_called_once()
@@ -222,7 +227,9 @@ class TestDispatchGithubIssuesGating:
         """enabled=False → _create_github_issue must not be called."""
         dispatcher = _dispatcher_with_gh(enabled=False)
 
-        with patch.object(dispatcher, "_create_github_issue", new_callable=AsyncMock) as mock_create:
+        with patch.object(
+            dispatcher, "_create_github_issue", new_callable=AsyncMock
+        ) as mock_create:
             await dispatcher.dispatch_drift_alert(_drift_record())
 
         mock_create.assert_not_called()
@@ -233,7 +240,9 @@ class TestDispatchGithubIssuesGating:
         dispatcher = _dispatcher_with_gh(enabled=True, repo="acme/docs")
         record = _drift_record()
 
-        with patch.object(dispatcher, "_create_github_issue", new_callable=AsyncMock, return_value=77):
+        with patch.object(
+            dispatcher, "_create_github_issue", new_callable=AsyncMock, return_value=77
+        ):
             await dispatcher.dispatch_drift_alert(record)
 
         assert record.github_issue_number == 77
@@ -251,7 +260,9 @@ class TestDispatchGithubIssuesGating:
         )
         record = _drift_record(owner="myorg", repo="myrepo")
 
-        with patch.object(dispatcher, "_create_github_issue", new_callable=AsyncMock, return_value=10) as mock_create:
+        with patch.object(
+            dispatcher, "_create_github_issue", new_callable=AsyncMock, return_value=10
+        ) as mock_create:
             await dispatcher.dispatch_drift_alert(record)
 
         _, kwargs = mock_create.call_args

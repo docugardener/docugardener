@@ -16,27 +16,26 @@ Covered:
   - drift_score ≥ 85 → block_merge=True surfaced to reporter
 """
 
-import pytest
 from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from src.pipeline import job_manager as jm_module
 from src.pipeline.handler import process_pull_request
 from src.storage.sql_models import Job, JobStatus, TriageStatus
-
 from tests.integration.conftest import (
     INSTALLATION_ID,
     REPO_FULL_NAME,
-    TENANT_ID,
     TestingSessionLocal,
+    _webhook_headers,
     make_analysis_result,
     pipeline_patch_stack,
     pr_opened_payload,
-    _webhook_headers,
 )
-from src.pipeline import job_manager as jm_module
-
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _get_job(pr_number: int = 42) -> Job | None:
     db = TestingSessionLocal()
@@ -47,14 +46,20 @@ def _get_job(pr_number: int = 42) -> Job | None:
 
 
 _CHANGED_FILES = [
-    {"filename": "src/api.py", "status": "modified", "additions": 10, "deletions": 2, "patch": "@@ -1 +1 @@\n-old\n+new"}
+    {
+        "filename": "src/api.py",
+        "status": "modified",
+        "additions": 10,
+        "deletions": 2,
+        "patch": "@@ -1 +1 @@\n-old\n+new",
+    }
 ]
 
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestHumanPrPipeline:
 
+class TestHumanPrPipeline:
     # ── HTTP layer ────────────────────────────────────────────────────────────
 
     @pytest.mark.asyncio
@@ -63,8 +68,10 @@ class TestHumanPrPipeline:
         mock_queue = MagicMock()
         mock_queue.enqueue = MagicMock(return_value=MagicMock(id="rq-test-id"))
 
-        with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal), \
-             patch("src.worker.queue.get_queue", return_value=mock_queue):
+        with (
+            patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
+            patch("src.worker.queue.get_queue", return_value=mock_queue),
+        ):
             payload = pr_opened_payload()
             response = await http_client.post(
                 "/webhooks/github",
@@ -85,8 +92,10 @@ class TestHumanPrPipeline:
         mock_queue = MagicMock()
         mock_queue.enqueue = MagicMock(return_value=MagicMock(id="rq-x"))
 
-        with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal), \
-             patch("src.worker.queue.get_queue", return_value=mock_queue):
+        with (
+            patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
+            patch("src.worker.queue.get_queue", return_value=mock_queue),
+        ):
             response = await http_client.post(
                 "/webhooks/github",
                 json=pr_opened_payload(),
@@ -208,7 +217,10 @@ class TestHumanPrPipeline:
                 patch.object(jm_module.job_manager, "_session_factory", TestingSessionLocal)
             )
             stack.enter_context(
-                patch("src.notifications.dispatcher.decrypt", return_value="https://hooks.slack.com/real")
+                patch(
+                    "src.notifications.dispatcher.decrypt",
+                    return_value="https://hooks.slack.com/real",
+                )
             )
             mock_http = AsyncMock()
             mock_http.__aenter__ = AsyncMock(return_value=mock_http)
@@ -218,9 +230,7 @@ class TestHumanPrPipeline:
             mock_response.raise_for_status = MagicMock()
             mock_http.post = AsyncMock(return_value=mock_response)
             # enter_context returns the mock object (the patcher's __enter__ value)
-            mock_cls = stack.enter_context(
-                patch("src.notifications.dispatcher.httpx.AsyncClient")
-            )
+            mock_cls = stack.enter_context(patch("src.notifications.dispatcher.httpx.AsyncClient"))
             mock_cls.return_value = mock_http
 
             await process_pull_request(
@@ -243,8 +253,10 @@ class TestHumanPrPipeline:
         result = make_analysis_result(score=90, severity="critical", block_merge=True)
         mock_reporter = MagicMock()
         captured_result = []
+
         async def capture_report(r, **kwargs):
             captured_result.append(r)
+
         mock_reporter.report_to_pr = capture_report
 
         with ExitStack() as stack:

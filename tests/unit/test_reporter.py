@@ -5,16 +5,12 @@ Covers format_drift_report() and format_check_run_output().
 All tests are pure-Python — no network, DB, or GitHub client required.
 """
 
-from dataclasses import dataclass, field
-
-import pytest
-
-from src.pipeline.reporter import format_drift_report, format_check_run_output
+from src.agents.verifier import DocumentationDraft, DriftAnalysis, VerificationResult
 from src.pipeline.analyzer import PRAnalysisResult
-from src.agents.verifier import DriftAnalysis, DocumentationDraft, VerificationResult
-
+from src.pipeline.reporter import format_check_run_output, format_drift_report
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _drift(
     score: int = 30,
@@ -64,8 +60,8 @@ def _draft(entity: str = "MyClass", verified: bool = True) -> DocumentationDraft
 
 # ── format_drift_report — failed analysis ─────────────────────────────────────
 
-class TestFormatDriftReportFailed:
 
+class TestFormatDriftReportFailed:
     def test_failed_analysis_shows_error(self):
         result = _result(error="LLM timeout")
         report = format_drift_report(result)
@@ -89,8 +85,8 @@ class TestFormatDriftReportFailed:
 
 # ── format_drift_report — clean repo (no drift) ───────────────────────────────
 
-class TestFormatDriftReportNoDrift:
 
+class TestFormatDriftReportNoDrift:
     def test_header_present(self):
         result = _result(drift=_drift(score=0, severity="none", summary="All good."))
         report = format_drift_report(result)
@@ -124,8 +120,8 @@ class TestFormatDriftReportNoDrift:
 
 # ── format_drift_report — high drift ──────────────────────────────────────────
 
-class TestFormatDriftReportHighDrift:
 
+class TestFormatDriftReportHighDrift:
     def test_required_updates_section_shown(self):
         updates = [{"file": "src/api.py", "section": "ApiClient", "reason": "New param"}]
         result = _result(drift=_drift(score=85, severity="critical", required_updates=updates))
@@ -155,8 +151,8 @@ class TestFormatDriftReportHighDrift:
 
 # ── format_drift_report — documentation drafts ────────────────────────────────
 
-class TestFormatDriftReportDrafts:
 
+class TestFormatDriftReportDrafts:
     def test_drafts_section_shown_when_present(self):
         result = _result(
             drift=_drift(),
@@ -188,8 +184,8 @@ class TestFormatDriftReportDrafts:
 
 # ── format_drift_report — custom template ─────────────────────────────────────
 
-class TestFormatDriftReportTemplate:
 
+class TestFormatDriftReportTemplate:
     def test_template_variables_substituted(self):
         updates = [{"file": "src/auth.py", "section": "login", "reason": "Param added"}]
         result = _result(
@@ -225,8 +221,8 @@ class TestFormatDriftReportTemplate:
 
 # ── format_check_run_output ───────────────────────────────────────────────────
 
-class TestFormatCheckRunOutput:
 
+class TestFormatCheckRunOutput:
     def test_failed_result_returns_failure_conclusion(self):
         result = _result(error="timeout")
         output = format_check_run_output(result)

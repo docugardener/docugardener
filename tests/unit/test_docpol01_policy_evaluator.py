@@ -4,12 +4,11 @@ DOCPOL-01: Unit tests for policy_evaluator.py
 Tests evaluate_policies() — path matching, glob satisfaction, violation output.
 """
 
-import pytest
+from src.pipeline.policy_evaluator import evaluate_policies
 from src.pipeline.policy_parser import PolicyRule
-from src.pipeline.policy_evaluator import evaluate_policies, PolicyViolation
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
+
 
 def rule(name="r", paths=None, require_docs=None, enforcement="blocking") -> PolicyRule:
     return PolicyRule(
@@ -34,6 +33,7 @@ TREE_WITHOUT_API_DOCS = [
 
 
 # ── No-op cases ───────────────────────────────────────────────────────────────────
+
 
 def test_no_rules_returns_no_violations():
     violations = evaluate_policies([], ["src/api/routes.py"], TREE_WITH_API_DOCS)
@@ -62,6 +62,7 @@ def test_no_violation_when_all_docs_present():
 
 # ── Violation cases ───────────────────────────────────────────────────────────────
 
+
 def test_violation_when_docs_missing():
     """Rule triggered and require_docs globs not in tree → violation produced."""
     violations = evaluate_policies(
@@ -81,10 +82,12 @@ def test_violation_when_docs_missing():
 def test_partial_docs_missing_records_correct_sets():
     """When some require_docs globs are satisfied and some are not."""
     violations = evaluate_policies(
-        [rule(
-            paths=["src/api/**"],
-            require_docs=["docs/api/**", "openapi.yaml", "docs/missing/**"],
-        )],
+        [
+            rule(
+                paths=["src/api/**"],
+                require_docs=["docs/api/**", "openapi.yaml", "docs/missing/**"],
+            )
+        ],
         changed_file_paths=["src/api/routes.py"],
         repo_file_tree=TREE_WITH_API_DOCS,  # has docs/api/** and openapi.yaml but not docs/missing/**
     )

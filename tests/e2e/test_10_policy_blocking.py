@@ -9,6 +9,7 @@ the job reaches IGNORED state (dismiss unblocks the PR).
 
 Cleanup: removes .github/docugardener.yml from main.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -102,8 +103,9 @@ def test_beta13_policy_blocking(db):
         step(5, "Verify blocking policy violation recorded")
         assert violations, "Expected at least one policy_violation — got none"
         v = violations[0]
-        assert v["enforcement"] == "blocking", \
+        assert v["enforcement"] == "blocking", (
             f"Expected enforcement='blocking', got {v['enforcement']!r}"
+        )
 
         step(6, "Verify policy_blocks_merge=True")
         assert result.get("policy_blocks_merge") is True, (
@@ -117,9 +119,8 @@ def test_beta13_policy_blocking(db):
         step(8, "Poll until triageStatus=IGNORED (dismiss accepted)")
         ignored_job = wait_for_triage_ignored(db, pr_number, timeout=60)
         stored_reason = (ignored_job.get("result") or {}).get("dismiss_reason", "")
-        assert stored_reason == _DISMISS_REASON, \
-            f"dismiss_reason mismatch: {stored_reason!r}"
-        print(f"         → dismissed ✓  reason stored ✓", flush=True)
+        assert stored_reason == _DISMISS_REASON, f"dismiss_reason mismatch: {stored_reason!r}"
+        print("         → dismissed ✓  reason stored ✓", flush=True)
 
         step("✅", "BETA-13 (Policy Blocking + Dismiss) PASSED")
 

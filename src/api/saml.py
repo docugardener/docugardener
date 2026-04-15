@@ -23,17 +23,15 @@ Dependencies: python3-saml (pip), libxmlsec1-dev (apt). Both must be installed i
 the Docker image. See docker/Dockerfile for system dependency installation.
 """
 
-import hashlib
 import json
 import os
 import secrets
 import time
 import urllib.parse
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from src.core.logging import get_logger
 from src.pipeline.job_manager import SessionLocal
@@ -46,11 +44,12 @@ router = APIRouter(prefix="/auth/saml", tags=["SSO"])
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-MAX_ASSERTION_AGE_SECONDS = 600      # 10 minutes
-EXCHANGE_TOKEN_TTL_SECONDS = 120     # 2 minutes to complete the NextAuth exchange
-REPLAY_CACHE_TTL_SECONDS = 3600     # Keep consumed assertion IDs for 1 hour
+MAX_ASSERTION_AGE_SECONDS = 600  # 10 minutes
+EXCHANGE_TOKEN_TTL_SECONDS = 120  # 2 minutes to complete the NextAuth exchange
+REPLAY_CACHE_TTL_SECONDS = 3600  # Keep consumed assertion IDs for 1 hour
 
 # ── Lazy python3-saml import (requires libxmlsec1 C library) ──────────────────
+
 
 def _get_saml_auth(tenant: Tenant, request_data: dict) -> Any:
     """Build a OneLogin_Saml2_Auth instance for the given tenant."""
@@ -140,6 +139,7 @@ def _get_redis():
     """Return a Redis client for replay-cache operations."""
     try:
         import redis  # type: ignore
+
         url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         return redis.from_url(url, decode_responses=True)
     except Exception:
@@ -194,10 +194,12 @@ def _get_or_create_user(email: str, tenant_id: str, role: str) -> User:
         user = db.query(User).filter(User.email == email).first()
         if user is None:
             import cuid  # type: ignore — fallback to uuid if not available
+
             try:
                 new_id = cuid.cuid()
             except Exception:
                 import uuid
+
                 new_id = str(uuid.uuid4())
             user = User(
                 id=new_id,
@@ -222,6 +224,7 @@ def _get_or_create_user(email: str, tenant_id: str, role: str) -> User:
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.get("/metadata")
 async def saml_metadata(request: Request, tenant_id: str = Query(...)):
@@ -319,7 +322,10 @@ async def saml_callback(
     not_on_or_after = None
     try:
         from onelogin.saml2.utils import OneLogin_Saml2_Utils  # type: ignore
-        not_on_or_after = OneLogin_Saml2_Utils.parse_SAML_to_time(auth.get_last_assertion_not_on_or_after())
+
+        not_on_or_after = OneLogin_Saml2_Utils.parse_SAML_to_time(
+            auth.get_last_assertion_not_on_or_after()
+        )
     except Exception:
         pass
 
@@ -349,13 +355,16 @@ async def saml_callback(
 
     # ── Exchange token ────────────────────────────────────────────────────────
     token = secrets.token_urlsafe(32)
-    _store_exchange_token(token, {
-        "user_id": user.id,
-        "email": user.email,
-        "role": user.role,
-        "tenant_id": tenant_id,
-        "issued_at": time.time(),
-    })
+    _store_exchange_token(
+        token,
+        {
+            "user_id": user.id,
+            "email": user.email,
+            "role": user.role,
+            "tenant_id": tenant_id,
+            "issued_at": time.time(),
+        },
+    )
 
     logger.info("saml.authenticated", email=email, tenant_id=tenant_id, role=role)
 

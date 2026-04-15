@@ -13,12 +13,11 @@ Verifies that:
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
 
 from src.core.config import Settings
 
-
 # ── Default value tests ────────────────────────────────────────────────────────
+
 
 def test_allowed_origins_default_is_empty():
     # Construct with _env_file=None to avoid reading from .env
@@ -34,6 +33,7 @@ def test_sql_database_url_accepts_none():
 
 # ── validate_production_config: development is a no-op ────────────────────────
 
+
 def test_production_validation_noop_in_development():
     s = Settings(app_env="development", allowed_origins=[], sql_database_url=None)
     # Must not raise
@@ -46,6 +46,7 @@ def test_production_validation_noop_in_staging():
 
 
 # ── validate_production_config: production failures ───────────────────────────
+
 
 def test_production_raises_when_allowed_origins_empty():
     s = Settings(
@@ -93,6 +94,7 @@ def test_production_allowed_origins_with_multiple_origins():
 
 
 # ── CORS origins used in create_app() ─────────────────────────────────────────
+
 
 def test_cors_origins_logic_falls_back_to_wildcard_when_empty():
     """cors_origins derivation: empty list → ['*'] fallback."""

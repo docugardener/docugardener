@@ -11,16 +11,16 @@ Verifies that:
   - Both models are deterministic: same input → same score, 5 consecutive calls
 """
 
-import json
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.agents.verifier import VerificationAgent, DriftAnalysis
+import pytest
+
+from src.agents.verifier import VerificationAgent
 from src.analysis.diff import ChangeType, EntityChange
 from src.analysis.parser import CodeEntity
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_entity(name: str = "process_data", file_path: str = "src/core/service.py") -> CodeEntity:
     return CodeEntity(
@@ -48,7 +48,9 @@ def _make_change(
     )
 
 
-def _llm_response(content: str = '{"summary": "Drift score 42/100 because logic changed.", "required_updates": [], "nuance_adjustment": 0}') -> MagicMock:
+def _llm_response(
+    content: str = '{"summary": "Drift score 42/100 because logic changed.", "required_updates": [], "nuance_adjustment": 0}',
+) -> MagicMock:
     """Return a mock LLM response with valid JSON content."""
     r = MagicMock()
     r.content = content
@@ -68,18 +70,20 @@ def _make_agent(scoring_model: str = "basic") -> tuple[VerificationAgent, MagicM
     """
     agent = VerificationAgent.__new__(VerificationAgent)
     mock_llm = MagicMock()
-    mock_llm.generate = AsyncMock(side_effect=[
-        _llm_response(),          # proposal stage
-        _verification_response(), # verification stage
-        _llm_response(),          # extra calls for determinism tests
-        _verification_response(),
-        _llm_response(),
-        _verification_response(),
-        _llm_response(),
-        _verification_response(),
-        _llm_response(),
-        _verification_response(),
-    ])
+    mock_llm.generate = AsyncMock(
+        side_effect=[
+            _llm_response(),  # proposal stage
+            _verification_response(),  # verification stage
+            _llm_response(),  # extra calls for determinism tests
+            _verification_response(),
+            _llm_response(),
+            _verification_response(),
+            _llm_response(),
+            _verification_response(),
+            _llm_response(),
+            _verification_response(),
+        ]
+    )
     agent.generator = mock_llm
     agent.verifier = mock_llm
     agent.max_retries = 1
@@ -89,24 +93,27 @@ def _make_agent(scoring_model: str = "basic") -> tuple[VerificationAgent, MagicM
     agent._session_provider = "gemini"
     agent._session_model = "gemini-2.0-flash"
     from src.agents.verifier import LLMConfig
+
     agent.config = LLMConfig(temperature=0.0, max_tokens=2048)
     return agent, mock_llm
 
 
 # ── A1 tests ──────────────────────────────────────────────────────────────────
 
-class TestVerifierScoringModelDispatch:
 
+class TestVerifierScoringModelDispatch:
     @pytest.mark.asyncio
     async def test_basic_model_calls_calculate_score(self):
         """scoringModel='basic' → DriftScorer.calculate_score() called, holistic NOT called."""
         agent, _ = _make_agent(scoring_model="basic")
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=42) as mock_std, \
-             patch("src.agents.verifier.DriftScorer.calculate_holistic_score") as mock_hol, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t1"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm:
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=42) as mock_std,
+            patch("src.agents.verifier.DriftScorer.calculate_holistic_score") as mock_hol,
+            patch("src.agents.verifier.get_tenant_id", return_value="t1"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             await agent.analyze_drift(changes)
 
@@ -119,10 +126,14 @@ class TestVerifierScoringModelDispatch:
         agent, _ = _make_agent(scoring_model="holistic")
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_holistic_score", return_value=75) as mock_hol, \
-             patch("src.agents.verifier.DriftScorer.calculate_score") as mock_std, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t1"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm:
+        with (
+            patch(
+                "src.agents.verifier.DriftScorer.calculate_holistic_score", return_value=75
+            ) as mock_hol,
+            patch("src.agents.verifier.DriftScorer.calculate_score") as mock_std,
+            patch("src.agents.verifier.get_tenant_id", return_value="t1"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             await agent.analyze_drift(changes)
 
@@ -140,9 +151,11 @@ class TestVerifierScoringModelDispatch:
 
         mock_llm = MagicMock()
 
-        with patch("src.agents.verifier.get_tenant_id", return_value="t1"), \
-             patch("src.agents.verifier.get_db", side_effect=lambda: iter([mock_session])), \
-             patch("src.agents.verifier.create_llm_client", return_value=mock_llm):
+        with (
+            patch("src.agents.verifier.get_tenant_id", return_value="t1"),
+            patch("src.agents.verifier.get_db", side_effect=lambda: iter([mock_session])),
+            patch("src.agents.verifier.create_llm_client", return_value=mock_llm),
+        ):
             agent = VerificationAgent(generator_client=mock_llm, verifier_client=mock_llm)
 
         assert agent.scoring_model == "basic"
@@ -158,9 +171,11 @@ class TestVerifierScoringModelDispatch:
 
         mock_llm = MagicMock()
 
-        with patch("src.agents.verifier.get_tenant_id", return_value="t1"), \
-             patch("src.agents.verifier.get_db", side_effect=lambda: iter([mock_session])), \
-             patch("src.agents.verifier.create_llm_client", return_value=mock_llm):
+        with (
+            patch("src.agents.verifier.get_tenant_id", return_value="t1"),
+            patch("src.agents.verifier.get_db", side_effect=lambda: iter([mock_session])),
+            patch("src.agents.verifier.create_llm_client", return_value=mock_llm),
+        ):
             agent = VerificationAgent(generator_client=mock_llm, verifier_client=mock_llm)
 
         assert agent.scoring_model == "holistic"
@@ -176,9 +191,11 @@ class TestVerifierScoringModelDispatch:
 
         mock_llm = MagicMock()
 
-        with patch("src.agents.verifier.get_tenant_id", return_value="t1"), \
-             patch("src.agents.verifier.get_db", side_effect=lambda: iter([mock_session])), \
-             patch("src.agents.verifier.create_llm_client", return_value=mock_llm):
+        with (
+            patch("src.agents.verifier.get_tenant_id", return_value="t1"),
+            patch("src.agents.verifier.get_db", side_effect=lambda: iter([mock_session])),
+            patch("src.agents.verifier.create_llm_client", return_value=mock_llm),
+        ):
             agent = VerificationAgent(generator_client=mock_llm, verifier_client=mock_llm)
 
         assert agent.scoring_model == "basic"
@@ -191,15 +208,19 @@ class TestVerifierScoringModelDispatch:
 
         captured_prompts: list[str] = []
 
-        async def capture_generate(prompt: str = "", system_prompt: str = "", config=None, **kwargs):
+        async def capture_generate(
+            prompt: str = "", system_prompt: str = "", config=None, **kwargs
+        ):
             captured_prompts.append(prompt)
             return _llm_response()
 
         mock_llm.generate = AsyncMock(side_effect=capture_generate)
 
-        with patch("src.agents.verifier.DriftScorer.calculate_holistic_score", return_value=70), \
-             patch("src.agents.verifier.get_tenant_id", return_value="t1"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm:
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_holistic_score", return_value=70),
+            patch("src.agents.verifier.get_tenant_id", return_value="t1"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             await agent.analyze_drift(changes)
 
@@ -216,15 +237,19 @@ class TestVerifierScoringModelDispatch:
 
         captured_prompts: list[str] = []
 
-        async def capture_generate(prompt: str = "", system_prompt: str = "", config=None, **kwargs):
+        async def capture_generate(
+            prompt: str = "", system_prompt: str = "", config=None, **kwargs
+        ):
             captured_prompts.append(prompt)
             return _llm_response()
 
         mock_llm.generate = AsyncMock(side_effect=capture_generate)
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=42), \
-             patch("src.agents.verifier.get_tenant_id", return_value="t1"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm:
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=42),
+            patch("src.agents.verifier.get_tenant_id", return_value="t1"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             await agent.analyze_drift(changes)
 
@@ -241,8 +266,10 @@ class TestVerifierScoringModelDispatch:
             agent, mock_llm = _make_agent(scoring_model="basic")
             mock_llm.generate = AsyncMock(side_effect=[_llm_response(), _verification_response()])
 
-            with patch("src.agents.verifier.get_tenant_id", return_value="t1"), \
-                 patch("src.agents.verifier.prompt_manager") as mock_pm:
+            with (
+                patch("src.agents.verifier.get_tenant_id", return_value="t1"),
+                patch("src.agents.verifier.prompt_manager") as mock_pm,
+            ):
                 mock_pm.get_prompt.return_value = "system prompt"
                 result = await agent.analyze_drift(changes)
             scores.append(result.drift_score)
@@ -259,8 +286,10 @@ class TestVerifierScoringModelDispatch:
             agent, mock_llm = _make_agent(scoring_model="holistic")
             mock_llm.generate = AsyncMock(side_effect=[_llm_response(), _verification_response()])
 
-            with patch("src.agents.verifier.get_tenant_id", return_value="t1"), \
-                 patch("src.agents.verifier.prompt_manager") as mock_pm:
+            with (
+                patch("src.agents.verifier.get_tenant_id", return_value="t1"),
+                patch("src.agents.verifier.prompt_manager") as mock_pm,
+            ):
                 mock_pm.get_prompt.return_value = "system prompt"
                 result = await agent.analyze_drift(changes)
             scores.append(result.drift_score)

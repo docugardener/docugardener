@@ -23,16 +23,16 @@ Coverage:
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _configure_stripe_settings() -> None:
     from src.core.config import settings
+
     settings.stripe_secret_key = "sk_test_UNIT_TEST"
     settings.stripe_webhook_secret = "whsec_UNIT_TEST_SECRET"
     settings.stripe_price_pro = "price_PRO_TEST"
@@ -43,6 +43,7 @@ def _configure_stripe_settings() -> None:
 def _make_client() -> TestClient:
     _configure_stripe_settings()
     from src.main import create_app
+
     return TestClient(create_app())
 
 
@@ -58,6 +59,7 @@ def _post_event(client: TestClient, event: dict, sig: str = "t=0,v1=fake") -> ob
 # ---------------------------------------------------------------------------
 # Sample event factories
 # ---------------------------------------------------------------------------
+
 
 def _checkout_event() -> dict:
     return {
@@ -127,6 +129,7 @@ def _unknown_event() -> dict:
 # A. checkout.session.completed → sync called
 # ---------------------------------------------------------------------------
 
+
 def test_checkout_completed_calls_sync() -> None:
     """A. Valid checkout event → sync_subscription_to_tenant is called."""
     _configure_stripe_settings()
@@ -134,7 +137,10 @@ def test_checkout_completed_calls_sync() -> None:
 
     with (
         patch("stripe.Webhook.construct_event", return_value=event),
-        patch("stripe.Subscription.retrieve", return_value={"items": {"data": [{"price": {"id": "price_PRO_TEST"}}]}}),
+        patch(
+            "stripe.Subscription.retrieve",
+            return_value={"items": {"data": [{"price": {"id": "price_PRO_TEST"}}]}},
+        ),
         patch("src.stripe.sync.sync_subscription_to_tenant", return_value=True) as mock_sync,
         patch("src.stripe.webhooks.SessionLocal"),
     ):
@@ -148,6 +154,7 @@ def test_checkout_completed_calls_sync() -> None:
 # ---------------------------------------------------------------------------
 # B. subscription.deleted → downgrade called
 # ---------------------------------------------------------------------------
+
 
 def test_subscription_deleted_calls_downgrade() -> None:
     """B. subscription.deleted → downgrade_tenant_to_free is called."""
@@ -170,9 +177,11 @@ def test_subscription_deleted_calls_downgrade() -> None:
 # C. Invalid signature → 400
 # ---------------------------------------------------------------------------
 
+
 def test_invalid_signature_returns_400() -> None:
     """C. Invalid Stripe signature → 400."""
     import stripe as _stripe
+
     _configure_stripe_settings()
 
     with patch(
@@ -189,6 +198,7 @@ def test_invalid_signature_returns_400() -> None:
 # ---------------------------------------------------------------------------
 # D. Unknown event type → 200 OK
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_event_type_returns_ok() -> None:
     """D. Unknown event type → 200 OK, no sync/downgrade."""
@@ -212,6 +222,7 @@ def test_unknown_event_type_returns_ok() -> None:
 # E. payment_failed → 200 OK, no downgrade
 # ---------------------------------------------------------------------------
 
+
 def test_payment_failed_does_not_downgrade() -> None:
     """E. invoice.payment_failed → 200 OK; sync and downgrade NOT called."""
     _configure_stripe_settings()
@@ -234,6 +245,7 @@ def test_payment_failed_does_not_downgrade() -> None:
 # F. subscription.updated → sync called
 # ---------------------------------------------------------------------------
 
+
 def test_subscription_updated_calls_sync() -> None:
     """F. subscription.updated → sync_subscription_to_tenant called."""
     _configure_stripe_settings()
@@ -254,10 +266,12 @@ def test_subscription_updated_calls_sync() -> None:
 # G-J. Price ID → plan mapping (pure unit, no HTTP)
 # ---------------------------------------------------------------------------
 
+
 def test_price_id_to_plan_pro() -> None:
     """G. PRO price ID → PRO."""
     _configure_stripe_settings()
     from src.stripe.sync import _price_id_to_plan
+
     assert _price_id_to_plan("price_PRO_TEST") == "PRO"
 
 
@@ -265,6 +279,7 @@ def test_price_id_to_plan_team() -> None:
     """H. TEAM price ID → TEAM."""
     _configure_stripe_settings()
     from src.stripe.sync import _price_id_to_plan
+
     assert _price_id_to_plan("price_TEAM_TEST") == "TEAM"
 
 
@@ -272,12 +287,14 @@ def test_price_id_to_plan_unknown_defaults_to_free() -> None:
     """I. Unknown price ID → FREE."""
     _configure_stripe_settings()
     from src.stripe.sync import _price_id_to_plan
+
     assert _price_id_to_plan("price_UNKNOWN_XYZ") == "FREE"
 
 
 def test_price_id_to_plan_none_defaults_to_free() -> None:
     """J. None → FREE."""
     from src.stripe.sync import _price_id_to_plan
+
     assert _price_id_to_plan(None) == "FREE"
 
 
@@ -285,9 +302,11 @@ def test_price_id_to_plan_none_defaults_to_free() -> None:
 # K-L. Sync/Downgrade with no tenant found
 # ---------------------------------------------------------------------------
 
+
 def test_sync_returns_false_when_no_tenant() -> None:
     """K. sync_subscription_to_tenant returns False when Tenant not found."""
     from src.stripe.sync import sync_subscription_to_tenant
+
     mock_db = MagicMock()
     mock_db.query.return_value.filter.return_value.first.return_value = None
     result = sync_subscription_to_tenant(
@@ -301,6 +320,7 @@ def test_sync_returns_false_when_no_tenant() -> None:
 def test_downgrade_returns_false_when_no_tenant() -> None:
     """L. downgrade_tenant_to_free returns False when Tenant not found."""
     from src.stripe.sync import downgrade_tenant_to_free
+
     mock_db = MagicMock()
     mock_db.query.return_value.filter.return_value.first.return_value = None
     result = downgrade_tenant_to_free("cus_GHOST", mock_db)
@@ -311,17 +331,20 @@ def test_downgrade_returns_false_when_no_tenant() -> None:
 # M. Missing webhook secret → 500
 # ---------------------------------------------------------------------------
 
+
 def test_missing_webhook_secret_returns_500() -> None:
     """M. STRIPE_WEBHOOK_SECRET not set → 500."""
     from src.core.config import settings
+
     original = settings.stripe_webhook_secret
     settings.stripe_webhook_secret = ""
     try:
         from src.main import create_app
+
         client = TestClient(create_app())
         resp = client.post(
             "/webhooks/stripe",
-            content=b'{}',
+            content=b"{}",
             headers={"Stripe-Signature": "t=0,v1=x", "Content-Type": "application/json"},
         )
         assert resp.status_code == 500

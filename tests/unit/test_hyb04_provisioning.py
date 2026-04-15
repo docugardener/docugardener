@@ -1,11 +1,12 @@
 """HYB-04: Single-tenant auto-provisioning tests."""
 
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, patch, call
 
 from src.core.provisioning import (
-    ensure_tenant_provisioned,
     DEFAULT_TENANT_ID,
+    ensure_tenant_provisioned,
 )
 
 
@@ -13,8 +14,8 @@ def make_settings(**kwargs):
     s = MagicMock()
     s.deployment_mode = kwargs.get("deployment_mode", "client-installed")
     s.github_org = kwargs.get("github_org", "acme-corp")
-    s.admin_email = kwargs.get("admin_email", None)
-    s.single_tenant_id = kwargs.get("single_tenant_id", None)
+    s.admin_email = kwargs.get("admin_email")
+    s.single_tenant_id = kwargs.get("single_tenant_id")
     return s
 
 
@@ -30,7 +31,9 @@ def make_db(tenant_row=None, user_row=None):
         result = MagicMock()
         idx = call_count[0]
         call_count[0] += 1
-        result.fetchone.return_value = fetchone_results[idx] if idx < len(fetchone_results) else None
+        result.fetchone.return_value = (
+            fetchone_results[idx] if idx < len(fetchone_results) else None
+        )
         return result
 
     db.execute.side_effect = side_effect

@@ -9,23 +9,21 @@ Covers:
 """
 
 import math
-import pytest
-from unittest.mock import MagicMock, patch
 
-from src.analysis.scorer import (
-    DriftScorer,
-    KERNEL_WEIGHT,
-    FEATURE_WEIGHT,
-    LEAF_WEIGHT,
-    CHANGE_WEIGHTS,
-)
 from src.analysis.diff import ChangeType, EntityChange
 from src.analysis.parser import CodeEntity
-
+from src.analysis.scorer import (
+    CHANGE_WEIGHTS,
+    FEATURE_WEIGHT,
+    KERNEL_WEIGHT,
+    LEAF_WEIGHT,
+    DriftScorer,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_entity(
     name: str = "my_func",
@@ -76,8 +74,8 @@ def make_change(
 # 1. Directory Weight Mapper Tests
 # ===========================================================================
 
-class TestGetDirectoryWeight:
 
+class TestGetDirectoryWeight:
     def test_kernel_tier_src_core(self):
         assert DriftScorer.get_directory_weight("src/core/config.py") == KERNEL_WEIGHT
 
@@ -112,7 +110,10 @@ class TestGetDirectoryWeight:
         assert DriftScorer.get_directory_weight("src/api/repos.py") == FEATURE_WEIGHT
 
     def test_feature_tier_components(self):
-        assert DriftScorer.get_directory_weight("web/components/editor/LiveCodeBlock.tsx") == FEATURE_WEIGHT
+        assert (
+            DriftScorer.get_directory_weight("web/components/editor/LiveCodeBlock.tsx")
+            == FEATURE_WEIGHT
+        )
 
     def test_leading_dot_slash_normalized(self):
         """Paths prefixed with ./ should be handled the same way."""
@@ -127,8 +128,8 @@ class TestGetDirectoryWeight:
 # 2. Standard Scoring Model (v2.1) Tests
 # ===========================================================================
 
-class TestCalculateScore:
 
+class TestCalculateScore:
     def test_empty_changes(self):
         assert DriftScorer.calculate_score([]) == 0
 
@@ -154,16 +155,22 @@ class TestCalculateScore:
     def test_private_entity_scores_lower_than_public(self):
         """Private entities (0.8x visibility) score lower than public (1.2x) — verified via raw
         individual item scores before integer aggregation, avoiding rounding collisions."""
-        from src.analysis.scorer import CHANGE_WEIGHTS, VISIBILITY_MULTIPLIER
+        from src.analysis.scorer import VISIBILITY_MULTIPLIER
 
         priv_entity = CodeEntity(
-            name="_private_func", entity_type="function",
-            file_path="src/feature/utils.py", start_line=1, end_line=3,
+            name="_private_func",
+            entity_type="function",
+            file_path="src/feature/utils.py",
+            start_line=1,
+            end_line=3,
             content="def _private_func(): pass",
         )
         pub_entity = CodeEntity(
-            name="public_func", entity_type="function",
-            file_path="src/feature/utils.py", start_line=1, end_line=3,
+            name="public_func",
+            entity_type="function",
+            file_path="src/feature/utils.py",
+            start_line=1,
+            end_line=3,
             content="def public_func(): pass",
         )
         # Verify the property is working correctly first
@@ -172,13 +179,15 @@ class TestCalculateScore:
 
         # Verify the raw multipliers produce a measurable difference
         priv_vis = VISIBILITY_MULTIPLIER[priv_entity.is_public]  # 0.8
-        pub_vis = VISIBILITY_MULTIPLIER[pub_entity.is_public]     # 1.2
+        pub_vis = VISIBILITY_MULTIPLIER[pub_entity.is_public]  # 1.2
         base = CHANGE_WEIGHTS[ChangeType.LOGIC_MODIFIED]
         complexity = 1.0 + math.log10(max(1, priv_entity.line_count)) * 0.5
 
         priv_raw = base * priv_vis * complexity
         pub_raw = base * pub_vis * complexity
-        assert priv_raw < pub_raw, f"Raw score: private ({priv_raw:.2f}) should be < public ({pub_raw:.2f})"
+        assert priv_raw < pub_raw, (
+            f"Raw score: private ({priv_raw:.2f}) should be < public ({pub_raw:.2f})"
+        )
 
     def test_large_entity_scores_higher_via_complexity(self):
         small = make_change(change_type=ChangeType.LOGIC_MODIFIED, start_line=1, end_line=5)
@@ -188,8 +197,7 @@ class TestCalculateScore:
     def test_score_capped_at_100(self):
         """No matter how complex the change, the final score must not exceed 100."""
         changes = [
-            make_change(ChangeType.SIGNATURE_CHANGED, start_line=1, end_line=500)
-            for _ in range(10)
+            make_change(ChangeType.SIGNATURE_CHANGED, start_line=1, end_line=500) for _ in range(10)
         ]
         assert DriftScorer.calculate_score(changes) <= 100
 
@@ -220,8 +228,8 @@ class TestCalculateScore:
 # 3. Holistic Scoring Model (v3.0) Tests
 # ===========================================================================
 
-class TestCalculateHolisticScore:
 
+class TestCalculateHolisticScore:
     def test_empty_changes(self):
         assert DriftScorer.calculate_holistic_score([]) == 0
 
@@ -233,13 +241,15 @@ class TestCalculateHolisticScore:
         kernel_change = make_change(
             change_type=ChangeType.LOGIC_MODIFIED,
             file_path="src/core/config.py",
-            start_line=1, end_line=10,
+            start_line=1,
+            end_line=10,
             directory_weight=KERNEL_WEIGHT,
         )
         leaf_change = make_change(
             change_type=ChangeType.LOGIC_MODIFIED,
             file_path="tests/test_utils.py",
-            start_line=1, end_line=10,
+            start_line=1,
+            end_line=10,
             directory_weight=LEAF_WEIGHT,
         )
         kernel_score = DriftScorer.calculate_holistic_score([kernel_change])
@@ -247,7 +257,9 @@ class TestCalculateHolisticScore:
 
         # Kernel weight = 2.0, Leaf weight = 0.5 → ratio = 4.0
         # Due to blast_bonus(0+1)=1.0 for both, ratio should be ~4x
-        assert kernel_score > leaf_score, f"Kernel ({kernel_score}) should score higher than Leaf ({leaf_score})"
+        assert kernel_score > leaf_score, (
+            f"Kernel ({kernel_score}) should score higher than Leaf ({leaf_score})"
+        )
         assert kernel_score >= leaf_score * 3.0, (
             f"Expected ~4x difference, got {kernel_score}/{leaf_score}"
         )
@@ -255,14 +267,22 @@ class TestCalculateHolisticScore:
     def test_high_blast_radius_increases_score(self):
         """Entities referenced by many files should have a higher holistic score."""
         low_blast = make_change(
-            change_type=ChangeType.LOGIC_MODIFIED, start_line=1, end_line=10,
-            directory_weight=FEATURE_WEIGHT, blast_radius=0,
+            change_type=ChangeType.LOGIC_MODIFIED,
+            start_line=1,
+            end_line=10,
+            directory_weight=FEATURE_WEIGHT,
+            blast_radius=0,
         )
         high_blast = make_change(
-            change_type=ChangeType.LOGIC_MODIFIED, start_line=1, end_line=10,
-            directory_weight=FEATURE_WEIGHT, blast_radius=50,
+            change_type=ChangeType.LOGIC_MODIFIED,
+            start_line=1,
+            end_line=10,
+            directory_weight=FEATURE_WEIGHT,
+            blast_radius=50,
         )
-        assert DriftScorer.calculate_holistic_score([high_blast]) > DriftScorer.calculate_holistic_score([low_blast])
+        assert DriftScorer.calculate_holistic_score(
+            [high_blast]
+        ) > DriftScorer.calculate_holistic_score([low_blast])
 
     def test_blast_radius_logarithmic_scaling(self):
         """
@@ -278,7 +298,9 @@ class TestCalculateHolisticScore:
 
     def test_zero_blast_radius_still_scores(self):
         """Zero blast radius should still score > 0 because the log bonus at 0 is log(1)=0 → bonus=1.0."""
-        change = make_change(ChangeType.SIGNATURE_CHANGED, start_line=1, end_line=30, blast_radius=0)
+        change = make_change(
+            ChangeType.SIGNATURE_CHANGED, start_line=1, end_line=30, blast_radius=0
+        )
         score = DriftScorer.calculate_holistic_score([change])
         assert score > 0
 
@@ -287,12 +309,15 @@ class TestCalculateHolisticScore:
         change = make_change(
             change_type=ChangeType.SIGNATURE_CHANGED,
             file_path="src/core/config.py",
-            start_line=1, end_line=50,
+            start_line=1,
+            end_line=50,
             directory_weight=KERNEL_WEIGHT,
             blast_radius=20,
         )
         score = DriftScorer.calculate_holistic_score([change])
-        assert DriftScorer.get_severity(score) == "critical", f"Expected critical, got {DriftScorer.get_severity(score)} (score={score})"
+        assert DriftScorer.get_severity(score) == "critical", (
+            f"Expected critical, got {DriftScorer.get_severity(score)} (score={score})"
+        )
 
     def test_holistic_leaf_cosmetic_scores_none(self):
         """A cosmetic change in a test file should score 0 even with holistic model."""
@@ -307,8 +332,13 @@ class TestCalculateHolisticScore:
     def test_holistic_score_capped_at_100(self):
         """Holistic scores must never exceed 100, regardless of compounding multipliers."""
         changes = [
-            make_change(ChangeType.SIGNATURE_CHANGED, start_line=1, end_line=500,
-                        directory_weight=KERNEL_WEIGHT, blast_radius=100)
+            make_change(
+                ChangeType.SIGNATURE_CHANGED,
+                start_line=1,
+                end_line=500,
+                directory_weight=KERNEL_WEIGHT,
+                blast_radius=100,
+            )
             for _ in range(10)
         ]
         assert DriftScorer.calculate_holistic_score(changes) <= 100
@@ -316,8 +346,13 @@ class TestCalculateHolisticScore:
     def test_holistic_determinism(self):
         """The holistic scorer must be perfectly deterministic given the same inputs."""
         changes = [
-            make_change(ChangeType.LOGIC_MODIFIED, start_line=1, end_line=25,
-                        directory_weight=KERNEL_WEIGHT, blast_radius=10),
+            make_change(
+                ChangeType.LOGIC_MODIFIED,
+                start_line=1,
+                end_line=25,
+                directory_weight=KERNEL_WEIGHT,
+                blast_radius=10,
+            ),
         ]
         scores = {DriftScorer.calculate_holistic_score(changes) for _ in range(5)}
         assert len(scores) == 1
@@ -327,34 +362,40 @@ class TestCalculateHolisticScore:
         change = make_change(
             change_type=ChangeType.LOGIC_MODIFIED,
             file_path="src/core/settings.py",
-            start_line=1, end_line=10,
+            start_line=1,
+            end_line=10,
             directory_weight=KERNEL_WEIGHT,
             blast_radius=5,
         )
         standard = DriftScorer.calculate_score([change])
         holistic = DriftScorer.calculate_holistic_score([change])
-        assert holistic >= standard, f"Holistic ({holistic}) should match or beat standard ({standard})"
+        assert holistic >= standard, (
+            f"Holistic ({holistic}) should match or beat standard ({standard})"
+        )
 
     def test_holistic_lower_than_standard_for_pure_leaf_change(self):
         """For a LEAF-tier change, holistic score must be < standard score (leaf weight=0.5x)."""
         change = make_change(
             change_type=ChangeType.LOGIC_MODIFIED,
             file_path="tests/test_anything.py",
-            start_line=1, end_line=10,
+            start_line=1,
+            end_line=10,
             directory_weight=LEAF_WEIGHT,
             blast_radius=0,
         )
         standard = DriftScorer.calculate_score([change])
         holistic = DriftScorer.calculate_holistic_score([change])
-        assert holistic < standard, f"Holistic ({holistic}) should be less than standard ({standard}) for leaf tier"
+        assert holistic < standard, (
+            f"Holistic ({holistic}) should be less than standard ({standard}) for leaf tier"
+        )
 
 
 # ===========================================================================
 # 4. Severity Mapping
 # ===========================================================================
 
-class TestGetSeverity:
 
+class TestGetSeverity:
     def test_none_threshold(self):
         assert DriftScorer.get_severity(0) == "none"
         assert DriftScorer.get_severity(4) == "none"

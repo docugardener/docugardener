@@ -6,15 +6,16 @@ analyze_drift() must lift any merge block so low-confidence analyses never
 gate CI.  The DriftAnalysis.confidence_score field carries the value through.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.agents.verifier import DriftAnalysis, VerificationAgent, _GRACE_THRESHOLD
+import pytest
+
+from src.agents.verifier import _GRACE_THRESHOLD, VerificationAgent
 from src.analysis.diff import ChangeType, EntityChange
 from src.analysis.parser import CodeEntity
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_change(change_type: ChangeType = ChangeType.SIGNATURE_CHANGED) -> EntityChange:
     """
@@ -63,8 +64,8 @@ def _llm_responses(proposal_score: int, verifier_confidence: float) -> list[Magi
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-class TestScale05Confidence:
 
+class TestScale05Confidence:
     @pytest.mark.asyncio
     async def test_high_confidence_keeps_block_merge(self):
         """
@@ -131,10 +132,12 @@ class TestScale05Confidence:
         # Low score (< 60) → block_merge=False already
         proposal = '{"drift_score": 20, "severity": "minor", "required_updates": [], "block_merge": false, "summary": "Minor tweak", "nuance_adjustment": 0}'
         verification = '{"verdict": "AGREE", "confidence": 0.1, "issues": []}'
-        mock_llm.generate = AsyncMock(side_effect=[
-            MagicMock(content=proposal),
-            MagicMock(content=verification),
-        ])
+        mock_llm.generate = AsyncMock(
+            side_effect=[
+                MagicMock(content=proposal),
+                MagicMock(content=verification),
+            ]
+        )
 
         with (
             patch("src.agents.verifier.get_tenant_id", return_value="test-tenant"),
@@ -157,10 +160,12 @@ class TestScale05Confidence:
         agent, mock_llm = _make_agent()
         proposal = '{"drift_score": 70, "severity": "significant", "required_updates": [], "block_merge": true, "summary": "Sig change", "nuance_adjustment": 0}'
         verification = '{"verdict": "AGREE", "issues": []}'  # No confidence field
-        mock_llm.generate = AsyncMock(side_effect=[
-            MagicMock(content=proposal),
-            MagicMock(content=verification),
-        ])
+        mock_llm.generate = AsyncMock(
+            side_effect=[
+                MagicMock(content=proposal),
+                MagicMock(content=verification),
+            ]
+        )
 
         with (
             patch("src.agents.verifier.get_tenant_id", return_value="test-tenant"),
@@ -179,9 +184,7 @@ class TestScale05Confidence:
         the merge block must not be lifted.
         """
         agent, mock_llm = _make_agent()
-        mock_llm.generate = AsyncMock(
-            side_effect=_llm_responses(75, _GRACE_THRESHOLD)
-        )
+        mock_llm.generate = AsyncMock(side_effect=_llm_responses(75, _GRACE_THRESHOLD))
 
         with (
             patch("src.agents.verifier.get_tenant_id", return_value="test-tenant"),

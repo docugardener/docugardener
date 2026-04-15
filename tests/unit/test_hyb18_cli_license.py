@@ -19,17 +19,15 @@ AC-HYB18-15  deactivate removes license file
 """
 
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
-import pytest
 from click.testing import CliRunner
 
-from src.cli.license import license_group, _validate_offline_file
-
+from src.cli.license import _validate_offline_file, license_group
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def make_cloud_resp(data: dict, status: int = 200):
     resp = MagicMock()
@@ -79,13 +77,21 @@ def _patch_httpx(data: dict, status: int = 200):
 
 # ── activate tests ────────────────────────────────────────────────────────────
 
+
 def test_ac_hyb18_01_activate_exits_0_on_valid_key():
     """AC-HYB18-01: activate exits 0 on valid key."""
     runner = CliRunner()
-    with patch("src.cli.license._validate_key", new=AsyncMock(return_value={
-        "valid": True, "plan": "PRO", "expires_at": "2027-01-01T00:00:00Z",
-        "features": ["slack_integration"],
-    })):
+    with patch(
+        "src.cli.license._validate_key",
+        new=AsyncMock(
+            return_value={
+                "valid": True,
+                "plan": "PRO",
+                "expires_at": "2027-01-01T00:00:00Z",
+                "features": ["slack_integration"],
+            }
+        ),
+    ):
         result = runner.invoke(
             license_group, ["activate", "dg_lic_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"]
         )
@@ -95,9 +101,9 @@ def test_ac_hyb18_01_activate_exits_0_on_valid_key():
 def test_ac_hyb18_02_activate_exits_2_on_network_error():
     """AC-HYB18-02: activate exits 2 on network error."""
     runner = CliRunner()
-    with patch("src.cli.license._validate_key", new=AsyncMock(
-        side_effect=httpx.ConnectError("refused")
-    )):
+    with patch(
+        "src.cli.license._validate_key", new=AsyncMock(side_effect=httpx.ConnectError("refused"))
+    ):
         result = runner.invoke(
             license_group, ["activate", "dg_lic_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"]
         )
@@ -107,9 +113,15 @@ def test_ac_hyb18_02_activate_exits_2_on_network_error():
 def test_ac_hyb18_03_activate_exits_1_when_invalid():
     """AC-HYB18-03: activate exits 1 when cloud returns valid=False."""
     runner = CliRunner()
-    with patch("src.cli.license._validate_key", new=AsyncMock(return_value={
-        "valid": False, "reason": "license_revoked",
-    })):
+    with patch(
+        "src.cli.license._validate_key",
+        new=AsyncMock(
+            return_value={
+                "valid": False,
+                "reason": "license_revoked",
+            }
+        ),
+    ):
         result = runner.invoke(
             license_group, ["activate", "dg_lic_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"]
         )
@@ -119,10 +131,17 @@ def test_ac_hyb18_03_activate_exits_1_when_invalid():
 def test_ac_hyb18_04_activate_prints_plan_and_features():
     """AC-HYB18-04: activate prints plan and features on success."""
     runner = CliRunner()
-    with patch("src.cli.license._validate_key", new=AsyncMock(return_value={
-        "valid": True, "plan": "TEAM", "expires_at": "2027-06-01T00:00:00Z",
-        "features": ["sso_saml", "audit_log"],
-    })):
+    with patch(
+        "src.cli.license._validate_key",
+        new=AsyncMock(
+            return_value={
+                "valid": True,
+                "plan": "TEAM",
+                "expires_at": "2027-06-01T00:00:00Z",
+                "features": ["sso_saml", "audit_log"],
+            }
+        ),
+    ):
         result = runner.invoke(
             license_group, ["activate", "dg_lic_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"]
         )
@@ -131,6 +150,7 @@ def test_ac_hyb18_04_activate_prints_plan_and_features():
 
 
 # ── status tests ──────────────────────────────────────────────────────────────
+
 
 def test_ac_hyb18_05_status_exits_0_in_saas():
     """AC-HYB18-05: status exits 0 in saas mode."""
@@ -150,30 +170,49 @@ def test_ac_hyb18_06_status_exits_1_no_key_in_client_installed():
 def test_ac_hyb18_07_status_exits_2_on_network_error():
     """AC-HYB18-07: status exits 2 on network error."""
     runner = CliRunner()
-    with patch("src.cli.license._validate_key", new=AsyncMock(
-        side_effect=httpx.ConnectError("refused")
-    )):
-        result = runner.invoke(license_group, [
-            "status", "--mode", "client-installed",
-            "--key", "dg_lic_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
-        ])
+    with patch(
+        "src.cli.license._validate_key", new=AsyncMock(side_effect=httpx.ConnectError("refused"))
+    ):
+        result = runner.invoke(
+            license_group,
+            [
+                "status",
+                "--mode",
+                "client-installed",
+                "--key",
+                "dg_lic_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+            ],
+        )
     assert result.exit_code == 2
 
 
 def test_ac_hyb18_08_status_exits_1_when_invalid():
     """AC-HYB18-08: status exits 1 when cloud returns invalid."""
     runner = CliRunner()
-    with patch("src.cli.license._validate_key", new=AsyncMock(return_value={
-        "valid": False, "reason": "license_expired",
-    })):
-        result = runner.invoke(license_group, [
-            "status", "--mode", "client-installed",
-            "--key", "dg_lic_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
-        ])
+    with patch(
+        "src.cli.license._validate_key",
+        new=AsyncMock(
+            return_value={
+                "valid": False,
+                "reason": "license_expired",
+            }
+        ),
+    ):
+        result = runner.invoke(
+            license_group,
+            [
+                "status",
+                "--mode",
+                "client-installed",
+                "--key",
+                "dg_lic_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+            ],
+        )
     assert result.exit_code == 1
 
 
 # ── offline-activate tests ────────────────────────────────────────────────────
+
 
 def test_ac_hyb18_09_offline_activate_exits_1_for_non_json(tmp_path):
     """AC-HYB18-09: offline-activate exits 1 for non-JSON file."""
@@ -211,8 +250,7 @@ def test_ac_hyb18_12_offline_activate_valid_file(tmp_path):
     install_target = tmp_path / "installed" / "license.json"
     runner = CliRunner()
     result = runner.invoke(
-        license_group,
-        ["offline-activate", str(license_file), "--install-to", str(install_target)]
+        license_group, ["offline-activate", str(license_file), "--install-to", str(install_target)]
     )
     assert result.exit_code == 0
     assert "License file is valid" in result.output
@@ -221,6 +259,7 @@ def test_ac_hyb18_12_offline_activate_valid_file(tmp_path):
 
 
 # ── _validate_offline_file tests ─────────────────────────────────────────────
+
 
 def test_ac_hyb18_13_validate_offline_file_parses_valid(tmp_path):
     """AC-HYB18-13: _validate_offline_file returns parsed dict for valid file."""
@@ -232,6 +271,7 @@ def test_ac_hyb18_13_validate_offline_file_parses_valid(tmp_path):
 
 
 # ── deactivate tests ──────────────────────────────────────────────────────────
+
 
 def test_ac_hyb18_15_deactivate_removes_license_file(tmp_path):
     """AC-HYB18-15: deactivate removes the license file."""

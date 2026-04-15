@@ -4,6 +4,7 @@ BETA-24b-C — Auto-merge via "Rebase and merge".
 Verifies that when the tenant is configured with mergeMethod=rebase, the fix PR
 is rebased onto main and autoMergeMethod="rebase" is recorded.
 """
+
 import pytest
 
 from tests.e2e.helpers import (

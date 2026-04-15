@@ -4,12 +4,12 @@ Issue 1 — Exponential backoff in auto_merge_pr.
 Verifies that each CI polling sleep uses min(retry_delay * 2**attempt, max_delay)
 rather than a constant retry_delay.
 """
+
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 from src.github.committer import GitCommitter
-
 
 _PR_URL = "https://github.com/acme/api/pull/7"
 
@@ -18,7 +18,9 @@ def _make_committer() -> GitCommitter:
     return GitCommitter(installation_token="tok", owner="acme", repo="api")
 
 
-def _make_check_run(name: str, status: str, conclusion: str | None = None, app_slug: str = "github-actions") -> MagicMock:
+def _make_check_run(
+    name: str, status: str, conclusion: str | None = None, app_slug: str = "github-actions"
+) -> MagicMock:
     cr = MagicMock()
     cr.name = name
     cr.status = status
@@ -53,8 +55,10 @@ class TestExponentialBackoff:
         commit.get_check_runs.side_effect = lambda: next(batches_iter)
         repo.get_commit.return_value = commit
 
-        with patch("src.github.committer.Github") as mock_gh, \
-             patch("src.github.committer.time.sleep") as mock_sleep:
+        with (
+            patch("src.github.committer.Github") as mock_gh,
+            patch("src.github.committer.time.sleep") as mock_sleep,
+        ):
             mock_gh.return_value.get_repo.return_value = repo
             committer.auto_merge_pr(
                 _PR_URL,

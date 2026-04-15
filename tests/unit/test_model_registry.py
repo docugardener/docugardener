@@ -51,10 +51,13 @@ class TestGeminiStandardModels:
 
 
 class TestGeminiThinkingModels:
-    @pytest.mark.parametrize("model_id", [
-        "gemini-2.0-flash-thinking-exp",
-        "gemini-2.0-flash-thinking-exp-01-21",
-    ])
+    @pytest.mark.parametrize(
+        "model_id",
+        [
+            "gemini-2.0-flash-thinking-exp",
+            "gemini-2.0-flash-thinking-exp-01-21",
+        ],
+    )
     def test_thinking_model_flags(self, model_id: str):
         cap = get_capability("gemini", model_id)
         assert cap.is_thinking_model is True
@@ -70,15 +73,20 @@ class TestGeminiThinkingModels:
 
 
 class TestGemmaModels:
-    @pytest.mark.parametrize("model_id", [
-        "gemma-3-27b-it",
-        "gemma-3-12b-it",
-        "gemma-3-4b-it",
-        "gemma-3-1b-it",
-    ])
+    @pytest.mark.parametrize(
+        "model_id",
+        [
+            "gemma-3-27b-it",
+            "gemma-3-12b-it",
+            "gemma-3-4b-it",
+            "gemma-3-1b-it",
+        ],
+    )
     def test_gemma_no_system_prompt_support(self, model_id: str):
         cap = get_capability("gemini", model_id)
-        assert cap.supports_system_prompt is False, f"{model_id}: expected supports_system_prompt=False"
+        assert cap.supports_system_prompt is False, (
+            f"{model_id}: expected supports_system_prompt=False"
+        )
         assert cap.system_prompt_as_user_turn is True, f"{model_id}: expected user-turn injection"
         assert cap.capability_hint == "oss", f"{model_id}: expected oss hint"
         assert cap.input_format == "gemini_generate", f"{model_id}: must use gemini SDK"
@@ -108,9 +116,16 @@ class TestOpenAIStandardModels:
 
 
 class TestOpenAIReasoningModels:
-    @pytest.mark.parametrize("model_id", [
-        "o1", "o1-mini", "o1-preview", "o3", "o3-mini",
-    ])
+    @pytest.mark.parametrize(
+        "model_id",
+        [
+            "o1",
+            "o1-mini",
+            "o1-preview",
+            "o3",
+            "o3-mini",
+        ],
+    )
     def test_reasoning_model_restrictions(self, model_id: str):
         cap = get_capability("openai", model_id)
         assert cap.supports_system_prompt is False, f"{model_id}: no system role"

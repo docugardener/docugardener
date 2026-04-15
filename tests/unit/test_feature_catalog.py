@@ -25,13 +25,26 @@ from src.billing.feature_catalog import (
 )
 
 EXPECTED_KEYS = {
-    "audit_log", "audit_log_export", "risk_map", "analytics",
-    "holistic_scoring", "prompt_customization", "llm_config", "ai_author_mode",
-    "slack_integration", "integrations_jira", "integrations_linear",
+    "audit_log",
+    "audit_log_export",
+    "risk_map",
+    "analytics",
+    "holistic_scoring",
+    "prompt_customization",
+    "llm_config",
+    "ai_author_mode",
+    "slack_integration",
+    "integrations_jira",
+    "integrations_linear",
     "integrations_github_issues",
-    "sso_saml", "scim", "environment_profile", "compliance_templates",
-    "role_auditor", "role_billing_admin",
-    "private_repos", "agent_rules",
+    "sso_saml",
+    "scim",
+    "environment_profile",
+    "compliance_templates",
+    "role_auditor",
+    "role_billing_admin",
+    "private_repos",
+    "agent_rules",
 }
 
 VALID_TIERS = {"FREE", "PRO", "TEAM"}
@@ -93,7 +106,7 @@ def test_ac_cat_07_plan_quotas_match_billing_ts():
     assert PLAN_QUOTAS["PRO"]["repos"] == 5
     assert PLAN_QUOTAS["PRO"]["seats"] == 10
 
-    assert PLAN_QUOTAS["TEAM"]["pr_analyses_monthly"] == -1   # unlimited
+    assert PLAN_QUOTAS["TEAM"]["pr_analyses_monthly"] == -1  # unlimited
     assert PLAN_QUOTAS["TEAM"]["repos"] == 9999
     assert PLAN_QUOTAS["TEAM"]["seats"] == 100
 

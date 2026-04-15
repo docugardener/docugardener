@@ -13,6 +13,7 @@ Configuration:
 
 Rule: all N jobs must complete successfully within the wall-clock budget.
 """
+
 from __future__ import annotations
 
 import os
@@ -25,7 +26,6 @@ from typing import Any
 import pytest
 
 from tests.e2e.helpers import (
-    TEST_REPO,
     close_pr,
     create_pr,
     is_pr_merged,
@@ -41,29 +41,33 @@ BPACK_SIZE = int(os.getenv("E2E_BPACK_SIZE", "5"))
 # The Nth job only starts after N-1 jobs complete, so the last job finishes at
 # roughly N × 90s.  Each polling thread must wait for this worst-case queue depth.
 # Use a generous per-job poll timeout so threads don't expire before their job is done.
-_JOB_RUNTIME_SECS = 90          # conservative per-job estimate
-PER_JOB_TIMEOUT   = BPACK_SIZE * _JOB_RUNTIME_SECS + 60   # covers tail-of-queue wait
-TOTAL_TIMEOUT     = PER_JOB_TIMEOUT + 120                  # overall wall-clock budget
+_JOB_RUNTIME_SECS = 90  # conservative per-job estimate
+PER_JOB_TIMEOUT = BPACK_SIZE * _JOB_RUNTIME_SECS + 60  # covers tail-of-queue wait
+TOTAL_TIMEOUT = PER_JOB_TIMEOUT + 120  # overall wall-clock budget
 
 
 # ── Per-job result container ──────────────────────────────────────────────────
 
+
 @dataclass
 class _JobResult:
-    pr_number:   int
-    branch:      str
-    tmp_dir:     str
-    created_at:  float = 0.0
+    pr_number: int
+    branch: str
+    tmp_dir: str
+    created_at: float = 0.0
     resolved_at: float = 0.0
-    job_data:    dict[str, Any] = field(default_factory=dict)
-    error:       str | None = None
+    job_data: dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
 
     @property
     def elapsed(self) -> float:
-        return (self.resolved_at - self.created_at) if (self.resolved_at and self.created_at) else 0.0
+        return (
+            (self.resolved_at - self.created_at) if (self.resolved_at and self.created_at) else 0.0
+        )
 
 
 # ── Unique code snippet per PR slot ──────────────────────────────────────────
+
 
 def _make_snippet(n: int, uid: str) -> str:
     """Each slot gets a standalone module — uid prevents doc-cache hits on re-runs.
@@ -102,13 +106,15 @@ def process_batch_payment_{n:02d}_{uid}(order_ids: list, unit_amount: float) -> 
 
 # ── Thread worker: poll one job until RESOLVED ───────────────────────────────
 
+
 def _poll_until_resolved(jr: _JobResult, db_url: str) -> _JobResult:
     from sqlalchemy import create_engine
+
     engine = create_engine(db_url)
     try:
         with engine.connect() as conn:
             try:
-                jr.job_data    = wait_for_triage_resolved(conn, jr.pr_number, timeout=PER_JOB_TIMEOUT)
+                jr.job_data = wait_for_triage_resolved(conn, jr.pr_number, timeout=PER_JOB_TIMEOUT)
                 jr.resolved_at = time.time()
             except Exception as exc:
                 jr.error = str(exc)
@@ -118,6 +124,7 @@ def _poll_until_resolved(jr: _JobResult, db_url: str) -> _JobResult:
 
 
 # ── Test ──────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.e2e
 def test_bpack_load(db, db_engine):
@@ -145,10 +152,12 @@ def test_bpack_load(db, db_engine):
                 target_file=f"src/batch_{n:02d}_{uid}.py",
                 append=False,
             )
-            jr = _JobResult(pr_number=pr_number, branch=branch, tmp_dir=tmp_dir, created_at=time.time())
+            jr = _JobResult(
+                pr_number=pr_number, branch=branch, tmp_dir=tmp_dir, created_at=time.time()
+            )
             results.append(jr)
             print(f"         → [{n}/{BPACK_SIZE}] PR #{pr_number}  branch: {branch}", flush=True)
-            time.sleep(1)   # brief pause — avoids overwhelming smee delivery queue
+            time.sleep(1)  # brief pause — avoids overwhelming smee delivery queue
 
         # ── Step 3: Poll all jobs concurrently ────────────────────────────────
         step(3, f"Polling all {BPACK_SIZE} jobs concurrently (total budget: {TOTAL_TIMEOUT} s)...")
@@ -169,31 +178,30 @@ def test_bpack_load(db, db_engine):
         # ── Step 4: Assert all resolved ───────────────────────────────────────
         step(4, "Asserting all jobs resolved, fix PRs created and auto-merged")
         failures = [jr for jr in results if jr.error]
-        assert not failures, (
-            f"{len(failures)}/{BPACK_SIZE} jobs failed:\n"
-            + "\n".join(f"  PR #{jr.pr_number}: {jr.error}" for jr in failures)
+        assert not failures, f"{len(failures)}/{BPACK_SIZE} jobs failed:\n" + "\n".join(
+            f"  PR #{jr.pr_number}: {jr.error}" for jr in failures
         )
 
         for jr in results:
             res = jr.job_data.get("result") or {}
-            assert jr.job_data.get("triageStatus") == "RESOLVED", \
+            assert jr.job_data.get("triageStatus") == "RESOLVED", (
                 f"PR #{jr.pr_number}: triageStatus={jr.job_data.get('triageStatus')}"
-            assert res.get("autoMergeMethod") == "squash", \
+            )
+            assert res.get("autoMergeMethod") == "squash", (
                 f"PR #{jr.pr_number}: autoMergeMethod={res.get('autoMergeMethod')}"
-            assert res.get("fixPrUrl"), \
-                f"PR #{jr.pr_number}: result.fixPrUrl is empty"
+            )
+            assert res.get("fixPrUrl"), f"PR #{jr.pr_number}: result.fixPrUrl is empty"
 
         # ── Step 5: Verify fix PRs on GitHub ──────────────────────────────────
         step(5, "Verifying fix PRs merged on GitHub")
         for jr in results:
             fix_url = (jr.job_data.get("result") or {}).get("fixPrUrl")
-            assert is_pr_merged(fix_url), \
-                f"PR #{jr.pr_number}: fix PR {fix_url} not merged"
+            assert is_pr_merged(fix_url), f"PR #{jr.pr_number}: fix PR {fix_url} not merged"
 
         # ── Step 6: Performance report ────────────────────────────────────────
         step(6, "Performance summary")
         times = sorted(jr.elapsed for jr in results if jr.elapsed)
-        wall  = time.time() - suite_start
+        wall = time.time() - suite_start
         print(
             f"\n  ┌─ B-Pack Performance ({BPACK_SIZE} PRs) ─────────────────────────────\n"
             f"  │  min:  {min(times):.1f}s\n"

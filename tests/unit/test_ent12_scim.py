@@ -21,12 +21,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ── App fixture ────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def client():
     from src.main import app
+
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -65,45 +66,55 @@ def _make_user(active=True, role="VIEWER"):
 
 # ── Helper unit tests ──────────────────────────────────────────────────────────
 
+
 class TestHelpers:
     def test_hash_token(self):
         from src.api.scim import _hash_token
+
         assert _hash_token(RAW_TOKEN) == TOKEN_HASH
 
     def test_parse_filter_username(self):
         from src.api.scim import _parse_filter
+
         result = _parse_filter('userName eq "alice@example.com"')
         assert result == ("username", "alice@example.com")
 
     def test_parse_filter_emails(self):
         from src.api.scim import _parse_filter
+
         result = _parse_filter('emails.value eq "bob@example.com"')
         assert result == ("emails.value", "bob@example.com")
 
     def test_parse_filter_invalid(self):
         from src.api.scim import _parse_filter
+
         assert _parse_filter("id pr") is None
         assert _parse_filter("") is None
 
     def test_role_from_scim_admin(self):
         from src.api.scim import _role_from_scim
+
         assert _role_from_scim([{"value": "ADMIN", "primary": True}]) == "ADMIN"
 
     def test_role_from_scim_auditor(self):
         from src.api.scim import _role_from_scim
+
         assert _role_from_scim([{"value": "AUDITOR"}]) == "AUDITOR"
 
     def test_role_from_scim_invalid_defaults_viewer(self):
         from src.api.scim import _role_from_scim
+
         assert _role_from_scim([{"value": "SUPERUSER"}]) == "VIEWER"
 
     def test_role_from_scim_empty_defaults_viewer(self):
         from src.api.scim import _role_from_scim
+
         assert _role_from_scim(None) == "VIEWER"
         assert _role_from_scim([]) == "VIEWER"
 
 
 # ── Authentication ─────────────────────────────────────────────────────────────
+
 
 class TestScimAuth:
     def test_missing_authorization_header_returns_401(self, client):
@@ -134,6 +145,7 @@ class TestScimAuth:
 
 # ── ServiceProviderConfig ──────────────────────────────────────────────────────
 
+
 class TestServiceProviderConfig:
     def test_returns_scim_schema(self, client):
         tenant = _make_tenant()
@@ -150,6 +162,7 @@ class TestServiceProviderConfig:
 
 # ── Schemas ────────────────────────────────────────────────────────────────────
 
+
 class TestSchemas:
     def test_returns_user_schema(self, client):
         tenant = _make_tenant()
@@ -165,6 +178,7 @@ class TestSchemas:
 
 
 # ── GET /Users ─────────────────────────────────────────────────────────────────
+
 
 class TestListUsers:
     def _db_with_users(self, mock_sl, tenant, users):
@@ -213,6 +227,7 @@ class TestListUsers:
 
 # ── POST /Users ────────────────────────────────────────────────────────────────
 
+
 class TestCreateUser:
     def test_create_new_user_returns_201(self, client):
         tenant = _make_tenant()
@@ -228,7 +243,9 @@ class TestCreateUser:
             mock_db.query.side_effect = [q_tenant, q_existing, q_update]
             mock_db.refresh.side_effect = lambda u: None
             # attach fields after add
-            mock_db.add.side_effect = lambda u: setattr(u, "createdAt", datetime(2026, 3, 10)) or setattr(u, "updatedAt", datetime(2026, 3, 10))
+            mock_db.add.side_effect = lambda u: setattr(
+                u, "createdAt", datetime(2026, 3, 10)
+            ) or setattr(u, "updatedAt", datetime(2026, 3, 10))
             response = client.post(
                 "/scim/v2/Users",
                 headers={**VALID_HEADERS, "Content-Type": "application/json"},
@@ -297,6 +314,7 @@ class TestCreateUser:
 
 # ── GET /Users/{id} ────────────────────────────────────────────────────────────
 
+
 class TestGetUser:
     def test_found(self, client):
         tenant = _make_tenant()
@@ -323,11 +341,12 @@ class TestGetUser:
             q2 = MagicMock()
             q2.filter.return_value.first.return_value = None
             mock_db.query.side_effect = [q1, q2]
-            response = client.get(f"/scim/v2/Users/missing-id", headers=VALID_HEADERS)
+            response = client.get("/scim/v2/Users/missing-id", headers=VALID_HEADERS)
         assert response.status_code == 404
 
 
 # ── PUT /Users/{id} ────────────────────────────────────────────────────────────
+
 
 class TestReplaceUser:
     def test_deactivate_via_put(self, client):
@@ -377,6 +396,7 @@ class TestReplaceUser:
 
 # ── PATCH /Users/{id} ─────────────────────────────────────────────────────────
 
+
 class TestPatchUser:
     def _patch_response(self, client, user, patch_body):
         tenant = _make_tenant()
@@ -397,33 +417,45 @@ class TestPatchUser:
 
     def test_deactivate_via_patch_active_false(self, client):
         user = _make_user(active=True)
-        response = self._patch_response(client, user, {
-            "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
-            "Operations": [{"op": "replace", "path": "active", "value": False}],
-        })
+        response = self._patch_response(
+            client,
+            user,
+            {
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+                "Operations": [{"op": "replace", "path": "active", "value": False}],
+            },
+        )
         assert response.status_code == 200
         assert user.scimActive is False
 
     def test_reactivate_via_patch(self, client):
         user = _make_user(active=False)
-        response = self._patch_response(client, user, {
-            "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
-            "Operations": [{"op": "replace", "path": "active", "value": True}],
-        })
+        response = self._patch_response(
+            client,
+            user,
+            {
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+                "Operations": [{"op": "replace", "path": "active", "value": True}],
+            },
+        )
         assert response.status_code == 200
         assert user.scimActive is True
 
     def test_bulk_value_dict_patch(self, client):
         user = _make_user(active=True, role="VIEWER")
-        response = self._patch_response(client, user, {
-            "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
-            "Operations": [
-                {
-                    "op": "replace",
-                    "value": {"active": False, "roles": [{"value": "ADMIN"}]},
-                }
-            ],
-        })
+        response = self._patch_response(
+            client,
+            user,
+            {
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+                "Operations": [
+                    {
+                        "op": "replace",
+                        "value": {"active": False, "roles": [{"value": "ADMIN"}]},
+                    }
+                ],
+            },
+        )
         assert response.status_code == 200
         assert user.scimActive is False
         assert user.role == "ADMIN"
@@ -450,6 +482,7 @@ class TestPatchUser:
 
 
 # ── DELETE /Users/{id} ────────────────────────────────────────────────────────
+
 
 class TestDeleteUser:
     def test_delete_deactivates_user_and_returns_204(self, client):

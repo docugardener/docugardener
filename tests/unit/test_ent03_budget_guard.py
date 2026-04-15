@@ -17,14 +17,15 @@ Coverage:
 7. Reason field contains budget amount in skipped response
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from src.api.webhooks import handle_pull_request
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_pr_payload(
     sender_login: str = "alice",
@@ -71,10 +72,10 @@ def _make_job(estimated_cost: float, created_this_month: bool = True) -> MagicMo
     }
     # Set createdAt to a datetime in the current month (or previous month if specified)
     if created_this_month:
-        job.createdAt = datetime.now(timezone.utc).replace(day=15)
+        job.createdAt = datetime.now(UTC).replace(day=15)
     else:
         # Previous month
-        job.createdAt = datetime.now(timezone.utc).replace(day=1) - timedelta(days=1)
+        job.createdAt = datetime.now(UTC).replace(day=1) - timedelta(days=1)
     return job
 
 
@@ -107,7 +108,10 @@ def _make_db_session(tenant: MagicMock, jobs: list[MagicMock]) -> MagicMock:
 
     # Route based on query type
     def query_side_effect(model_class):
-        from src.storage.sql_models import Tenant as TenantModel, Job as JobModel, Repository
+        from src.storage.sql_models import Job as JobModel
+        from src.storage.sql_models import Repository
+        from src.storage.sql_models import Tenant as TenantModel
+
         if model_class == TenantModel:
             return tenant_query
         elif model_class == JobModel:
@@ -131,8 +135,8 @@ def _make_queue(job_id: str = "job-test") -> tuple[MagicMock, MagicMock]:
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-class TestEnt03BudgetGuard:
 
+class TestEnt03BudgetGuard:
     @pytest.mark.asyncio
     async def test_no_billing_config_allows_job(self):
         """
@@ -305,18 +309,16 @@ class TestEnt03BudgetGuard:
         pending_job = MagicMock()
         pending_job.status = "PENDING"
         pending_job.result = {"llm_usage": {"estimated_cost_usd": 5.0}}
-        pending_job.createdAt = datetime.now(timezone.utc).replace(day=15)
+        pending_job.createdAt = datetime.now(UTC).replace(day=15)
 
         failed_job = MagicMock()
         failed_job.status = "FAILED"
         failed_job.result = {"llm_usage": {"estimated_cost_usd": 10.0}}
-        failed_job.createdAt = datetime.now(timezone.utc).replace(day=15)
+        failed_job.createdAt = datetime.now(UTC).replace(day=15)
 
         # Only return COMPLETED jobs in the mock query result
         # (simulating the filter for status == "COMPLETED")
-        db_session = _make_db_session(
-            tenant, jobs=[completed_job1, completed_job2]
-        )
+        db_session = _make_db_session(tenant, jobs=[completed_job1, completed_job2])
         mock_queue, _ = _make_queue("job-status-filter")
 
         with (
@@ -344,13 +346,13 @@ class TestEnt03BudgetGuard:
         no_result_job = MagicMock()
         no_result_job.status = "COMPLETED"
         no_result_job.result = None
-        no_result_job.createdAt = datetime.now(timezone.utc).replace(day=15)
+        no_result_job.createdAt = datetime.now(UTC).replace(day=15)
 
         # Job with result but no llm_usage
         no_usage_job = MagicMock()
         no_usage_job.status = "COMPLETED"
         no_usage_job.result = {"other_data": "value"}
-        no_usage_job.createdAt = datetime.now(timezone.utc).replace(day=15)
+        no_usage_job.createdAt = datetime.now(UTC).replace(day=15)
 
         # Total: 5.0 USD (below budget)
         db_session = _make_db_session(tenant, jobs=[good_job, no_result_job, no_usage_job])

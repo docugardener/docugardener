@@ -157,16 +157,18 @@ JOBS_COMPLETED = Counter(
 
 def init_app_info(version: str, environment: str) -> None:
     """Initialize application info metric."""
-    APP_INFO.info({
-        "version": version,
-        "environment": environment,
-    })
+    APP_INFO.info(
+        {
+            "version": version,
+            "environment": environment,
+        }
+    )
 
 
 def record_webhook(event_type: str, success: bool, error_type: str = "") -> None:
     """Record a webhook event."""
     WEBHOOKS_RECEIVED.labels(event_type=event_type).inc()
-    
+
     if success:
         WEBHOOKS_PROCESSED.labels(event_type=event_type).inc()
     else:
@@ -183,7 +185,7 @@ def record_analysis(
 ) -> None:
     """Record a completed analysis."""
     result = "success" if success else "failure"
-    
+
     ANALYSES_TOTAL.labels(repo=repo, result=result).inc()
     ANALYSIS_DURATION.labels(repo=repo).observe(duration_seconds)
     DRIFT_SCORE.labels(severity=severity).observe(drift_score)
@@ -200,7 +202,7 @@ def record_llm_request(
     """Record an LLM API request."""
     LLM_REQUESTS.labels(provider=provider, model=model, purpose=purpose).inc()
     LLM_LATENCY.labels(provider=provider, purpose=purpose).observe(latency_seconds)
-    
+
     if error_type:
         LLM_ERRORS.labels(provider=provider, error_type=error_type).inc()
 

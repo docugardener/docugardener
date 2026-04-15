@@ -19,13 +19,13 @@ from datetime import date
 import pytest
 
 from src.pipeline.policy_parser import PolicyRule
-from src.rules.compiler import CompileTarget, RulesCompiler, SUPPORTED_FORMATS
+from src.rules.compiler import SUPPORTED_FORMATS, CompileTarget, RulesCompiler
 from src.rules.formats.claude_md import render_claude_md
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def compiler():
@@ -81,6 +81,7 @@ def fixed_date():
 # Format registration
 # ---------------------------------------------------------------------------
 
+
 class TestClaudeMdRegistration:
     def test_claude_md_in_supported_formats(self):
         assert "claude_md" in SUPPORTED_FORMATS
@@ -97,6 +98,7 @@ class TestClaudeMdRegistration:
 # ---------------------------------------------------------------------------
 # No frontmatter (plain markdown)
 # ---------------------------------------------------------------------------
+
 
 class TestClaudeMdNoFrontmatter:
     def test_does_not_start_with_triple_dash(self, single_rule):
@@ -116,6 +118,7 @@ class TestClaudeMdNoFrontmatter:
 # ---------------------------------------------------------------------------
 # Body content
 # ---------------------------------------------------------------------------
+
 
 class TestClaudeMdBody:
     def test_contains_rule_name(self, single_rule):
@@ -176,6 +179,7 @@ class TestClaudeMdBody:
 # Empty rules
 # ---------------------------------------------------------------------------
 
+
 class TestClaudeMdEmptyRules:
     def test_empty_rules_produces_valid_output(self):
         output = render_claude_md([], generated_on="2026-03-14")
@@ -190,6 +194,7 @@ class TestClaudeMdEmptyRules:
 # ---------------------------------------------------------------------------
 # Compiler integration
 # ---------------------------------------------------------------------------
+
 
 class TestClaudeMdCompilerIntegration:
     target = CompileTarget.for_format("claude_md")
@@ -210,10 +215,16 @@ class TestClaudeMdCompilerIntegration:
         h2 = compiler.compute_expected_hash([advisory_rule], self.target, generated_on=fixed_date)
         assert h1 != h2
 
-    def test_claude_md_between_copilot_and_agents_md_in_size(self, compiler, single_rule, fixed_date):
+    def test_claude_md_between_copilot_and_agents_md_in_size(
+        self, compiler, single_rule, fixed_date
+    ):
         """CLAUDE.md should be moderately verbose — between Copilot (compact) and AGENTS.md (verbose)."""
-        agents = compiler.compile([single_rule], CompileTarget.for_format("agents_md"), generated_on=fixed_date)
-        copilot = compiler.compile([single_rule], CompileTarget.for_format("copilot_instructions"), generated_on=fixed_date)
+        agents = compiler.compile(
+            [single_rule], CompileTarget.for_format("agents_md"), generated_on=fixed_date
+        )
+        copilot = compiler.compile(
+            [single_rule], CompileTarget.for_format("copilot_instructions"), generated_on=fixed_date
+        )
         claude = compiler.compile([single_rule], self.target, generated_on=fixed_date)
         assert len(copilot.content) < len(claude.content) < len(agents.content)
 

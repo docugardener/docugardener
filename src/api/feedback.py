@@ -31,9 +31,9 @@ _VALID_SIGNALS = {"up", "down"}
 
 @router.get("/api/feedback", tags=["Feedback"], include_in_schema=False, response_model=None)
 def record_feedback(
-    j:   str = Query(..., description="Job ID"),
-    s:   str = Query(..., description="Signal: 'up' or 'down'"),
-    t:   str = Query(..., description="HMAC verification token"),
+    j: str = Query(..., description="Job ID"),
+    s: str = Query(..., description="Signal: 'up' or 'down'"),
+    t: str = Query(..., description="HMAC verification token"),
     tid: str = Query(..., description="Tenant ID"),
     db: Session = Depends(get_db),
 ) -> RedirectResponse | HTMLResponse:
@@ -73,7 +73,7 @@ def record_feedback(
             .on_conflict_do_update(
                 index_elements=["jobId", "source"],
                 set_={
-                    "signal":    s,
+                    "signal": s,
                     "updatedAt": datetime.utcnow(),
                 },
             )
@@ -89,5 +89,5 @@ def record_feedback(
     # Redirect to the job detail page with a confirmation param.
     # Use frontend_url when set (dev: Next.js on different port); fall back to app_url.
     label = "accurate" if s == "up" else "false-positive"
-    base  = (settings.frontend_url or settings.app_url).rstrip("/")
+    base = (settings.frontend_url or settings.app_url).rstrip("/")
     return RedirectResponse(url=f"{base}/dashboard/jobs/{j}?feedback={label}", status_code=302)

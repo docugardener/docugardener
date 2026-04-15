@@ -1,4 +1,5 @@
 """Shared helpers for e2e tests: GitHub operations, DB polling, config updates."""
+
 from __future__ import annotations
 
 import base64
@@ -8,6 +9,7 @@ import shutil
 import subprocess
 import time
 import uuid
+from datetime import UTC
 from typing import Any
 
 import requests
@@ -16,10 +18,10 @@ from sqlalchemy import Connection, text
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 TEST_REPO = os.getenv("E2E_TEST_REPO", "alexeykopachev/docugardener-test")
-TENANT_ID  = os.getenv("E2E_TENANT_ID",  "cmmjpxq3x0005bul35iu3viuv")
-REPO_ID    = os.getenv("E2E_REPO_ID",    "cmn68ihbe000bcm4yd55l2um7")
-API_BASE   = os.getenv("E2E_API_BASE",   "http://localhost:8000")   # FastAPI backend
-WEB_BASE   = os.getenv("E2E_WEB_BASE",   "http://localhost:3003")   # Next.js frontend
+TENANT_ID = os.getenv("E2E_TENANT_ID", "cmmjpxq3x0005bul35iu3viuv")
+REPO_ID = os.getenv("E2E_REPO_ID", "cmn68ihbe000bcm4yd55l2um7")
+API_BASE = os.getenv("E2E_API_BASE", "http://localhost:8000")  # FastAPI backend
+WEB_BASE = os.getenv("E2E_WEB_BASE", "http://localhost:3003")  # Next.js frontend
 
 # ── Step logger ───────────────────────────────────────────────────────────────
 
@@ -40,6 +42,7 @@ def step(n: int | str, description: str) -> None:
 
 # ── Shell helper ──────────────────────────────────────────────────────────────
 
+
 def _run(
     cmd: list[str],
     cwd: str | None = None,
@@ -51,14 +54,13 @@ def _run(
     )
     if check and result.returncode != 0:
         raise RuntimeError(
-            f"Command failed: {' '.join(cmd)}\n"
-            f"stdout: {result.stdout}\n"
-            f"stderr: {result.stderr}"
+            f"Command failed: {' '.join(cmd)}\nstdout: {result.stdout}\nstderr: {result.stderr}"
         )
     return result
 
 
 # ── GitHub: create test PR ────────────────────────────────────────────────────
+
 
 def new_uid() -> str:
     """Return a 6-char hex uid for use in unique branch/function names."""
@@ -93,7 +95,7 @@ def create_pr(
     """
     if uid is None:
         uid = new_uid()
-    branch  = f"{branch_prefix}/e2e-{scenario}-{uid}"
+    branch = f"{branch_prefix}/e2e-{scenario}-{uid}"
     tmp_dir = f"/tmp/dg-e2e-{uid}"
 
     if os.path.exists(tmp_dir):
@@ -115,19 +117,29 @@ def create_pr(
 
     # Retry PR creation — GitHub GraphQL endpoint occasionally returns 502/503
     _pr_cmd = [
-        "gh", "pr", "create",
-        "--repo",  TEST_REPO,
-        "--title", pr_title,
-        "--body",  f"Automated e2e test — scenario: {scenario}",
-        "--head",  branch,
-        "--base",  "main",
+        "gh",
+        "pr",
+        "create",
+        "--repo",
+        TEST_REPO,
+        "--title",
+        pr_title,
+        "--body",
+        f"Automated e2e test — scenario: {scenario}",
+        "--head",
+        branch,
+        "--base",
+        "main",
     ]
     for _attempt in range(3):
         result = _run(_pr_cmd, cwd=tmp_dir, check=False)
         if result.returncode == 0:
             break
         if _attempt < 2:
-            print(f"         [create_pr] gh pr create failed (attempt {_attempt + 1}), retrying in 5s...", flush=True)
+            print(
+                f"         [create_pr] gh pr create failed (attempt {_attempt + 1}), retrying in 5s...",
+                flush=True,
+            )
             time.sleep(5)
     else:
         raise RuntimeError(
@@ -135,12 +147,13 @@ def create_pr(
         )
 
     # gh outputs the PR URL as the last non-empty line
-    pr_url    = result.stdout.strip().splitlines()[-1]
+    pr_url = result.stdout.strip().splitlines()[-1]
     pr_number = int(pr_url.rstrip("/").split("/")[-1])
     return pr_number, branch, tmp_dir
 
 
 # ── GitHub: repo file management (main branch) ───────────────────────────────
+
 
 def push_main_file(path: str, content: str, message: str) -> str:
     """Create or update a file on the main branch of TEST_REPO via GitHub API.
@@ -156,11 +169,17 @@ def push_main_file(path: str, content: str, message: str) -> str:
     current_sha = r.stdout.strip() if r.returncode == 0 else ""
 
     args = [
-        "gh", "api", f"/repos/{TEST_REPO}/contents/{path}",
-        "--method", "PUT",
-        "-f", f"message={message}",
-        "-f", f"content={encoded}",
-        "-f", "branch=main",
+        "gh",
+        "api",
+        f"/repos/{TEST_REPO}/contents/{path}",
+        "--method",
+        "PUT",
+        "-f",
+        f"message={message}",
+        "-f",
+        f"content={encoded}",
+        "-f",
+        "branch=main",
     ]
     if current_sha:
         args += ["-f", f"sha={current_sha}"]
@@ -179,16 +198,25 @@ def delete_main_file(path: str, message: str) -> None:
         return  # file already gone
     sha = r.stdout.strip()
     _run(
-        ["gh", "api", f"/repos/{TEST_REPO}/contents/{path}",
-         "--method", "DELETE",
-         "-f", f"message={message}",
-         "-f", f"sha={sha}",
-         "-f", "branch=main"],
+        [
+            "gh",
+            "api",
+            f"/repos/{TEST_REPO}/contents/{path}",
+            "--method",
+            "DELETE",
+            "-f",
+            f"message={message}",
+            "-f",
+            f"sha={sha}",
+            "-f",
+            "branch=main",
+        ],
         check=False,
     )
 
 
 # ── GitHub: PR state queries ──────────────────────────────────────────────────
+
 
 def is_pr_merged(pr_url: str) -> bool:
     """Return True if the PR's state is MERGED on GitHub."""
@@ -211,22 +239,42 @@ def get_pr_body(pr_url: str) -> str:
 def get_pr_check_conclusion(pr_number: int) -> str | None:
     """Return the DocuGardener check run conclusion for a PR, or None if not found."""
     r = _run(
-        ["gh", "api", f"/repos/{TEST_REPO}/commits",
-         "--jq", ".[0].sha"],   # placeholder — get head SHA via PR
+        [
+            "gh",
+            "api",
+            f"/repos/{TEST_REPO}/commits",
+            "--jq",
+            ".[0].sha",
+        ],  # placeholder — get head SHA via PR
         check=False,
     )
     # Use gh pr view to get headRefOid
     r2 = _run(
-        ["gh", "pr", "view", str(pr_number), "--repo", TEST_REPO,
-         "--json", "headRefOid", "-q", ".headRefOid"],
+        [
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--repo",
+            TEST_REPO,
+            "--json",
+            "headRefOid",
+            "-q",
+            ".headRefOid",
+        ],
         check=False,
     )
     sha = r2.stdout.strip()
     if not sha:
         return None
     r3 = _run(
-        ["gh", "api", f"/repos/{TEST_REPO}/commits/{sha}/check-runs",
-         "--jq", ".check_runs[] | select(.app.slug | startswith(\"docugardener\")) | .conclusion"],
+        [
+            "gh",
+            "api",
+            f"/repos/{TEST_REPO}/commits/{sha}/check-runs",
+            "--jq",
+            '.check_runs[] | select(.app.slug | startswith("docugardener")) | .conclusion',
+        ],
         check=False,
     )
     conclusion = r3.stdout.strip().strip('"')
@@ -246,11 +294,21 @@ def wait_for_check_run(pr_number: int, timeout: int = 180) -> str | None:
 
 # ── GitHub: Issues ────────────────────────────────────────────────────────────
 
+
 def get_open_issues_for_pr(pr_number: int) -> list[dict]:
     """Return open GitHub issues mentioning PR #{pr_number} in title."""
     r = _run(
-        ["gh", "issue", "list", "--repo", TEST_REPO,
-         "--state", "open", "--json", "number,title,state"],
+        [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            TEST_REPO,
+            "--state",
+            "open",
+            "--json",
+            "number,title,state",
+        ],
         check=False,
     )
     if r.returncode != 0:
@@ -262,8 +320,18 @@ def get_open_issues_for_pr(pr_number: int) -> list[dict]:
 def get_issue_state(issue_number: int) -> str:
     """Return 'open' or 'closed' for a GitHub issue."""
     r = _run(
-        ["gh", "issue", "view", str(issue_number), "--repo", TEST_REPO,
-         "--json", "state", "-q", ".state"],
+        [
+            "gh",
+            "issue",
+            "view",
+            str(issue_number),
+            "--repo",
+            TEST_REPO,
+            "--json",
+            "state",
+            "-q",
+            ".state",
+        ],
         check=False,
     )
     return r.stdout.strip().lower()
@@ -278,6 +346,7 @@ def close_github_issue(issue_number: int) -> None:
 
 
 # ── FastAPI backend helpers ───────────────────────────────────────────────────
+
 
 def dismiss_job(job_id: str, reason: str) -> None:
     """Call FastAPI PATCH /inbox/{job_id} to dismiss (IGNORED) with a reason.
@@ -325,7 +394,9 @@ def wait_for_job_completed(conn: Connection, pr_number: int, timeout: int = 180)
     )
 
 
-def wait_for_triage_resolved(conn: Connection, pr_number: int, timeout: int = 180) -> dict[str, Any]:
+def wait_for_triage_resolved(
+    conn: Connection, pr_number: int, timeout: int = 180
+) -> dict[str, Any]:
     """Poll until job triageStatus=RESOLVED AND the worker's EPIC-05 commit has landed.
 
     The fix-PR-merged webhook can set triageStatus=RESOLVED before the worker stores
@@ -372,6 +443,7 @@ def get_job(conn: Connection, pr_number: int) -> dict[str, Any] | None:
 
 # ── DB: tenant config ─────────────────────────────────────────────────────────
 
+
 def set_merge_config(
     conn: Connection,
     method: str,
@@ -379,13 +451,17 @@ def set_merge_config(
     enabled: bool = True,
 ) -> None:
     """Merge-patch the tenant's workflowConfig with auto-merge settings."""
-    patch = json.dumps({
-        "autoMergeEnabled": enabled,
-        "autoMergeMethod":  method,       # key used by handler.py
-        "waitForCI":        wait_for_ci,
-    })
+    patch = json.dumps(
+        {
+            "autoMergeEnabled": enabled,
+            "autoMergeMethod": method,  # key used by handler.py
+            "waitForCI": wait_for_ci,
+        }
+    )
     conn.execute(
-        text('UPDATE "Tenant" SET "workflowConfig" = "workflowConfig" || CAST(:p AS jsonb) WHERE id = :tid'),
+        text(
+            'UPDATE "Tenant" SET "workflowConfig" = "workflowConfig" || CAST(:p AS jsonb) WHERE id = :tid'
+        ),
         {"p": patch, "tid": TENANT_ID},
     )
     conn.commit()
@@ -394,7 +470,9 @@ def set_merge_config(
 def patch_workflow_config(conn: Connection, patch: dict) -> None:
     """Generic JSONB merge-patch on workflowConfig for any key."""
     conn.execute(
-        text('UPDATE "Tenant" SET "workflowConfig" = "workflowConfig" || CAST(:p AS jsonb) WHERE id = :tid'),
+        text(
+            'UPDATE "Tenant" SET "workflowConfig" = "workflowConfig" || CAST(:p AS jsonb) WHERE id = :tid'
+        ),
         {"p": json.dumps(patch), "tid": TENANT_ID},
     )
     conn.commit()
@@ -420,22 +498,23 @@ def set_tenant_plan(conn: Connection, plan: str) -> None:
 
 # ── DB: quota helpers ─────────────────────────────────────────────────────────
 
+
 def insert_fake_completed_jobs(conn: Connection, count: int) -> list[str]:
     """Insert fake COMPLETED Job rows for this month to simulate quota exhaustion.
 
     Returns the list of inserted job IDs for later cleanup.
     """
-    from datetime import datetime, timezone
     import uuid as _uuid
+    from datetime import datetime
 
     ids = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for _ in range(count):
         job_id = f"e2e-fake-{_uuid.uuid4().hex[:20]}"
         conn.execute(
             text(
                 'INSERT INTO "Job" (id, "tenantId", "repositoryId", status, "triageStatus", "prNumber", "createdAt", "updatedAt") '
-                'VALUES (:id, :tid, :rid, \'COMPLETED\', \'IGNORED\', -1, :now, :now)'
+                "VALUES (:id, :tid, :rid, 'COMPLETED', 'IGNORED', -1, :now, :now)"
             ),
             {"id": job_id, "tid": TENANT_ID, "rid": REPO_ID, "now": now},
         )
@@ -454,6 +533,7 @@ def delete_fake_jobs(conn: Connection, job_ids: list[str]) -> None:
 
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
+
 
 def close_pr(pr_number: int, branch: str, tmp_dir: str | None = None) -> None:
     """Close the original PR (if still open) and delete its branch."""

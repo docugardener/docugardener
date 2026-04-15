@@ -28,13 +28,14 @@ Covers:
   - resolve_linear_issue: exception swallowed (non-fatal)
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
 
 from src.notifications.dispatcher import NotificationDispatcher
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _drift(severity: str = "high") -> MagicMock:
     r = MagicMock()
@@ -51,8 +52,12 @@ def _drift(severity: str = "high") -> MagicMock:
 
 def _full_config() -> dict:
     return {
-        "slack":  {"webhookUrl": "enc_slack"},
-        "jira":   {"host": "https://jira.example.com", "email": "dev@example.com", "apiToken": "enc_jira"},
+        "slack": {"webhookUrl": "enc_slack"},
+        "jira": {
+            "host": "https://jira.example.com",
+            "email": "dev@example.com",
+            "apiToken": "enc_jira",
+        },
         "linear": {"apiToken": "enc_linear", "teamId": "team-1"},
     }
 
@@ -66,21 +71,25 @@ def _http_ok() -> MagicMock:
 
 # ── GAP-INT-2: granted_features fallback to plan ──────────────────────────────
 
-class TestGrantedFeaturesFallback:
 
+class TestGrantedFeaturesFallback:
     @pytest.mark.asyncio
     async def test_none_granted_features_falls_back_to_plan_pro(self):
         """granted_features=None + plan=PRO → all integrations fire (existing behaviour)."""
-        dispatcher = NotificationDispatcher(_full_config(), tenant_plan="PRO", granted_features=None)
+        dispatcher = NotificationDispatcher(
+            _full_config(), tenant_plan="PRO", granted_features=None
+        )
 
-        mock_slack  = AsyncMock()
-        mock_jira   = AsyncMock()
+        mock_slack = AsyncMock()
+        mock_jira = AsyncMock()
         mock_linear = AsyncMock(return_value="id-1")
 
-        with patch.object(dispatcher, "_send_slack_alert", mock_slack), \
-             patch.object(dispatcher, "post_jira_lifecycle_comment", mock_jira), \
-             patch.object(dispatcher, "_create_linear_issue", mock_linear), \
-             patch("src.notifications.dispatcher.decrypt", return_value="real_value"):
+        with (
+            patch.object(dispatcher, "_send_slack_alert", mock_slack),
+            patch.object(dispatcher, "post_jira_lifecycle_comment", mock_jira),
+            patch.object(dispatcher, "_create_linear_issue", mock_linear),
+            patch("src.notifications.dispatcher.decrypt", return_value="real_value"),
+        ):
             await dispatcher.dispatch_drift_alert(_drift(), jira_ticket_key="PROJ-1")
 
         mock_slack.assert_called_once()
@@ -90,14 +99,18 @@ class TestGrantedFeaturesFallback:
     @pytest.mark.asyncio
     async def test_none_granted_features_falls_back_to_plan_free(self):
         """granted_features=None + plan=FREE → no integrations fire."""
-        dispatcher = NotificationDispatcher(_full_config(), tenant_plan="FREE", granted_features=None)
+        dispatcher = NotificationDispatcher(
+            _full_config(), tenant_plan="FREE", granted_features=None
+        )
 
-        mock_slack  = AsyncMock()
+        mock_slack = AsyncMock()
         mock_linear = AsyncMock()
 
-        with patch.object(dispatcher, "_send_slack_alert", mock_slack), \
-             patch.object(dispatcher, "_create_linear_issue", mock_linear), \
-             patch("src.notifications.dispatcher.decrypt", return_value="real_value"):
+        with (
+            patch.object(dispatcher, "_send_slack_alert", mock_slack),
+            patch.object(dispatcher, "_create_linear_issue", mock_linear),
+            patch("src.notifications.dispatcher.decrypt", return_value="real_value"),
+        ):
             await dispatcher.dispatch_drift_alert(_drift(), jira_ticket_key="PROJ-1")
 
         mock_slack.assert_not_called()
@@ -106,16 +119,18 @@ class TestGrantedFeaturesFallback:
 
 # ── GAP-INT-2: empty granted_features blocks all ──────────────────────────────
 
-class TestEmptyGrantedFeatures:
 
+class TestEmptyGrantedFeatures:
     @pytest.mark.asyncio
     async def test_empty_list_blocks_slack_even_on_pro(self):
         """granted_features=[] + plan=PRO → Slack not sent (revoked)."""
         dispatcher = NotificationDispatcher(_full_config(), tenant_plan="PRO", granted_features=[])
 
         mock_slack = AsyncMock()
-        with patch.object(dispatcher, "_send_slack_alert", mock_slack), \
-             patch("src.notifications.dispatcher.decrypt", return_value="real_value"):
+        with (
+            patch.object(dispatcher, "_send_slack_alert", mock_slack),
+            patch("src.notifications.dispatcher.decrypt", return_value="real_value"),
+        ):
             await dispatcher.dispatch_drift_alert(_drift())
 
         mock_slack.assert_not_called()
@@ -126,8 +141,10 @@ class TestEmptyGrantedFeatures:
         dispatcher = NotificationDispatcher(_full_config(), tenant_plan="PRO", granted_features=[])
 
         mock_linear = AsyncMock()
-        with patch.object(dispatcher, "_create_linear_issue", mock_linear), \
-             patch("src.notifications.dispatcher.decrypt", return_value="real_value"):
+        with (
+            patch.object(dispatcher, "_create_linear_issue", mock_linear),
+            patch("src.notifications.dispatcher.decrypt", return_value="real_value"),
+        ):
             await dispatcher.dispatch_drift_alert(_drift())
 
         mock_linear.assert_not_called()
@@ -135,22 +152,23 @@ class TestEmptyGrantedFeatures:
 
 # ── GAP-INT-2: individual feature key grants ──────────────────────────────────
 
-class TestIndividualFeatureGrants:
 
+class TestIndividualFeatureGrants:
     @pytest.mark.asyncio
     async def test_only_slack_granted(self):
         """granted_features=['slack_integration'] → Slack fires, Jira and Linear don't."""
         dispatcher = NotificationDispatcher(
-            _full_config(), tenant_plan="PRO",
-            granted_features=["slack_integration"]
+            _full_config(), tenant_plan="PRO", granted_features=["slack_integration"]
         )
 
-        mock_slack  = AsyncMock()
+        mock_slack = AsyncMock()
         mock_linear = AsyncMock()
 
-        with patch.object(dispatcher, "_send_slack_alert", mock_slack), \
-             patch.object(dispatcher, "_create_linear_issue", mock_linear), \
-             patch("src.notifications.dispatcher.decrypt", return_value="real_value"):
+        with (
+            patch.object(dispatcher, "_send_slack_alert", mock_slack),
+            patch.object(dispatcher, "_create_linear_issue", mock_linear),
+            patch("src.notifications.dispatcher.decrypt", return_value="real_value"),
+        ):
             await dispatcher.dispatch_drift_alert(_drift(), jira_ticket_key="PROJ-1")
 
         mock_slack.assert_called_once()
@@ -160,16 +178,17 @@ class TestIndividualFeatureGrants:
     async def test_only_linear_granted(self):
         """granted_features=['integrations_linear'] → Linear fires, Slack doesn't."""
         dispatcher = NotificationDispatcher(
-            _full_config(), tenant_plan="PRO",
-            granted_features=["integrations_linear"]
+            _full_config(), tenant_plan="PRO", granted_features=["integrations_linear"]
         )
 
-        mock_slack  = AsyncMock()
+        mock_slack = AsyncMock()
         mock_linear = AsyncMock(return_value="id-1")
 
-        with patch.object(dispatcher, "_send_slack_alert", mock_slack), \
-             patch.object(dispatcher, "_create_linear_issue", mock_linear), \
-             patch("src.notifications.dispatcher.decrypt", return_value="real_value"):
+        with (
+            patch.object(dispatcher, "_send_slack_alert", mock_slack),
+            patch.object(dispatcher, "_create_linear_issue", mock_linear),
+            patch("src.notifications.dispatcher.decrypt", return_value="real_value"),
+        ):
             await dispatcher.dispatch_drift_alert(_drift())
 
         mock_slack.assert_not_called()
@@ -179,18 +198,21 @@ class TestIndividualFeatureGrants:
     async def test_all_three_granted(self):
         """granted_features with all three keys → all integrations fire."""
         dispatcher = NotificationDispatcher(
-            _full_config(), tenant_plan="PRO",
-            granted_features=["slack_integration", "integrations_jira", "integrations_linear"]
+            _full_config(),
+            tenant_plan="PRO",
+            granted_features=["slack_integration", "integrations_jira", "integrations_linear"],
         )
 
-        mock_slack  = AsyncMock()
-        mock_jira   = AsyncMock()
+        mock_slack = AsyncMock()
+        mock_jira = AsyncMock()
         mock_linear = AsyncMock(return_value="id-1")
 
-        with patch.object(dispatcher, "_send_slack_alert", mock_slack), \
-             patch.object(dispatcher, "post_jira_lifecycle_comment", mock_jira), \
-             patch.object(dispatcher, "_create_linear_issue", mock_linear), \
-             patch("src.notifications.dispatcher.decrypt", return_value="real_value"):
+        with (
+            patch.object(dispatcher, "_send_slack_alert", mock_slack),
+            patch.object(dispatcher, "post_jira_lifecycle_comment", mock_jira),
+            patch.object(dispatcher, "_create_linear_issue", mock_linear),
+            patch("src.notifications.dispatcher.decrypt", return_value="real_value"),
+        ):
             await dispatcher.dispatch_drift_alert(_drift(), jira_ticket_key="PROJ-1")
 
         mock_slack.assert_called_once()
@@ -204,7 +226,8 @@ class TestIndividualFeatureGrants:
             "githubIssues": {"enabled": True, "repo": "acme/api"},
         }
         dispatcher = NotificationDispatcher(
-            config, tenant_plan="FREE",
+            config,
+            tenant_plan="FREE",
             granted_features=[],  # nothing granted
             github_app_id="123",
             github_private_key="key",
@@ -220,8 +243,8 @@ class TestIndividualFeatureGrants:
 
 # ── GAP-INT-5: resolve_linear_issue ───────────────────────────────────────────
 
-class TestResolveLinearIssue:
 
+class TestResolveLinearIssue:
     @pytest.mark.asyncio
     async def test_resolve_queries_completed_state_then_updates(self):
         """resolve_linear_issue fetches a 'completed' workflow state then updates the issue."""
@@ -234,11 +257,7 @@ class TestResolveLinearIssue:
         states_resp = MagicMock()
         states_resp.status_code = 200
         states_resp.json.return_value = {
-            "data": {
-                "workflowStates": {
-                    "nodes": [{"id": "state-done", "name": "Done"}]
-                }
-            }
+            "data": {"workflowStates": {"nodes": [{"id": "state-done", "name": "Done"}]}}
         }
         states_resp.raise_for_status.return_value = None
 
@@ -247,8 +266,10 @@ class TestResolveLinearIssue:
         update_resp.json.return_value = {"data": {"issueUpdate": {"success": True}}}
         update_resp.raise_for_status.return_value = None
 
-        with patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"), \
-             patch("httpx.AsyncClient") as MockClient:
+        with (
+            patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"),
+            patch("httpx.AsyncClient") as MockClient,
+        ):
             post_mock = AsyncMock(side_effect=[states_resp, update_resp])
             MockClient.return_value.__aenter__.return_value.post = post_mock
 
@@ -298,8 +319,10 @@ class TestResolveLinearIssue:
             granted_features=["integrations_linear"],
         )
 
-        with patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"), \
-             patch("httpx.AsyncClient") as MockClient:
+        with (
+            patch("src.notifications.dispatcher.decrypt", return_value="lin_api_real"),
+            patch("httpx.AsyncClient") as MockClient,
+        ):
             MockClient.return_value.__aenter__.return_value.post = AsyncMock(
                 side_effect=Exception("Linear is down")
             )

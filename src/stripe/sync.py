@@ -54,7 +54,7 @@ def _get_price_id_from_subscription(subscription: dict) -> str | None:
 def sync_subscription_to_tenant(
     subscription: dict,
     stripe_customer_id: str,
-    db: "Session",
+    db: Session,
 ) -> bool:
     """Update Tenant.plan based on the active Stripe subscription.
 
@@ -68,9 +68,9 @@ def sync_subscription_to_tenant(
     """
     from src.storage.sql_models import Tenant
 
-    tenant: Tenant | None = db.query(Tenant).filter(
-        Tenant.stripeCustomerId == stripe_customer_id
-    ).first()
+    tenant: Tenant | None = (
+        db.query(Tenant).filter(Tenant.stripeCustomerId == stripe_customer_id).first()
+    )
 
     if not tenant:
         logger.warning(
@@ -103,7 +103,7 @@ def sync_subscription_to_tenant(
     return True
 
 
-def downgrade_tenant_to_free(stripe_customer_id: str, db: "Session") -> bool:
+def downgrade_tenant_to_free(stripe_customer_id: str, db: Session) -> bool:
     """Set Tenant.plan = FREE when a subscription is cancelled/deleted.
 
     Args:
@@ -115,9 +115,9 @@ def downgrade_tenant_to_free(stripe_customer_id: str, db: "Session") -> bool:
     """
     from src.storage.sql_models import Tenant
 
-    tenant: Tenant | None = db.query(Tenant).filter(
-        Tenant.stripeCustomerId == stripe_customer_id
-    ).first()
+    tenant: Tenant | None = (
+        db.query(Tenant).filter(Tenant.stripeCustomerId == stripe_customer_id).first()
+    )
 
     if not tenant:
         logger.warning(

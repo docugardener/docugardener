@@ -12,21 +12,19 @@ Coverage:
 5. PRAnalysisResult.llm_usage field integration
 """
 
-import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.agents.llm import (
     GeminiClient,
-    LLMConfig,
     LLMResponse,
-    LLMProvider,
 )
 from src.agents.verifier import VerificationAgent
 from src.pipeline.analyzer import PRAnalysisResult
 
-
 # ── Test LLMResponse Usage Field ──────────────────────────────────────────────
+
 
 class TestLLMResponseUsage:
     """Tests for LLMResponse usage field."""
@@ -56,6 +54,7 @@ class TestLLMResponseUsage:
 
 
 # ── Test GeminiClient Usage Metadata Handling ─────────────────────────────────
+
 
 class TestGeminiClientUsageMetadata:
     """Tests for GeminiClient.generate() usage_metadata handling."""
@@ -101,9 +100,7 @@ class TestGeminiClientUsageMetadata:
         the usage dict in LLMResponse.
         """
         client = self._make_gemini_client()
-        mock_response = self._make_response_with_usage(
-            prompt_tokens=200, completion_tokens=100
-        )
+        mock_response = self._make_response_with_usage(prompt_tokens=200, completion_tokens=100)
         client._model.generate_content = MagicMock(return_value=mock_response)
 
         response = await client.generate(prompt="Test prompt")
@@ -144,9 +141,7 @@ class TestGeminiClientUsageMetadata:
         When usage_metadata fields are None, they should be coerced to 0.
         """
         client = self._make_gemini_client()
-        mock_response = self._make_response_with_usage(
-            prompt_tokens=None, completion_tokens=None
-        )
+        mock_response = self._make_response_with_usage(prompt_tokens=None, completion_tokens=None)
         client._model.generate_content = MagicMock(return_value=mock_response)
 
         response = await client.generate(prompt="Test prompt")
@@ -157,6 +152,7 @@ class TestGeminiClientUsageMetadata:
 
 
 # ── Test VerificationAgent Token Accumulation ─────────────────────────────────
+
 
 class TestVerificationAgentAccumulation:
     """Tests for VerificationAgent._accumulate_usage() and session_llm_usage."""
@@ -343,6 +339,7 @@ class TestVerificationAgentAccumulation:
 
 
 # ── Test PRAnalysisResult LLM Usage Field ──────────────────────────────────────
+
 
 class TestPRAnalysisResultLLMUsage:
     """Tests for PRAnalysisResult.llm_usage field."""

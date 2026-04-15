@@ -5,6 +5,7 @@ Opens a regular (non-copilot) PR so AI Author Mode does NOT fire and the job
 stays in PENDING triage.  Calls the FastAPI dismiss endpoint with a reason,
 then verifies the job moves to IGNORED and the dismiss reason is stored.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -59,7 +60,7 @@ def test_beta05_dismiss_with_reason(db):
             code_snippet=_make_snippet(uid),
             pr_title=f"refactor: rename account manager to service {uid}",
             uid=uid,
-            branch_prefix="e2e",   # NOT copilot/ — keeps job in PENDING
+            branch_prefix="e2e",  # NOT copilot/ — keeps job in PENDING
         )
         print(f"         → PR #{pr_number}  branch: {branch}", flush=True)
 

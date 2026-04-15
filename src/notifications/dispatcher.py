@@ -4,20 +4,28 @@ Notification Dispatcher for integrating DocuGardener Drift Alerts
 with external workflows: Slack, Jira, Linear, GitHub Issues.
 """
 
-import httpx
 from typing import Any
+
+import httpx
+
 from src.core.logging import get_logger
 from src.security.crypto import decrypt
 
 logger = get_logger(__name__)
 
+
 class NotificationDispatcher:
     """Dispatches drift notifications to configured integrations."""
 
-    def __init__(self, workflow_config: dict[str, Any] | None, tenant_plan: str = "FREE",
-                 github_app_id: str | None = None, github_private_key: str | None = None,
-                 installation_id: str | None = None,
-                 granted_features: list[str] | None = None):
+    def __init__(
+        self,
+        workflow_config: dict[str, Any] | None,
+        tenant_plan: str = "FREE",
+        github_app_id: str | None = None,
+        github_private_key: str | None = None,
+        installation_id: str | None = None,
+        granted_features: list[str] | None = None,
+    ):
         self.config = workflow_config or {}
         self.tenant_plan = (tenant_plan or "FREE").upper()
         self.github_app_id = github_app_id
@@ -39,19 +47,21 @@ class NotificationDispatcher:
         # Fallback: plan-based access (PRO or TEAM)
         return self.tenant_plan != "FREE"
 
-    async def dispatch_drift_alert(self, drift_record: Any, jira_ticket_key: str | None = None) -> None:
+    async def dispatch_drift_alert(
+        self, drift_record: Any, jira_ticket_key: str | None = None
+    ) -> None:
         """Dispatch a drift alert to all configured integrations."""
         if not self.config:
             logger.debug("No workflow configuration found, skipping dispatch.")
             return
 
-        owner       = getattr(drift_record, "owner", "unknown")
-        repo        = getattr(drift_record, "repo", "unknown")
-        pr_number   = getattr(drift_record, "pr_number", 0)
+        owner = getattr(drift_record, "owner", "unknown")
+        repo = getattr(drift_record, "repo", "unknown")
+        pr_number = getattr(drift_record, "pr_number", 0)
         drift_score = getattr(drift_record, "drift_score", 0)
-        severity    = getattr(drift_record, "severity", "medium")
-        summary     = getattr(drift_record, "summary", "")
-        pr_url      = f"https://github.com/{owner}/{repo}/pull/{pr_number}"
+        severity = getattr(drift_record, "severity", "medium")
+        summary = getattr(drift_record, "summary", "")
+        pr_url = f"https://github.com/{owner}/{repo}/pull/{pr_number}"
 
         # ── Slack (PRO+) ──────────────────────────────────────────────────
         if self._has_feature("slack_integration"):
@@ -66,7 +76,12 @@ class NotificationDispatcher:
         if self._has_feature("integrations_jira"):
             if jira_ticket_key:
                 jira_config = self.config.get("jira")
-                if jira_config and jira_config.get("host") and jira_config.get("email") and jira_config.get("apiToken"):
+                if (
+                    jira_config
+                    and jira_config.get("host")
+                    and jira_config.get("email")
+                    and jira_config.get("apiToken")
+                ):
                     try:
                         comment = (
                             f"⚠️ *DocuGardener — Documentation Drift Detected*\n\n"
@@ -77,7 +92,11 @@ class NotificationDispatcher:
                         )
                         await self.post_jira_lifecycle_comment(jira_ticket_key, comment)
                     except Exception as e:
-                        logger.error("Failed to post Jira drift comment", ticket=jira_ticket_key, error=str(e))
+                        logger.error(
+                            "Failed to post Jira drift comment",
+                            ticket=jira_ticket_key,
+                            error=str(e),
+                        )
             else:
                 logger.debug("No Jira ticket key found in PR — skipping Jira notification")
 
@@ -101,7 +120,7 @@ class NotificationDispatcher:
                     )
                     if _linear_issue_id:
                         try:
-                            setattr(drift_record, "linear_issue_id", _linear_issue_id)
+                            drift_record.linear_issue_id = _linear_issue_id
                         except Exception:
                             pass
                 except Exception as e:
@@ -128,8 +147,8 @@ class NotificationDispatcher:
                 if issue_number:
                     # Store issue number on the drift record for later close
                     try:
-                        setattr(drift_record, "github_issue_number", issue_number)
-                        setattr(drift_record, "github_issue_repo", target_repo)
+                        drift_record.github_issue_number = issue_number
+                        drift_record.github_issue_repo = target_repo
                     except Exception:
                         pass
             except Exception as e:
@@ -137,29 +156,43 @@ class NotificationDispatcher:
 
     async def _send_slack_alert(self, drift_record: Any, webhook_url: str) -> None:
         """Send a formatted Block Kit message to Slack."""
-        owner       = getattr(drift_record, "owner", "unknown")
-        repo        = getattr(drift_record, "repo", "unknown")
-        pr_number   = getattr(drift_record, "pr_number", 0)
-        head_sha    = getattr(drift_record, "head_sha", "")
+        owner = getattr(drift_record, "owner", "unknown")
+        repo = getattr(drift_record, "repo", "unknown")
+        pr_number = getattr(drift_record, "pr_number", 0)
+        head_sha = getattr(drift_record, "head_sha", "")
         drift_score = getattr(drift_record, "drift_score", 0)
-        severity    = getattr(drift_record, "severity", "medium")
-        summary     = getattr(drift_record, "summary", "Documentation drift detected.")
-        entities    = getattr(drift_record, "entities", [])
+        severity = getattr(drift_record, "severity", "medium")
+        summary = getattr(drift_record, "summary", "Documentation drift detected.")
+        entities = getattr(drift_record, "entities", [])
 
-        pr_url      = f"https://github.com/{owner}/{repo}/pull/{pr_number}"
-        repo_url    = f"https://github.com/{owner}/{repo}"
-        short_sha   = head_sha[:7] if head_sha else "unknown"
+        pr_url = f"https://github.com/{owner}/{repo}/pull/{pr_number}"
+        repo_url = f"https://github.com/{owner}/{repo}"
+        short_sha = head_sha[:7] if head_sha else "unknown"
 
         severity_upper = severity.upper()
-        color = {"high": "#ef4444", "critical": "#ef4444",
-                 "low": "#3b82f6", "minor": "#3b82f6",
-                 "medium": "#eab308", "moderate": "#eab308"}.get(severity.lower(), "#eab308")
+        color = {
+            "high": "#ef4444",
+            "critical": "#ef4444",
+            "low": "#3b82f6",
+            "minor": "#3b82f6",
+            "medium": "#eab308",
+            "moderate": "#eab308",
+        }.get(severity.lower(), "#eab308")
 
-        severity_emoji = {"high": "🔴", "critical": "🔴",
-                          "medium": "🟡", "moderate": "🟡",
-                          "low": "🔵", "minor": "🔵"}.get(severity.lower(), "🟡")
+        severity_emoji = {
+            "high": "🔴",
+            "critical": "🔴",
+            "medium": "🟡",
+            "moderate": "🟡",
+            "low": "🔵",
+            "minor": "🔵",
+        }.get(severity.lower(), "🟡")
 
-        entities_text = "\n".join(f"• `{e}`" for e in entities) if entities else "_No specific entities identified_"
+        entities_text = (
+            "\n".join(f"• `{e}`" for e in entities)
+            if entities
+            else "_No specific entities identified_"
+        )
 
         blocks = [
             {
@@ -168,52 +201,31 @@ class NotificationDispatcher:
                     "type": "plain_text",
                     "text": "⚠️ Documentation Drift Detected",
                     "emoji": True,
-                }
+                },
             },
             {
                 "type": "section",
                 "fields": [
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Repository:*\n<{repo_url}|{owner}/{repo}>"
-                    },
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Pull Request:*\n<{pr_url}|#{pr_number}>"
-                    },
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Drift Score:*\n`{drift_score}/100`"
-                    },
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Severity:*\n{severity_emoji} {severity_upper}"
-                    },
-                ]
+                    {"type": "mrkdwn", "text": f"*Repository:*\n<{repo_url}|{owner}/{repo}>"},
+                    {"type": "mrkdwn", "text": f"*Pull Request:*\n<{pr_url}|#{pr_number}>"},
+                    {"type": "mrkdwn", "text": f"*Drift Score:*\n`{drift_score}/100`"},
+                    {"type": "mrkdwn", "text": f"*Severity:*\n{severity_emoji} {severity_upper}"},
+                ],
             },
+            {"type": "section", "text": {"type": "mrkdwn", "text": f"*Summary:*\n{summary}"}},
             {
                 "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*Summary:*\n{summary}"
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*Affected Entities:*\n{entities_text}"
-                }
+                "text": {"type": "mrkdwn", "text": f"*Affected Entities:*\n{entities_text}"},
             },
             {
                 "type": "context",
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": f"Commit `{short_sha}` · <{pr_url}|View PR on GitHub>"
+                        "text": f"Commit `{short_sha}` · <{pr_url}|View PR on GitHub>",
                     }
-                ]
-            }
+                ],
+            },
         ]
 
         payload = {
@@ -250,8 +262,8 @@ class NotificationDispatcher:
             logger.debug("Jira not configured — skipping lifecycle comment", ticket=ticket_key)
             return
 
-        host      = jira_config["host"]
-        email     = jira_config["email"]
+        host = jira_config["host"]
+        email = jira_config["email"]
         api_token = decrypt(jira_config["apiToken"])
 
         url = f"{host.rstrip('/')}/rest/api/2/issue/{ticket_key}/comment"
@@ -263,7 +275,12 @@ class NotificationDispatcher:
                 timeout=10.0,
             )
             if response.status_code not in (200, 201):
-                logger.error("Failed to post Jira comment", ticket=ticket_key, status=response.status_code, body=response.text)
+                logger.error(
+                    "Failed to post Jira comment",
+                    ticket=ticket_key,
+                    status=response.status_code,
+                    body=response.text,
+                )
                 response.raise_for_status()
             logger.info("Jira comment posted", ticket=ticket_key)
 
@@ -306,7 +323,15 @@ class NotificationDispatcher:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 "https://api.linear.app/graphql",
-                json={"query": mutation, "variables": {"title": title, "description": description, "teamId": team_id, "priority": priority}},
+                json={
+                    "query": mutation,
+                    "variables": {
+                        "title": title,
+                        "description": description,
+                        "teamId": team_id,
+                        "priority": priority,
+                    },
+                },
                 headers={"Authorization": api_token, "Content-Type": "application/json"},
                 timeout=10.0,
             )
@@ -314,19 +339,28 @@ class NotificationDispatcher:
             data = resp.json().get("data", {}).get("issueCreate", {})
             if data.get("success"):
                 issue = data.get("issue", {})
-                logger.info("Linear issue created", id=issue.get("identifier"), url=issue.get("url"))
+                logger.info(
+                    "Linear issue created", id=issue.get("identifier"), url=issue.get("url")
+                )
                 return issue.get("id")
             logger.error("Linear issue creation failed", response=resp.json())
             return None
 
-    async def _create_github_issue(self, repo: str, title: str, body: str, labels: list[str] | None = None) -> int | None:
+    async def _create_github_issue(
+        self, repo: str, title: str, body: str, labels: list[str] | None = None
+    ) -> int | None:
         """Create a GitHub issue using the App installation token. Returns issue number."""
         if not self.github_app_id or not self.github_private_key or not self.installation_id:
             logger.debug("GitHub Issues: app credentials not available, skipping")
             return None
         try:
             from src.github.app import get_github_client
-            client = get_github_client(int(self.installation_id), app_id=self.github_app_id, private_key=self.github_private_key)
+
+            client = get_github_client(
+                int(self.installation_id),
+                app_id=self.github_app_id,
+                private_key=self.github_private_key,
+            )
             parts = repo.split("/", 1)
             if len(parts) != 2:
                 logger.warning("GitHub Issues: invalid repo format", repo=repo)
@@ -372,9 +406,13 @@ class NotificationDispatcher:
                     timeout=10.0,
                 )
                 states_resp.raise_for_status()
-                nodes = states_resp.json().get("data", {}).get("workflowStates", {}).get("nodes", [])
+                nodes = (
+                    states_resp.json().get("data", {}).get("workflowStates", {}).get("nodes", [])
+                )
                 if not nodes:
-                    logger.warning("resolve_linear_issue: no completed workflow state found", team_id=team_id)
+                    logger.warning(
+                        "resolve_linear_issue: no completed workflow state found", team_id=team_id
+                    )
                     return
                 state_id = nodes[0]["id"]
 
@@ -387,12 +425,17 @@ class NotificationDispatcher:
                 """
                 update_resp = await client.post(
                     "https://api.linear.app/graphql",
-                    json={"query": update_mutation, "variables": {"issueId": issue_id, "stateId": state_id}},
+                    json={
+                        "query": update_mutation,
+                        "variables": {"issueId": issue_id, "stateId": state_id},
+                    },
                     headers=headers,
                     timeout=10.0,
                 )
                 update_resp.raise_for_status()
-                success = update_resp.json().get("data", {}).get("issueUpdate", {}).get("success", False)
+                success = (
+                    update_resp.json().get("data", {}).get("issueUpdate", {}).get("success", False)
+                )
                 if success:
                     logger.info("Linear issue resolved", issue_id=issue_id)
                 else:
@@ -400,13 +443,20 @@ class NotificationDispatcher:
         except Exception as e:
             logger.error("resolve_linear_issue failed (non-fatal)", issue_id=issue_id, error=str(e))
 
-    async def close_github_issue(self, repo: str, issue_number: int, comment: str | None = None) -> None:
+    async def close_github_issue(
+        self, repo: str, issue_number: int, comment: str | None = None
+    ) -> None:
         """Close a GitHub issue when the fix PR merges."""
         if not self.github_app_id or not self.github_private_key or not self.installation_id:
             return
         try:
             from src.github.app import get_github_client
-            client = get_github_client(int(self.installation_id), app_id=self.github_app_id, private_key=self.github_private_key)
+
+            client = get_github_client(
+                int(self.installation_id),
+                app_id=self.github_app_id,
+                private_key=self.github_private_key,
+            )
             parts = repo.split("/", 1)
             gh_repo = client.get_repo(f"{parts[0]}/{parts[1]}")
             issue = gh_repo.get_issue(issue_number)
@@ -414,9 +464,15 @@ class NotificationDispatcher:
                 try:
                     issue.create_comment(comment)
                 except Exception as _ce:
-                    logger.warning("Failed to post close comment on GitHub issue", repo=repo, number=issue_number, error=str(_ce))
+                    logger.warning(
+                        "Failed to post close comment on GitHub issue",
+                        repo=repo,
+                        number=issue_number,
+                        error=str(_ce),
+                    )
             issue.edit(state="closed")
             logger.info("GitHub issue closed", repo=repo, number=issue_number)
         except Exception as e:
-            logger.error("Failed to close GitHub issue", repo=repo, number=issue_number, error=str(e))
-
+            logger.error(
+                "Failed to close GitHub issue", repo=repo, number=issue_number, error=str(e)
+            )

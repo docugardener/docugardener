@@ -15,11 +15,11 @@ Validates the chart without requiring helm binary:
 """
 
 import json
-import re
-import yaml
 import pathlib
-import pytest
+import re
 
+import pytest
+import yaml
 
 HELM_ROOT = pathlib.Path(__file__).parents[2] / "helm" / "docugardener"
 TEMPLATES_DIR = HELM_ROOT / "templates"
@@ -27,6 +27,7 @@ WORKFLOWS_DIR = pathlib.Path(__file__).parents[2] / ".github" / "workflows"
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _strip_helm_syntax(text: str) -> str:
     """Remove Go template directives so PyYAML can parse the YAML structure."""
@@ -53,8 +54,8 @@ def _read(path: pathlib.Path) -> str:
 
 # ── Chart.yaml ────────────────────────────────────────────────────────────────
 
-class TestChartYaml:
 
+class TestChartYaml:
     def test_chart_yaml_exists(self):
         assert (HELM_ROOT / "Chart.yaml").exists()
 
@@ -85,8 +86,8 @@ class TestChartYaml:
 
 # ── values.yaml ───────────────────────────────────────────────────────────────
 
-class TestValuesYaml:
 
+class TestValuesYaml:
     def setup_method(self):
         self.values = _load_yaml_file(HELM_ROOT / "values.yaml")
 
@@ -157,8 +158,8 @@ class TestValuesYaml:
 
 # ── values.schema.json ────────────────────────────────────────────────────────
 
-class TestValuesSchema:
 
+class TestValuesSchema:
     def setup_method(self):
         with open(HELM_ROOT / "values.schema.json") as f:
             self.schema = json.load(f)
@@ -229,7 +230,6 @@ EXPECTED_TEMPLATES = [
 
 
 class TestTemplateFiles:
-
     def test_all_expected_templates_present(self):
         missing = []
         for name in EXPECTED_TEMPLATES:
@@ -292,7 +292,6 @@ class TestDeploymentTemplates:
 
 
 class TestNetworkPolicyTemplate:
-
     def test_networkpolicy_file_exists(self):
         assert (TEMPLATES_DIR / "networkpolicy.yaml").exists()
 
@@ -318,7 +317,6 @@ class TestNetworkPolicyTemplate:
 
 
 class TestSecretTemplate:
-
     def test_secret_uses_required_guards(self):
         """All critical keys must use 'required' to fail fast on missing values."""
         text = _read(TEMPLATES_DIR / "secret.yaml")
@@ -335,7 +333,6 @@ class TestSecretTemplate:
 
 
 class TestServiceTemplate:
-
     def test_api_service_present(self):
         text = _read(TEMPLATES_DIR / "service.yaml")
         assert "api" in text
@@ -346,7 +343,6 @@ class TestServiceTemplate:
 
 
 class TestPdbTemplate:
-
     def test_pdb_references_all_three_components(self):
         text = _read(TEMPLATES_DIR / "pdb.yaml")
         assert "api" in text
@@ -355,7 +351,6 @@ class TestPdbTemplate:
 
 
 class TestHpaTemplate:
-
     def test_hpa_references_autoscaling_v2(self):
         text = _read(TEMPLATES_DIR / "hpa.yaml")
         assert "autoscaling/v2" in text
@@ -367,8 +362,8 @@ class TestHpaTemplate:
 
 # ── CI values file ────────────────────────────────────────────────────────────
 
-class TestCIValues:
 
+class TestCIValues:
     def test_ci_values_file_exists(self):
         assert (HELM_ROOT / "ci" / "test-values.yaml").exists()
 
@@ -389,8 +384,8 @@ class TestCIValues:
 
 # ── GitHub Actions workflow ───────────────────────────────────────────────────
 
-class TestHelmPublishWorkflow:
 
+class TestHelmPublishWorkflow:
     def setup_method(self):
         self.wf_path = WORKFLOWS_DIR / "helm-publish.yml"
 

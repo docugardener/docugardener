@@ -7,10 +7,8 @@ Groups:
   C. check_repo_quota()   — trial tenants treated as PRO
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
-
-import pytest
 
 from src.billing.quota import (
     PLAN_LIMITS,
@@ -19,8 +17,8 @@ from src.billing.quota import (
     is_trial_active,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _tenant(
     plan: str = "FREE",
@@ -47,17 +45,17 @@ def _session(count: int = 0) -> MagicMock:
 
 
 def _future(days: float = 7.0) -> datetime:
-    return datetime.now(timezone.utc) + timedelta(days=days)
+    return datetime.now(UTC) + timedelta(days=days)
 
 
 def _past(days: float = 7.0) -> datetime:
-    return datetime.now(timezone.utc) - timedelta(days=days)
+    return datetime.now(UTC) - timedelta(days=days)
 
 
 # ── A. is_trial_active ────────────────────────────────────────────────────────
 
-class TestIsTrialActive:
 
+class TestIsTrialActive:
     def test_no_trial_set_returns_false(self):
         tenant = _tenant(trial_expires_at=None)
         assert is_trial_active(tenant) is False
@@ -95,8 +93,8 @@ class TestIsTrialActive:
 
 # ── B. check_pr_quota with trial ──────────────────────────────────────────────
 
-class TestCheckPrQuotaWithTrial:
 
+class TestCheckPrQuotaWithTrial:
     def test_active_trial_allows_pro_quota(self):
         """AC-2: A FREE tenant with an active trial gets PRO PR quota (500/mo)."""
         pro_limit = PLAN_LIMITS["PRO"].max_prs_per_month  # 500
@@ -140,8 +138,8 @@ class TestCheckPrQuotaWithTrial:
 
 # ── C. check_repo_quota with trial ───────────────────────────────────────────
 
-class TestCheckRepoQuotaWithTrial:
 
+class TestCheckRepoQuotaWithTrial:
     def test_active_trial_allows_pro_repo_limit(self):
         """AC-2: Trial tenant gets PRO repo limit (5) instead of FREE (1)."""
         tenant = _tenant(plan="FREE", trial_expires_at=_future(7))

@@ -9,15 +9,16 @@ This cuts latency and token usage for the common case of auto-formatters,
 linter fixes, and other purely presentational commits.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.agents.verifier import DriftAnalysis, VerificationAgent
 from src.analysis.diff import ChangeType, EntityChange
 from src.analysis.parser import CodeEntity
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 def _make_entity(name: str = "my_func") -> CodeEntity:
     """Build a minimal real CodeEntity so scorer arithmetic works correctly."""
@@ -71,6 +72,7 @@ def _make_agent() -> VerificationAgent:
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
+
 
 class TestScale01FastPath:
     """SCALE-01: LLM is bypassed for cosmetic-only diffs."""
@@ -191,7 +193,11 @@ class TestScale01FastPath:
 
         result = await agent.analyze_drift(changes)
 
-        assert "cosmetic" in result.summary.lower() or "formatting" in result.summary.lower() or "whitespace" in result.summary.lower()
+        assert (
+            "cosmetic" in result.summary.lower()
+            or "formatting" in result.summary.lower()
+            or "whitespace" in result.summary.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_added_change_does_not_skip_llm(self):

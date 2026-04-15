@@ -12,49 +12,47 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables.
-    
+
     All settings can be overridden via environment variables or .env file.
     """
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
-    
+
     # Application
     app_name: str = Field(default="DocuGardener")
     version: str = Field(default="0.1.0")
-    app_env: Literal["development", "staging", "production"] = Field(
-        default="development"
-    )
+    app_env: Literal["development", "staging", "production"] = Field(default="development")
     debug: bool = Field(default=False)
     log_level: str = Field(default="INFO")
-    
+
     # Server
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)
     workers: int = Field(default=1)
     allowed_origins: list[str] = Field(default_factory=list)
-    
+
     # GitHub App
     github_app_id: str | None = Field(default=None)
     github_private_key_path: Path | None = Field(default=None)
     github_webhook_secret: str | None = Field(default=None)
-    
+
     # Vector Database
     vector_db_provider: Literal["pinecone", "weaviate"] = Field(default="pinecone")
-    
+
     # Pinecone
     pinecone_api_key: str | None = Field(default=None)
     pinecone_environment: str = Field(default="us-east-1")
     pinecone_index_name: str = Field(default="docugardener")
-    
+
     # Weaviate
     weaviate_url: str = Field(default="http://localhost:8080")
     weaviate_api_key: str | None = Field(default=None)
-    
+
     # LLM
     llm_provider: Literal["gemini", "ollama", "openai", "anthropic"] = Field(default="gemini")
 
@@ -73,21 +71,19 @@ class Settings(BaseSettings):
     # Ollama
     ollama_url: str = Field(default="http://localhost:11434")
     ollama_model: str = Field(default="llama3")
-    
+
     # Embeddings
-    embeddings_model: str = Field(
-        default="sentence-transformers/all-MiniLM-L6-v2"
-    )
-    
+    embeddings_model: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
+
     # Redis
     redis_url: str = Field(default="redis://localhost:6379/0")
-    
+
     # Security
     tmpfs_path: Path = Field(default=Path("/tmp/docugardener"))
     max_processing_time: int = Field(default=120)  # seconds
     drift_score_threshold: int = Field(default=70)  # 0-100
-    encryption_key: str | None = Field(default=None) # 32-byte hex for BYOK
-    
+    encryption_key: str | None = Field(default=None)  # 32-byte hex for BYOK
+
     # Enterprise
     byok_enabled: bool = Field(default=False)
     sql_database_url: str | None = Field(default=None)  # Web DB connection; required in production
@@ -103,7 +99,7 @@ class Settings(BaseSettings):
     single_tenant_id: str | None = Field(default=None)
 
     # HYB-04: Single-tenant provisioning
-    github_org: str | None = Field(default=None)   # Required in client-installed/air-gap mode
+    github_org: str | None = Field(default=None)  # Required in client-installed/air-gap mode
     admin_email: str | None = Field(default=None)  # Initial admin user email (non-saas)
 
     # HYB-06: License portal URL for client-installed billing page
@@ -114,7 +110,7 @@ class Settings(BaseSettings):
 
     # HYB-12: Cloud connector (client-installed mode only)
     cloud_service_url: str = Field(default="https://cloud.docugardener.dev")
-    license_key: str = Field(default="")        # dg_lic_<32hex>; required in client-installed mode
+    license_key: str = Field(default="")  # dg_lic_<32hex>; required in client-installed mode
     telemetry_enabled: bool = Field(default=False)
 
     # Application URL (used for callback URLs and feedback links)
@@ -177,12 +173,10 @@ class Settings(BaseSettings):
         if not self.allowed_origins:
             raise RuntimeError(
                 "SEC-11: ALLOWED_ORIGINS must be explicitly set in production. "
-                "Example: ALLOWED_ORIGINS=[\"https://app.docugardener.dev\"]"
+                'Example: ALLOWED_ORIGINS=["https://app.docugardener.dev"]'
             )
         if not self.sql_database_url:
-            raise RuntimeError(
-                "SEC-11: SQL_DATABASE_URL must be set in production."
-            )
+            raise RuntimeError("SEC-11: SQL_DATABASE_URL must be set in production.")
         if not self.feedback_hmac_secret:
             raise RuntimeError(
                 "FEED-01: FEEDBACK_HMAC_SECRET must be set in production. "
@@ -196,6 +190,7 @@ class Settings(BaseSettings):
         # HYB-07: air-gap mode requires a license file at the configured path
         if self.deployment_mode == "air-gap":
             from pathlib import Path
+
             if not Path(self.license_file_path).exists():
                 raise RuntimeError(
                     f"HYB-07: LICENSE_FILE_PATH={self.license_file_path!r} does not exist. "

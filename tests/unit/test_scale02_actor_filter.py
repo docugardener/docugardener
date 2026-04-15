@@ -13,13 +13,14 @@ and `from src.storage.sql_models import Tenant` *inside the function body*, so w
 patch these at their source modules for the patches to take effect.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from src.api.webhooks import handle_pull_request
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_pr_payload(sender_login: str = "dependabot[bot]", action: str = "opened") -> dict:
     """Build a minimal pull_request webhook payload."""
@@ -74,8 +75,8 @@ def _make_queue(job_id: str = "job-test") -> tuple[MagicMock, MagicMock]:
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-class TestScale02ActorFilter:
 
+class TestScale02ActorFilter:
     @pytest.mark.asyncio
     async def test_ignored_actor_skips_analysis(self):
         """
@@ -88,12 +89,9 @@ class TestScale02ActorFilter:
 
         with (
             patch("src.pipeline.job_manager.SessionLocal", return_value=db_session),
-
             patch("src.worker.queue.get_queue", return_value=mock_queue),
         ):
-            result = await handle_pull_request(
-                _make_pr_payload("dependabot[bot]"), "delivery-1"
-            )
+            result = await handle_pull_request(_make_pr_payload("dependabot[bot]"), "delivery-1")
 
         assert result["status"] == "skipped"
         assert "dependabot[bot]" in result["reason"]
@@ -110,13 +108,10 @@ class TestScale02ActorFilter:
 
         with (
             patch("src.pipeline.job_manager.SessionLocal", return_value=db_session),
-
             patch("src.worker.queue.get_queue", return_value=mock_queue),
             patch("src.worker.jobs.analyze_pr_job", MagicMock()),
         ):
-            result = await handle_pull_request(
-                _make_pr_payload("alice"), "delivery-2"
-            )
+            result = await handle_pull_request(_make_pr_payload("alice"), "delivery-2")
 
         assert result["status"] == "queued"
         mock_queue.enqueue.assert_called_once()
@@ -132,13 +127,10 @@ class TestScale02ActorFilter:
 
         with (
             patch("src.pipeline.job_manager.SessionLocal", return_value=db_session),
-
             patch("src.worker.queue.get_queue", return_value=mock_queue),
             patch("src.worker.jobs.analyze_pr_job", MagicMock()),
         ):
-            result = await handle_pull_request(
-                _make_pr_payload("dependabot[bot]"), "delivery-3"
-            )
+            result = await handle_pull_request(_make_pr_payload("dependabot[bot]"), "delivery-3")
 
         assert result["status"] == "queued"
 
@@ -151,13 +143,10 @@ class TestScale02ActorFilter:
 
         with (
             patch("src.pipeline.job_manager.SessionLocal", return_value=db_session),
-
             patch("src.worker.queue.get_queue", return_value=mock_queue),
             patch("src.worker.jobs.analyze_pr_job", MagicMock()),
         ):
-            result = await handle_pull_request(
-                _make_pr_payload("dependabot[bot]"), "delivery-4"
-            )
+            result = await handle_pull_request(_make_pr_payload("dependabot[bot]"), "delivery-4")
 
         assert result["status"] == "queued"
 
@@ -174,13 +163,10 @@ class TestScale02ActorFilter:
                 "src.pipeline.job_manager.SessionLocal",
                 side_effect=RuntimeError("DB connection failed"),
             ),
-
             patch("src.worker.queue.get_queue", return_value=mock_queue),
             patch("src.worker.jobs.analyze_pr_job", MagicMock()),
         ):
-            result = await handle_pull_request(
-                _make_pr_payload("dependabot[bot]"), "delivery-5"
-            )
+            result = await handle_pull_request(_make_pr_payload("dependabot[bot]"), "delivery-5")
 
         assert result["status"] == "queued"
 
@@ -196,13 +182,10 @@ class TestScale02ActorFilter:
 
         with (
             patch("src.pipeline.job_manager.SessionLocal", return_value=db_session),
-
             patch("src.worker.queue.get_queue", return_value=mock_queue),
             patch("src.worker.jobs.analyze_pr_job", MagicMock()),
         ):
-            result = await handle_pull_request(
-                _make_pr_payload("Dependabot[bot]"), "delivery-6"
-            )
+            result = await handle_pull_request(_make_pr_payload("Dependabot[bot]"), "delivery-6")
 
         # "Dependabot[bot]" ≠ "dependabot[bot]" — must NOT skip
         assert result["status"] == "queued"

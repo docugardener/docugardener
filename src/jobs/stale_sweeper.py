@@ -11,7 +11,7 @@ This covers the worker-crash scenario where the on_failure callback never fires
 The 60-second interval keeps recovery lag well below the previous 5-minute baseline.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 from src.core.config import settings
 from src.core.logging import get_logger
@@ -34,7 +34,7 @@ def run_stale_job_sweeper() -> None:
     already-COMPLETED/FAILED rows are unaffected by status filter).
     """
     threshold_seconds = settings.max_processing_time + _GRACE_SECONDS
-    cutoff = datetime.now(timezone.utc) - timedelta(seconds=threshold_seconds)
+    cutoff = datetime.now(UTC) - timedelta(seconds=threshold_seconds)
 
     db = SessionLocal()
     try:

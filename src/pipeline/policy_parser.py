@@ -35,10 +35,11 @@ DEFAULT_ENFORCEMENT = "advisory"
 @dataclass
 class PolicyRule:
     """A single documentation policy rule parsed from docugardener.yml."""
+
     name: str
-    paths: list[str]          # glob patterns for source files that trigger this rule
-    require_docs: list[str]   # glob patterns for documentation files that must be present
-    enforcement: str          # "advisory" | "blocking" | "blocking-with-reason"
+    paths: list[str]  # glob patterns for source files that trigger this rule
+    require_docs: list[str]  # glob patterns for documentation files that must be present
+    enforcement: str  # "advisory" | "blocking" | "blocking-with-reason"
 
 
 def parse_policies(
@@ -81,7 +82,11 @@ def parse_policies(
             continue
 
         require_docs = entry.get("require_docs")
-        if not require_docs or not isinstance(require_docs, list) or not all(isinstance(p, str) for p in require_docs):
+        if (
+            not require_docs
+            or not isinstance(require_docs, list)
+            or not all(isinstance(p, str) for p in require_docs)
+        ):
             logger.warning("DOCPOL-01: rule %r missing valid `require_docs` list — skipping", name)
             continue
 
@@ -89,16 +94,19 @@ def parse_policies(
         if enforcement not in VALID_ENFORCEMENT_LEVELS:
             logger.warning(
                 "DOCPOL-01: rule %r has unknown enforcement %r — defaulting to advisory",
-                name, enforcement,
+                name,
+                enforcement,
             )
             enforcement = DEFAULT_ENFORCEMENT
 
-        rules.append(PolicyRule(
-            name=name,
-            paths=list(paths),
-            require_docs=list(require_docs),
-            enforcement=enforcement,
-        ))
+        rules.append(
+            PolicyRule(
+                name=name,
+                paths=list(paths),
+                require_docs=list(require_docs),
+                enforcement=enforcement,
+            )
+        )
 
     logger.info("DOCPOL-01: parsed %d policy rule(s)", len(rules))
     return rules

@@ -1,16 +1,14 @@
 """HYB-07: Air-gap offline license validation tests."""
 
 import json
-import os
-import tempfile
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from src.core.license import (
-    LicenseExpiredError,
     LicenseError,
+    LicenseExpiredError,
     LicensePayload,
     LicenseTamperedError,
     sign_license_payload,
@@ -34,15 +32,13 @@ def make_license_payload(
     org: str = "Acme Corp",
 ) -> dict:
     """Create a license payload dict (without signature)."""
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     return {
         "license_key_id": "dg_lic_abc123def456",
         "org_name": org,
         "plan": plan,
         "issued_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "expires_at": (now + timedelta(days=expires_days)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        ),
+        "expires_at": (now + timedelta(days=expires_days)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
 
@@ -80,7 +76,7 @@ class TestValidLicense:
         write_license_file(payload, _DEV_PRIVATE_KEY_BYTES, lic_path)
 
         result = validate_license_file(lic_path, public_key_path=_DEV_PUBLIC_KEY_PATH)
-        assert result.expires_at > datetime.now(tz=timezone.utc)
+        assert result.expires_at > datetime.now(tz=UTC)
 
 
 class TestInvalidSignature:
@@ -115,7 +111,9 @@ class TestInvalidSignature:
         write_license_file(payload, _DEV_PRIVATE_KEY_BYTES, lic_path)
 
         data = json.loads(Path(lic_path).read_text())
-        data["signature"] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        data["signature"] = (
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        )
         Path(lic_path).write_text(json.dumps(data))
 
         with pytest.raises(LicenseTamperedError):
@@ -162,10 +160,8 @@ class TestExpiredLicense:
         lic_path = str(tmp_path / "license.json")
         write_license_file(payload, _DEV_PRIVATE_KEY_BYTES, lic_path)
         # Pass a 'now' that is clearly before expiry
-        past = datetime.now(tz=timezone.utc) - timedelta(days=1)
-        result = validate_license_file(
-            lic_path, public_key_path=_DEV_PUBLIC_KEY_PATH, now=past
-        )
+        past = datetime.now(tz=UTC) - timedelta(days=1)
+        result = validate_license_file(lic_path, public_key_path=_DEV_PUBLIC_KEY_PATH, now=past)
         assert result is not None
 
 
@@ -200,6 +196,7 @@ class TestMalformedLicense:
 class TestValidateProductionConfigAirGap:
     def test_air_gap_without_license_file_raises(self, tmp_path):
         from src.core.config import Settings
+
         s = Settings(
             app_env="production",
             deployment_mode="air-gap",
@@ -218,6 +215,7 @@ class TestValidateProductionConfigAirGap:
         write_license_file(payload, _DEV_PRIVATE_KEY_BYTES, str(lic_path))
 
         from src.core.config import Settings
+
         s = Settings(
             app_env="production",
             deployment_mode="air-gap",

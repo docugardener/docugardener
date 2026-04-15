@@ -20,14 +20,14 @@ Coverage:
     C2  GET /inbox completedAt values end with "Z" when set
 """
 
+from datetime import datetime
+from unittest.mock import MagicMock, patch
+
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.storage.sql_models import Base, Job, Tenant, Repository, JobStatus, TriageStatus
-
+from src.storage.sql_models import Base, Job, JobStatus, Repository, Tenant, TriageStatus
 
 # ── Shared in-memory DB ───────────────────────────────────────────────────────
 
@@ -107,8 +107,8 @@ def _webhook_data(installation_id: int = 88888) -> dict:
 
 # ── Group B: handle_fix_pr_merged ────────────────────────────────────────────
 
-class TestHandleFixPrMergedLifecycle:
 
+class TestHandleFixPrMergedLifecycle:
     @pytest.mark.asyncio
     async def test_b1_fix_pr_open_job_set_to_resolved(self, seed_db):
         """B1: FIX_PR_OPEN job → RESOLVED after fix PR merge webhook."""
@@ -173,9 +173,7 @@ class TestHandleFixPrMergedLifecycle:
         from src.api.webhooks import handle_fix_pr_merged
 
         with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal):
-            await handle_fix_pr_merged(
-                _webhook_data(), head_ref="docugardener-fix-10-xyz"
-            )
+            await handle_fix_pr_merged(_webhook_data(), head_ref="docugardener-fix-10-xyz")
 
         snap = _get_job(seed_db["job_id"])
         merged_at = snap["result"].get("fix_pr_merged_at")
@@ -192,9 +190,7 @@ class TestHandleFixPrMergedLifecycle:
         from src.api.webhooks import handle_fix_pr_merged
 
         with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal):
-            result = await handle_fix_pr_merged(
-                _webhook_data(), head_ref="feature/my-feature"
-            )
+            result = await handle_fix_pr_merged(_webhook_data(), head_ref="feature/my-feature")
 
         assert result["status"] == "skipped"
         snap = _get_job(seed_db["job_id"])
@@ -202,6 +198,7 @@ class TestHandleFixPrMergedLifecycle:
 
 
 # ── Group A: process_fix_pr state transitions ────────────────────────────────
+
 
 class TestProcessFixPrStateTransitions:
     """
@@ -269,10 +266,12 @@ class TestProcessFixPrStateTransitions:
     def _patch_process_fix_pr(self, mock_committer):
         """Return a context-manager stack that wires the test DB + mock committer."""
         from contextlib import ExitStack
+
         stack = ExitStack()
         # process_fix_pr opens its own session via: from src.pipeline.job_manager import get_db
         # and also uses SessionLocal directly for the dedup-guard path.
         stack.enter_context(patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal))
+
         # Override get_db so `db = next(get_db())` returns a test session
         def _test_get_db():
             db = TestingSessionLocal()
@@ -280,9 +279,12 @@ class TestProcessFixPrStateTransitions:
                 yield db
             finally:
                 db.close()
+
         stack.enter_context(patch("src.pipeline.job_manager.get_db", _test_get_db))
         stack.enter_context(patch("src.github.app.get_installation_token", return_value="tok"))
-        stack.enter_context(patch("src.security.encryption.decrypt_credential", return_value="privkey"))
+        stack.enter_context(
+            patch("src.security.encryption.decrypt_credential", return_value="privkey")
+        )
         stack.enter_context(patch("src.github.committer.GitCommitter", return_value=mock_committer))
         mock_jm = MagicMock()
         mock_jm.update_status.return_value = None
@@ -298,6 +300,7 @@ class TestProcessFixPrStateTransitions:
         mock_committer = self._make_mock_committer()
 
         from src.pipeline.handler import process_fix_pr
+
         with self._patch_process_fix_pr(mock_committer):
             await process_fix_pr(job_id, auto_merge=False)
 
@@ -315,6 +318,7 @@ class TestProcessFixPrStateTransitions:
         mock_committer.auto_merge_pr.return_value = None  # success
 
         from src.pipeline.handler import process_fix_pr
+
         with self._patch_process_fix_pr(mock_committer):
             await process_fix_pr(job_id, auto_merge=True)
 
@@ -334,6 +338,7 @@ class TestProcessFixPrStateTransitions:
         mock_committer.auto_merge_pr.return_value = "ci_failed"  # skipped
 
         from src.pipeline.handler import process_fix_pr
+
         with self._patch_process_fix_pr(mock_committer):
             await process_fix_pr(job_id, auto_merge=True)
 
@@ -354,6 +359,7 @@ class TestProcessFixPrStateTransitions:
         mock_committer.find_open_fix_pr.return_value = existing_url  # existing PR found
 
         from src.pipeline.handler import process_fix_pr
+
         with self._patch_process_fix_pr(mock_committer):
             await process_fix_pr(job_id, auto_merge=False)
 
@@ -366,8 +372,8 @@ class TestProcessFixPrStateTransitions:
 
 # ── Group C: inbox UTC timestamps ─────────────────────────────────────────────
 
-class TestInboxUtcTimestamps:
 
+class TestInboxUtcTimestamps:
     def _seed_inbox_job(self, completed_at=None) -> str:
         db = TestingSessionLocal()
         try:
@@ -423,9 +429,7 @@ class TestInboxUtcTimestamps:
         for item in items:
             created_at = item.get("createdAt", "")
             assert isinstance(created_at, str), f"createdAt should be str, got {type(created_at)}"
-            assert created_at.endswith("Z"), (
-                f"createdAt must end with Z (UTC), got {created_at!r}"
-            )
+            assert created_at.endswith("Z"), f"createdAt must end with Z (UTC), got {created_at!r}"
 
     def test_c2_inbox_completed_at_ends_with_z_when_set(self):
         """C2: completedAt in inbox response ends with Z when the field is non-null."""

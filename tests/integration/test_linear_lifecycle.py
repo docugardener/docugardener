@@ -14,22 +14,21 @@ Covers:
   - resolve_linear_issue failure is non-fatal (webhook still returns 200)
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.storage.sql_models import Job, JobStatus, Repository, Tenant, TriageStatus
+import pytest
 
+from src.storage.sql_models import Job, JobStatus, Repository, Tenant, TriageStatus
 from tests.integration.conftest import (
-    INSTALLATION_ID,
     REPO_NAME,
     TENANT_ID,
     TestingSessionLocal,
-    pr_merged_payload,
     _webhook_headers,
+    pr_merged_payload,
 )
 
-
 # ── DB helpers ─────────────────────────────────────────────────────────────────
+
 
 def _seed_job_with_linear(linear_issue_id: str | None, granted_features: list[str] | None = None):
     """Seed a tenant with Linear config + a job that may have linear_issue_id."""
@@ -80,8 +79,8 @@ def _seed_job_with_linear(linear_issue_id: str | None, granted_features: list[st
 
 # ── tests ──────────────────────────────────────────────────────────────────────
 
-class TestLinearResolutionLifecycle:
 
+class TestLinearResolutionLifecycle:
     @pytest.mark.asyncio
     async def test_fix_pr_merged_calls_resolve_linear_issue(self, http_client, seed_tenant):
         """linear_issue_id in job result + feature granted → resolve_linear_issue called."""
@@ -95,10 +94,13 @@ class TestLinearResolutionLifecycle:
         mock_dispatcher.post_jira_lifecycle_comment = AsyncMock()
         mock_dispatcher.close_github_issue = AsyncMock()
 
-        with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal), \
-             patch("src.security.crypto.decrypt", return_value="fake-decrypted"), \
-             patch("src.notifications.dispatcher.NotificationDispatcher",
-                   return_value=mock_dispatcher):
+        with (
+            patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
+            patch("src.security.crypto.decrypt", return_value="fake-decrypted"),
+            patch(
+                "src.notifications.dispatcher.NotificationDispatcher", return_value=mock_dispatcher
+            ),
+        ):
             response = await http_client.post(
                 "/webhooks/github",
                 json=pr_merged_payload(head_ref="docugardener-fix-42-abc"),
@@ -121,10 +123,13 @@ class TestLinearResolutionLifecycle:
         mock_dispatcher.post_jira_lifecycle_comment = AsyncMock()
         mock_dispatcher.close_github_issue = AsyncMock()
 
-        with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal), \
-             patch("src.security.crypto.decrypt", return_value="fake-decrypted"), \
-             patch("src.notifications.dispatcher.NotificationDispatcher",
-                   return_value=mock_dispatcher):
+        with (
+            patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
+            patch("src.security.crypto.decrypt", return_value="fake-decrypted"),
+            patch(
+                "src.notifications.dispatcher.NotificationDispatcher", return_value=mock_dispatcher
+            ),
+        ):
             response = await http_client.post(
                 "/webhooks/github",
                 json=pr_merged_payload(head_ref="docugardener-fix-42-abc"),
@@ -147,10 +152,13 @@ class TestLinearResolutionLifecycle:
         mock_dispatcher.post_jira_lifecycle_comment = AsyncMock()
         mock_dispatcher.close_github_issue = AsyncMock()
 
-        with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal), \
-             patch("src.security.crypto.decrypt", return_value="fake-decrypted"), \
-             patch("src.notifications.dispatcher.NotificationDispatcher",
-                   return_value=mock_dispatcher):
+        with (
+            patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
+            patch("src.security.crypto.decrypt", return_value="fake-decrypted"),
+            patch(
+                "src.notifications.dispatcher.NotificationDispatcher", return_value=mock_dispatcher
+            ),
+        ):
             response = await http_client.post(
                 "/webhooks/github",
                 json=pr_merged_payload(head_ref="docugardener-fix-42-abc"),
@@ -177,10 +185,13 @@ class TestLinearResolutionLifecycle:
         mock_dispatcher.post_jira_lifecycle_comment = AsyncMock()
         mock_dispatcher.close_github_issue = AsyncMock()
 
-        with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal), \
-             patch("src.security.crypto.decrypt", return_value="fake-decrypted"), \
-             patch("src.notifications.dispatcher.NotificationDispatcher",
-                   return_value=mock_dispatcher):
+        with (
+            patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
+            patch("src.security.crypto.decrypt", return_value="fake-decrypted"),
+            patch(
+                "src.notifications.dispatcher.NotificationDispatcher", return_value=mock_dispatcher
+            ),
+        ):
             response = await http_client.post(
                 "/webhooks/github",
                 json=pr_merged_payload(head_ref="docugardener-fix-42-abc"),
@@ -191,7 +202,9 @@ class TestLinearResolutionLifecycle:
         assert response.json()["status"] == "resolved"
 
     @pytest.mark.asyncio
-    async def test_granted_features_passed_to_dispatcher_constructor(self, http_client, seed_tenant):
+    async def test_granted_features_passed_to_dispatcher_constructor(
+        self, http_client, seed_tenant
+    ):
         """webhooks.py must pass granted_features from workflowConfig to NotificationDispatcher."""
         _seed_job_with_linear(
             linear_issue_id="linear-uuid-42",
@@ -208,10 +221,14 @@ class TestLinearResolutionLifecycle:
             d.close_github_issue = AsyncMock()
             return d
 
-        with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal), \
-             patch("src.security.crypto.decrypt", return_value="fake-decrypted"), \
-             patch("src.notifications.dispatcher.NotificationDispatcher",
-                   side_effect=capture_dispatcher):
+        with (
+            patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
+            patch("src.security.crypto.decrypt", return_value="fake-decrypted"),
+            patch(
+                "src.notifications.dispatcher.NotificationDispatcher",
+                side_effect=capture_dispatcher,
+            ),
+        ):
             await http_client.post(
                 "/webhooks/github",
                 json=pr_merged_payload(head_ref="docugardener-fix-42-abc"),

@@ -6,16 +6,15 @@ import secrets
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from typing import Optional
 
 from src.agents.verifier import VerificationAgent
 from src.analysis.diff import SemanticDiff
 from src.api.middleware import set_tenant_id
+from src.core.logging import get_logger
 from src.pipeline.job_manager import get_db
 from src.pipeline.policy_evaluator import evaluate_policies
 from src.pipeline.policy_parser import parse_policies
 from src.storage.sql_models import Repository, Tenant
-from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -31,7 +30,7 @@ class FileInput(BaseModel):
 class CheckRequest(BaseModel):
     files: list[FileInput]
     # IDE-01 AC-2: optional repo slug (owner/name) for policy context
-    repo: Optional[str] = None
+    repo: str | None = None
 
 
 class EntityChangeSummary(BaseModel):
@@ -43,7 +42,7 @@ class EntityChangeSummary(BaseModel):
 # IDE-01 AC-1: suggested doc to update
 class SuggestedDoc(BaseModel):
     file: str
-    section: Optional[str] = None
+    section: str | None = None
     reason: str
 
 
@@ -69,7 +68,7 @@ class CheckResponse(BaseModel):
     policy_violations: list[PluginPolicyViolation] = []
 
 
-def _get_tenant_by_api_key(authorization: Optional[str], db: Session) -> Tenant:
+def _get_tenant_by_api_key(authorization: str | None, db: Session) -> Tenant:
     """
     Look up the tenant whose pluginApiKey matches the Bearer token.
 
@@ -132,13 +131,15 @@ def _get_policy_violations(
 
         result = []
         for v in violations:
-            result.append(PluginPolicyViolation(
-                rule_name=v.rule_name,
-                enforcement=v.enforcement,
-                paths_matched=v.paths_matched,
-                docs_missing=v.docs_missing,
-                reason=f"Rule '{v.rule_name}' requires documentation updates in: {', '.join(v.docs_missing)}",
-            ))
+            result.append(
+                PluginPolicyViolation(
+                    rule_name=v.rule_name,
+                    enforcement=v.enforcement,
+                    paths_matched=v.paths_matched,
+                    docs_missing=v.docs_missing,
+                    reason=f"Rule '{v.rule_name}' requires documentation updates in: {', '.join(v.docs_missing)}",
+                )
+            )
         return result
     except Exception as exc:
         logger.warning("IDE-01: policy evaluation failed", error=str(exc))
@@ -148,7 +149,7 @@ def _get_policy_violations(
 @router.post("", response_model=CheckResponse)
 async def check_drift(
     body: CheckRequest,
-    authorization: Optional[str] = Header(None),
+    authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ):
     """

@@ -12,6 +12,7 @@ Flow:
 
 This is the foundational test.  All subsequent tests assume this flow works.
 """
+
 import pytest
 
 from tests.e2e.helpers import (

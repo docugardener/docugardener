@@ -11,15 +11,16 @@ All LLM calls are mocked — these tests exercise only the guard logic.
 """
 
 import json
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.agents.verifier import VerificationAgent
 from src.analysis.diff import ChangeType, EntityChange
 from src.analysis.parser import CodeEntity
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _make_change(score_contribution: int = 50) -> EntityChange:
     """Return a minimal EntityChange that DriftScorer can process."""
@@ -40,7 +41,9 @@ def _make_change(score_contribution: int = 50) -> EntityChange:
     return change
 
 
-def _make_agent_with_mock_llm(proposal_content: str, verification_content: str) -> VerificationAgent:
+def _make_agent_with_mock_llm(
+    proposal_content: str, verification_content: str
+) -> VerificationAgent:
     """Build a VerificationAgent with all LLM calls and DB lookups stubbed."""
     agent = object.__new__(VerificationAgent)
     agent.max_retries = 2
@@ -72,11 +75,13 @@ def _make_agent_with_mock_llm(proposal_content: str, verification_content: str) 
 
 
 def _proposal_json(summary: str, required_updates=None) -> str:
-    return json.dumps({
-        "summary": summary,
-        "required_updates": required_updates or [],
-        "nuance_adjustment": 0,
-    })
+    return json.dumps(
+        {
+            "summary": summary,
+            "required_updates": required_updates or [],
+            "nuance_adjustment": 0,
+        }
+    )
 
 
 def _verification_json(verdict: str = "AGREE", confidence: float = 0.9) -> str:
@@ -85,8 +90,8 @@ def _verification_json(verdict: str = "AGREE", confidence: float = 0.9) -> str:
 
 # ── SCR-01: None drift_score guard ────────────────────────────────────────────
 
-class TestScr01NoneScoreGuard:
 
+class TestScr01NoneScoreGuard:
     @pytest.mark.asyncio
     async def test_none_score_is_replaced_with_fallback(self, caplog):
         """
@@ -99,12 +104,15 @@ class TestScr01NoneScoreGuard:
         )
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=None), \
-             patch("src.agents.verifier.record_llm_request"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t-test"):
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=None),
+            patch("src.agents.verifier.record_llm_request"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+            patch("src.agents.verifier.get_tenant_id", return_value="t-test"),
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             import logging
+
             with caplog.at_level(logging.WARNING, logger="src.agents.verifier"):
                 result = await agent.analyze_drift(changes)
 
@@ -122,12 +130,15 @@ class TestScr01NoneScoreGuard:
         )
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=35), \
-             patch("src.agents.verifier.record_llm_request"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t-test"):
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=35),
+            patch("src.agents.verifier.record_llm_request"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+            patch("src.agents.verifier.get_tenant_id", return_value="t-test"),
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             import logging
+
             with caplog.at_level(logging.WARNING, logger="src.agents.verifier"):
                 result = await agent.analyze_drift(changes)
 
@@ -143,12 +154,15 @@ class TestScr01NoneScoreGuard:
         )
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=0), \
-             patch("src.agents.verifier.record_llm_request"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t-test"):
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=0),
+            patch("src.agents.verifier.record_llm_request"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+            patch("src.agents.verifier.get_tenant_id", return_value="t-test"),
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             import logging
+
             with caplog.at_level(logging.WARNING, logger="src.agents.verifier"):
                 result = await agent.analyze_drift(changes)
 
@@ -158,8 +172,8 @@ class TestScr01NoneScoreGuard:
 
 # ── SCR-02: Narrative conflict detection ──────────────────────────────────────
 
-class TestScr02NarrativeConflict:
 
+class TestScr02NarrativeConflict:
     @pytest.mark.asyncio
     async def test_no_issues_narrative_with_high_score_triggers_warning(self, caplog):
         """LLM says 'no issues' but score >= 40 → SCR-02 warning."""
@@ -169,12 +183,15 @@ class TestScr02NarrativeConflict:
         )
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=65), \
-             patch("src.agents.verifier.record_llm_request"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t-test"):
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=65),
+            patch("src.agents.verifier.record_llm_request"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+            patch("src.agents.verifier.get_tenant_id", return_value="t-test"),
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             import logging
+
             with caplog.at_level(logging.WARNING, logger="src.agents.verifier"):
                 await agent.analyze_drift(changes)
 
@@ -189,12 +206,15 @@ class TestScr02NarrativeConflict:
         )
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=50), \
-             patch("src.agents.verifier.record_llm_request"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t-test"):
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=50),
+            patch("src.agents.verifier.record_llm_request"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+            patch("src.agents.verifier.get_tenant_id", return_value="t-test"),
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             import logging
+
             with caplog.at_level(logging.WARNING, logger="src.agents.verifier"):
                 await agent.analyze_drift(changes)
 
@@ -209,12 +229,15 @@ class TestScr02NarrativeConflict:
         )
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=80), \
-             patch("src.agents.verifier.record_llm_request"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t-test"):
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=80),
+            patch("src.agents.verifier.record_llm_request"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+            patch("src.agents.verifier.get_tenant_id", return_value="t-test"),
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             import logging
+
             with caplog.at_level(logging.WARNING, logger="src.agents.verifier"):
                 await agent.analyze_drift(changes)
 
@@ -229,12 +252,15 @@ class TestScr02NarrativeConflict:
         )
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=10), \
-             patch("src.agents.verifier.record_llm_request"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t-test"):
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=10),
+            patch("src.agents.verifier.record_llm_request"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+            patch("src.agents.verifier.get_tenant_id", return_value="t-test"),
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             import logging
+
             with caplog.at_level(logging.WARNING, logger="src.agents.verifier"):
                 await agent.analyze_drift(changes)
 
@@ -244,17 +270,22 @@ class TestScr02NarrativeConflict:
     async def test_meaningful_narrative_with_high_score_no_warning(self, caplog):
         """LLM provides substantive concerns and score is high → no SCR-02 false positive."""
         agent = _make_agent_with_mock_llm(
-            proposal_content=_proposal_json("Critical API changes detected. Update README and API docs."),
+            proposal_content=_proposal_json(
+                "Critical API changes detected. Update README and API docs."
+            ),
             verification_content=_verification_json(),
         )
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=75), \
-             patch("src.agents.verifier.record_llm_request"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t-test"):
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=75),
+            patch("src.agents.verifier.record_llm_request"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+            patch("src.agents.verifier.get_tenant_id", return_value="t-test"),
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             import logging
+
             with caplog.at_level(logging.WARNING, logger="src.agents.verifier"):
                 await agent.analyze_drift(changes)
 
@@ -269,12 +300,15 @@ class TestScr02NarrativeConflict:
         )
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=40), \
-             patch("src.agents.verifier.record_llm_request"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t-test"):
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=40),
+            patch("src.agents.verifier.record_llm_request"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+            patch("src.agents.verifier.get_tenant_id", return_value="t-test"),
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             import logging
+
             with caplog.at_level(logging.WARNING, logger="src.agents.verifier"):
                 await agent.analyze_drift(changes)
 
@@ -289,12 +323,15 @@ class TestScr02NarrativeConflict:
         )
         changes = [_make_change()]
 
-        with patch("src.agents.verifier.DriftScorer.calculate_score", return_value=39), \
-             patch("src.agents.verifier.record_llm_request"), \
-             patch("src.agents.verifier.prompt_manager") as mock_pm, \
-             patch("src.agents.verifier.get_tenant_id", return_value="t-test"):
+        with (
+            patch("src.agents.verifier.DriftScorer.calculate_score", return_value=39),
+            patch("src.agents.verifier.record_llm_request"),
+            patch("src.agents.verifier.prompt_manager") as mock_pm,
+            patch("src.agents.verifier.get_tenant_id", return_value="t-test"),
+        ):
             mock_pm.get_prompt.return_value = "system prompt"
             import logging
+
             with caplog.at_level(logging.WARNING, logger="src.agents.verifier"):
                 await agent.analyze_drift(changes)
 
@@ -305,6 +342,7 @@ class TestScr02NarrativeConflict:
         """Empty changes list returns early — no SCR-01 or SCR-02 should fire."""
         agent = _make_agent_with_mock_llm("", "")
         import logging
+
         with caplog.at_level(logging.WARNING, logger="src.agents.verifier"):
             result = await agent.analyze_drift([])
 

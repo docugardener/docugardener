@@ -8,14 +8,13 @@ Verifies that run_stale_job_sweeper():
   4. Does not fail stale jobs with 0 seconds grace (threshold check)
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import MagicMock, patch, call
-
+from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Sweeper logic
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestStaleSweeper:
     """run_stale_job_sweeper detects and fails stale PROCESSING jobs."""
@@ -30,7 +29,7 @@ class TestStaleSweeper:
         """Jobs started > max_processing_time + 30s ago are marked FAILED."""
         from src.jobs.stale_sweeper import run_stale_job_sweeper
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stale_started = now - timedelta(seconds=200)  # well beyond 120+30=150s
         stale_job = self._make_stale_job("stale-001", stale_started)
 
@@ -49,7 +48,7 @@ class TestStaleSweeper:
         """Each stale job gets its own fail_job call."""
         from src.jobs.stale_sweeper import run_stale_job_sweeper
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         old = now - timedelta(seconds=300)
 
         jobs = [
@@ -81,7 +80,7 @@ class TestStaleSweeper:
         """If fail_job raises for one job, sweeper continues to the next."""
         from src.jobs.stale_sweeper import run_stale_job_sweeper
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         old = now - timedelta(seconds=300)
         jobs = [
             self._make_stale_job("fail-here", old),
@@ -109,13 +108,15 @@ class TestStaleSweeper:
 # Scheduler registration
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestSweeperRegisteredInScheduler:
     """Sweeper must be registered as a 60-second interval job in the scheduler."""
 
     def test_sweeper_job_in_scheduler(self):
         """build_scheduler() includes the stale job sweeper with seconds=60."""
-        from src.scheduler.manager import build_scheduler
         from apscheduler.triggers.interval import IntervalTrigger
+
+        from src.scheduler.manager import build_scheduler
 
         scheduler = build_scheduler()
 

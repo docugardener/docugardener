@@ -2,7 +2,6 @@
 """Stripe SDK client factory."""
 
 import stripe as _stripe
-
 from src.core.config import settings
 from src.core.logging import get_logger
 

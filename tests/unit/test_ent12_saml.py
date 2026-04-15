@@ -11,9 +11,9 @@ Covers:
   E. JIT provisioning — user created on first SSO login
   F. Role mapping — admin group maps to ADMIN role, others get VIEWER
 """
-import json
+
 import time
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,6 +24,7 @@ from fastapi.testclient import TestClient
 @pytest.fixture(scope="module")
 def client():
     from src.main import app
+
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -304,11 +305,6 @@ class TestBuildRequestDataScheme:
     """
 
     def _make_request(self, url: str, headers: dict):
-        from starlette.testclient import TestClient
-        from starlette.requests import Request as StarletteRequest
-        from starlette.datastructures import Headers
-        import httpx
-
         scope = {
             "type": "http",
             "method": "GET",
@@ -319,16 +315,18 @@ class TestBuildRequestDataScheme:
         }
         # Build a minimal Starlette Request from raw scope
         from starlette.requests import Request as SR
+
         req = SR(scope)
         return req
 
     def test_https_when_x_forwarded_proto_is_https(self):
-        from src.api.saml import _build_request_data
         from unittest.mock import MagicMock
+
+        from src.api.saml import _build_request_data
 
         req = MagicMock()
         req.headers = {"x-forwarded-proto": "https", "host": "example.ngrok.io"}
-        req.url.scheme = "http"   # ngrok forwards as http internally
+        req.url.scheme = "http"  # ngrok forwards as http internally
         req.url.port = None
         req.url.path = "/auth/saml/callback"
         req.query_params = {}
@@ -338,8 +336,9 @@ class TestBuildRequestDataScheme:
         assert data["server_port"] == 443
 
     def test_http_when_no_forwarded_proto_and_scheme_is_http(self):
-        from src.api.saml import _build_request_data
         from unittest.mock import MagicMock
+
+        from src.api.saml import _build_request_data
 
         req = MagicMock()
         req.headers = {"host": "localhost"}
@@ -353,8 +352,9 @@ class TestBuildRequestDataScheme:
         assert data["server_port"] == 8000
 
     def test_https_when_scheme_is_https_directly(self):
-        from src.api.saml import _build_request_data
         from unittest.mock import MagicMock
+
+        from src.api.saml import _build_request_data
 
         req = MagicMock()
         req.headers = {"host": "app.docugardener.dev"}

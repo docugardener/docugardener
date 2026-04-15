@@ -14,25 +14,22 @@ Coordinates the full DocuGardener analysis pipeline:
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import pathspec
 
+from src.agents.llm import LLMProvider, create_llm_client
 from src.agents.verifier import (
     DocumentationDraft,
     DriftAnalysis,
     VerificationAgent,
 )
-from src.agents.llm import create_llm_client, LLMProvider
 from src.analysis.diff import EntityChange, SemanticDiff
-from src.analysis.parser import CodeEntity, get_parser
+from src.analysis.parser import get_parser
 from src.analysis.scorer import DriftScorer
-from src.core.config import settings
 from src.core.logging import get_logger
 from src.github.clone import ephemeral_clone
 from src.storage.factory import get_db_manager
 from src.storage.indexer import DocumentIndexer
-from src.storage.schemas import create_namespace_id
 
 logger = get_logger(__name__)
 
@@ -41,7 +38,7 @@ logger = get_logger(__name__)
 class FileChange:
     """
     Represents a changed file in a PR.
-    
+
     Attributes:
         path: File path relative to repo root
         status: Change status (added, modified, removed)
@@ -49,6 +46,7 @@ class FileChange:
         deletions: Lines deleted
         patch: Unified diff patch
     """
+
     path: str
     status: str
     additions: int = 0
@@ -72,6 +70,7 @@ class PRAnalysisResult:
         policy_violations: DOCPOL-01 policy rule violations
         policy_blocks_merge: True when any blocking policy violation exists
     """
+
     pr_number: int
     repo_full_name: str
     drift_analysis: DriftAnalysis | None = None
@@ -96,7 +95,7 @@ class PRAnalysisResult:
         if self.drift_analysis is None:
             return False
         return self.drift_analysis.block_merge
-    
+
     @property
     def drift_score(self) -> int:
         """Get the drift score."""
@@ -108,27 +107,27 @@ class PRAnalysisResult:
 class PRAnalyzer:
     """
     Orchestrates the full PR analysis pipeline.
-    
+
     Integrates all DocuGardener components to analyze
     Pull Requests and generate documentation feedback.
     """
-    
+
     def __init__(
         self,
         verifier: VerificationAgent | None = None,
     ):
         """
         Initialize the analyzer.
-        
+
         Args:
             verifier: Verification agent (created if not provided)
         """
         self.verifier = verifier
         self.parser = get_parser()
         self.diff = SemanticDiff(self.parser)
-        
+
         logger.info("PRAnalyzer initialized")
-    
+
     async def analyze_pr(
         self,
         owner: str,
@@ -144,7 +143,7 @@ class PRAnalyzer:
     ) -> PRAnalysisResult:
         """
         Analyze a Pull Request for documentation drift.
-        
+
         Args:
             owner: Repository owner
             repo: Repository name
@@ -156,18 +155,18 @@ class PRAnalyzer:
             tenant_id: Tenant Identifier (for isolation)
             base_ref: Base reference (branch name)
             llm_config: Optional LLM configuration override
-            
+
         Returns:
             Analysis result
         """
         start_time = datetime.utcnow()
         repo_full_name = f"{owner}/{repo}"
-        
+
         # In Multi-Tenant mode, the "namespace" for Weaviate is the tenant_id.
         # We also pass repo_id or similar to filter within the tenant if needed,
         # but for isolation, tenant_id is the primary key.
         namespace = tenant_id
-        
+
         logger.info(
             "Starting PR analysis",
             repo=repo_full_name,
@@ -175,19 +174,18 @@ class PRAnalyzer:
             files=len(changed_files),
             tenant=tenant_id,
         )
-        
+
         result = PRAnalysisResult(
             pr_number=pr_number,
             repo_full_name=repo_full_name,
         )
-        
+
         try:
             # Filter to supported code files
             code_files = [
-                f for f in changed_files
-                if self.parser.detect_language(f.path) is not None
+                f for f in changed_files if self.parser.detect_language(f.path) is not None
             ]
-            
+
             if not code_files:
                 logger.info("No supported code files changed", pr=pr_number)
                 result.drift_analysis = DriftAnalysis(
@@ -198,35 +196,37 @@ class PRAnalyzer:
                     summary="No supported code files changed",
                 )
                 return result
-            
+
             # Clone repository ephemerally
             clone_url = f"https://github.com/{owner}/{repo}.git"
-            
+
             async with ephemeral_clone(
-                clone_url=clone_url,
-                access_token=installation_token,
-                ref=head_sha
+                clone_url=clone_url, access_token=installation_token, ref=head_sha
             ) as repo_path:
                 # Apply .dgignore filtering
                 final_files = code_files
                 dgignore_path = repo_path / ".dgignore"
-                
+
                 if dgignore_path.exists():
                     try:
-                        with open(dgignore_path, "r") as f:
+                        with open(dgignore_path) as f:
                             ignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
-                            
+
                         final_files = []
                         for file_change in code_files:
                             if ignore_spec.match_file(file_change.path):
-                                logger.info("Ignoring file based on .dgignore", file=file_change.path)
+                                logger.info(
+                                    "Ignoring file based on .dgignore", file=file_change.path
+                                )
                             else:
                                 final_files.append(file_change)
-                                
-                        logger.info("Applied .dgignore", original=len(code_files), filtered=len(final_files))
+
+                        logger.info(
+                            "Applied .dgignore", original=len(code_files), filtered=len(final_files)
+                        )
                     except Exception as e:
                         logger.warning("Failed to process .dgignore", error=str(e))
-                
+
                 # Analyze changes
                 all_changes = await self._analyze_file_changes(
                     repo_path=repo_path,
@@ -234,7 +234,7 @@ class PRAnalyzer:
                     changed_files=final_files,
                     base_ref=base_ref,
                 )
-                
+
                 # --- AST Context Builder (Holistic Scoring Kern) ---
                 # Annotate every change with its Directory Weight + Blast Radius.
                 # Done once per change, fast: bounded git grep on the ephemeral clone.
@@ -250,12 +250,12 @@ class PRAnalyzer:
                         dir_weight=ch.directory_weight,
                         blast_radius=ch.blast_radius,
                     )
-                
+
                 result.entity_changes = all_changes
-                
+
                 # Filter to meaningful changes
                 meaningful_changes = self.diff.filter_meaningful_changes(all_changes)
-                
+
                 if not meaningful_changes:
                     result.drift_analysis = DriftAnalysis(
                         drift_score=0,
@@ -265,7 +265,7 @@ class PRAnalyzer:
                         summary="Only cosmetic code changes detected",
                     )
                     return result
-                
+
                 # Initialize verifier lazily with custom config if provided
                 if self.verifier is None:
                     client = None
@@ -277,38 +277,34 @@ class PRAnalyzer:
                                 # DB format stores per-provider values under nested keys:
                                 # keys.{provider}, models.{provider}, baseUrls.{provider}
                                 # Flat keys (apiKey/baseUrl/modelName) are legacy fallbacks.
-                                api_key = (
-                                    (llm_config.get("keys") or {}).get(provider_str)
-                                    or llm_config.get("apiKey")
-                                )
-                                url = (
-                                    (llm_config.get("baseUrls") or {}).get(provider_str)
-                                    or llm_config.get("baseUrl")
-                                )
-                                model = (
-                                    (llm_config.get("models") or {}).get(provider_str)
-                                    or llm_config.get("modelName")
-                                )
+                                api_key = (llm_config.get("keys") or {}).get(
+                                    provider_str
+                                ) or llm_config.get("apiKey")
+                                url = (llm_config.get("baseUrls") or {}).get(
+                                    provider_str
+                                ) or llm_config.get("baseUrl")
+                                model = (llm_config.get("models") or {}).get(
+                                    provider_str
+                                ) or llm_config.get("modelName")
                                 client = create_llm_client(
-                                    provider=provider,
-                                    api_key=api_key,
-                                    url=url,
-                                    model=model
+                                    provider=provider, api_key=api_key, url=url, model=model
                                 )
                                 logger.info("Initialized custom LLM client", provider=provider_str)
                             except Exception as e:
-                                logger.warning("Failed to create custom LLM client, falling back", error=str(e))
-                                
+                                logger.warning(
+                                    "Failed to create custom LLM client, falling back", error=str(e)
+                                )
+
                     self.verifier = VerificationAgent(
                         generator_client=client,
-                        tone=llm_config.get("promptTone", "Strict") if llm_config else "Strict"
+                        tone=llm_config.get("promptTone", "Strict") if llm_config else "Strict",
                     )
-                
+
                 # Analyze drift severity
                 result.drift_analysis = await self.verifier.analyze_drift(
                     changes=meaningful_changes,
                 )
-                
+
                 # Generate documentation updates whenever drift is detected.
                 # The drift_score_threshold is used for blocking PRs, not for
                 # deciding whether to generate docs — those are independent concerns.
@@ -316,23 +312,23 @@ class PRAnalyzer:
                     # Get vector DB for related docs
                     async with get_db_manager() as db:
                         indexer = DocumentIndexer(db)
-                        
+
                         for change in meaningful_changes[:5]:  # Limit to top 5
                             # Find related documentation
                             related_docs = await indexer.find_related_docs(
                                 entity=change.entity,
                                 namespace=namespace,
                             )
-                            
+
                             # Generate doc update
                             draft = await self.verifier.generate_documentation(
                                 change=change,
                                 related_docs=related_docs,
                             )
-                            
+
                             if draft.is_verified:
                                 result.documentation_updates.append(draft)
-            
+
             # Calculate processing time
             processing_time = datetime.utcnow() - start_time
             result.processing_time_ms = int(processing_time.total_seconds() * 1000)
@@ -345,13 +341,13 @@ class PRAnalyzer:
                 updates=len(result.documentation_updates),
                 time_ms=result.processing_time_ms,
             )
-            
+
         except Exception as e:
             logger.error("PR analysis failed", pr=pr_number, error=str(e))
             result.error = str(e)
-        
+
         return result
-    
+
     async def analyze_local(
         self,
         repo_path: Path,
@@ -359,62 +355,60 @@ class PRAnalyzer:
     ) -> PRAnalysisResult:
         """
         Analyze local changes (Working Tree vs HEAD) for documentation drift.
-        
+
         Args:
             repo_path: Path to local repository
             changed_files: Optional list of files to check (if None, checking all modified)
-            
+
         Returns:
             Analysis result
         """
         start_time = datetime.utcnow()
         repo_name = repo_path.name
-        
+
         logger.info("Starting Local Analysis", repo=repo_name)
-        
+
         result = PRAnalysisResult(
-            pr_number=0, # 0 indicates local/CLI
+            pr_number=0,  # 0 indicates local/CLI
             repo_full_name=f"local/{repo_name}",
         )
-        
+
         try:
             import git
+
             repo = git.Repo(str(repo_path))
-            
+
             # Identify changed files if not provided
             if changed_files is None:
                 # Get modified and staged files
-                changed_files = [item.a_path for item in repo.index.diff(None)] # Modified
-                changed_files.extend([item.a_path for item in repo.index.diff("HEAD")]) # Staged
+                changed_files = [item.a_path for item in repo.index.diff(None)]  # Modified
+                changed_files.extend([item.a_path for item in repo.index.diff("HEAD")])  # Staged
                 changed_files = list(set(changed_files))
-            
+
             # Filter to supported code files
-            code_files = [
-                f for f in changed_files
-                if self.parser.detect_language(f) is not None
-            ]
-            
+            code_files = [f for f in changed_files if self.parser.detect_language(f) is not None]
+
             if not code_files:
                 logger.info("No supported code files changed locally")
                 return result
 
             # Analyze changes
             all_changes = []
-            
+
             for file_rel_path in code_files:
                 file_path = repo_path / file_rel_path
-                
+
                 # New content (Working Tree)
                 if file_path.exists():
                     content = file_path.read_text(encoding="utf-8")
                     new_entities = self.parser.parse_content(
                         content=content,
                         file_path=file_rel_path,
-                        language=self.parser.detect_language(file_rel_path)
+                        language=self.parser.detect_language(file_rel_path),
                     )
                 else:
-                    new_entities = [] # Deleted file
-                
+                    new_entities = []  # Deleted file
+
                 # Old content (HEAD)
                 old_entities = []
                 try:
@@ -422,43 +416,42 @@ class PRAnalyzer:
                     old_entities = self.parser.parse_content(
                         content=old_content,
                         file_path=file_rel_path,
-                        language=self.parser.detect_language(file_rel_path)
+                        language=self.parser.detect_language(file_rel_path),
                     )
                 except git.GitCommandError:
                     logger.warning("Could not fetch HEAD content", file=file_rel_path)
-                
+
                 # Compare
                 file_changes = self.diff.compare_entities(old_entities, new_entities)
                 all_changes.extend(file_changes)
 
             result.entity_changes = all_changes
             meaningful_changes = self.diff.filter_meaningful_changes(all_changes)
-            
+
             if not meaningful_changes:
                 return result
-            
+
             # Initialize verifier lazily
             if self.verifier is None:
                 self.verifier = VerificationAgent()
-            
+
             # Analyze drift
             result.drift_analysis = await self.verifier.analyze_drift(
-                changes=meaningful_changes,
-                doc_status="(Local Check)"
+                changes=meaningful_changes, doc_status="(Local Check)"
             )
-            
+
             # Generate updates locally whenever drift is detected.
             if meaningful_changes:
-                 # In local mode, we might skip RAG context if vector DB isn't reachable
-                 # But we attempt it if configured.
-                 pass # For CLI MVP, we skip VectorDB lookup to keep it lightweight/offline?
-                 # OR we can assume RAG is only for the online bot. 
-                 # Let's verify without RAG documentation context for now (pass empty list)
-                 
-                 for change in meaningful_changes[:5]:
+                # In local mode, we might skip RAG context if vector DB isn't reachable
+                # But we attempt it if configured.
+                pass  # For CLI MVP, we skip VectorDB lookup to keep it lightweight/offline?
+                # OR we can assume RAG is only for the online bot.
+                # Let's verify without RAG documentation context for now (pass empty list)
+
+                for change in meaningful_changes[:5]:
                     draft = await self.verifier.generate_documentation(
                         change=change,
-                        related_docs=[] # No RAG in local CLI for now
+                        related_docs=[],  # No RAG in local CLI for now
                     )
                     if draft.is_verified:
                         result.documentation_updates.append(draft)
@@ -466,13 +459,13 @@ class PRAnalyzer:
             # Timing
             processing_time = datetime.utcnow() - start_time
             result.processing_time_ms = int(processing_time.total_seconds() * 1000)
-            
+
         except Exception as e:
             logger.error("Local analysis failed", error=str(e))
             result.error = str(e)
-            
+
         return result
-    
+
     async def _analyze_file_changes(
         self,
         repo_path: Path,
@@ -482,12 +475,13 @@ class PRAnalyzer:
     ) -> list[EntityChange]:
         """Analyze changes in modified files."""
         import git
+
         all_changes: list[EntityChange] = []
         repo = git.Repo(str(repo_path))
-        
+
         for file_change in changed_files:
             file_path = repo_path / file_change.path
-            
+
             new_entities = []
             if file_path.exists():
                 try:
@@ -495,37 +489,43 @@ class PRAnalyzer:
                     language = self.parser.detect_language(file_change.path)
                     if language:
                         new_entities = self.parser.parse_content(
-                            content=content,
-                            file_path=file_change.path,
-                            language=language
+                            content=content, file_path=file_change.path, language=language
                         )
                 except Exception as e:
-                    logger.warning("Failed to parse new content", file=file_change.path, error=str(e))
-            
+                    logger.warning(
+                        "Failed to parse new content", file=file_change.path, error=str(e)
+                    )
+
             # Parse base version
             old_entities = []
-            
+
             logger.info("Processing file change", file=file_change.path, status=file_change.status)
-            
+
             # Always try to fetch base version to be safe / handle race conditions
             # If it really is new, git show will verify it doesn't exist.
             try:
                 # Ensure base_sha is available locally
-                logger.info("Attempting to fetch base version", base_sha=base_sha, file=file_change.path)
+                logger.info(
+                    "Attempting to fetch base version", base_sha=base_sha, file=file_change.path
+                )
                 try:
                     repo.git.rev_parse(base_sha)
                 except git.GitCommandError:
                     logger.info("Base SHA not found locally, fetching", base_sha=base_sha)
                     repo.git.fetch("origin", base_sha, depth=1)
-                
+
                 # Get old content from git
                 old_content = repo.git.show(f"{base_sha}:{file_change.path}")
-                logger.info("Successfully fetched base content", file=file_change.path, size=len(old_content))
-                
+                logger.info(
+                    "Successfully fetched base content",
+                    file=file_change.path,
+                    size=len(old_content),
+                )
+
                 old_entities = self.parser.parse_content(
                     content=old_content,
                     file_path=file_change.path,
-                    language=self.parser.detect_language(file_change.path)
+                    language=self.parser.detect_language(file_change.path),
                 )
             except git.GitCommandError as ge:
                 # Fallback: Try base_ref (e.g. main) if base_sha was stale
@@ -537,18 +537,18 @@ class PRAnalyzer:
                         old_entities = self.parser.parse_content(
                             content=old_content,
                             file_path=file_change.path,
-                            language=self.parser.detect_language(file_change.path)
+                            language=self.parser.detect_language(file_change.path),
                         )
                         logger.info("Fallback to base_ref succeeded")
                     except Exception as e2:
                         logger.warning("Fallback failed", error=str(e2))
-                
+
                 if not old_entities:
                     logger.error(
                         "Base version fetch failed (GitError)",
                         file=file_change.path,
                         base_sha=base_sha,
-                        error=str(ge)
+                        error=str(ge),
                     )
             except Exception as e:
                 logger.error(
@@ -556,7 +556,7 @@ class PRAnalyzer:
                     file=file_change.path,
                     error=str(e),
                 )
-            
+
             # Compare entities to detect semantic changes
             file_changes = self.diff.compare_entities(old_entities, new_entities)
             for ch in file_changes:
@@ -565,10 +565,10 @@ class PRAnalyzer:
                     entity=ch.entity.qualified_name,
                     type=ch.change_type.value,
                     meaningful=ch.is_meaningful,
-                    requires_docs=ch.requires_doc_update
+                    requires_docs=ch.requires_doc_update,
                 )
             all_changes.extend(file_changes)
-        
+
         return all_changes
 
     async def _estimate_blast_radius(self, repo_path: "Path", entity_name: str) -> int:
@@ -587,11 +587,16 @@ class PRAnalyzer:
             Number of unique files that reference this entity (blast radius).
         """
         import asyncio
+
         if not entity_name or len(entity_name) < 3:  # Avoid noise for very short names
             return 0
         try:
             proc = await asyncio.create_subprocess_exec(
-                "git", "grep", "-l", "--word-regexp", entity_name,
+                "git",
+                "grep",
+                "-l",
+                "--word-regexp",
+                entity_name,
                 cwd=str(repo_path),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.DEVNULL,
@@ -601,6 +606,6 @@ class PRAnalyzer:
                 return 0
             lines = [l for l in stdout.decode().splitlines() if l.strip()]
             return len(lines)
-        except (asyncio.TimeoutError, FileNotFoundError, OSError):
+        except (TimeoutError, FileNotFoundError, OSError):
             logger.warning("Blast radius estimation failed", entity=entity_name)
             return 0

@@ -9,14 +9,14 @@ Verifies the auto_merge=True/False branch inside process_fix_pr:
 Uses in-memory SQLite — same pattern as test_auto_pr.py.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.storage.sql_models import Base, Job, Tenant, Repository, JobStatus, TriageStatus
 from src.pipeline.handler import process_fix_pr
-
+from src.storage.sql_models import Base, Job, JobStatus, Repository, Tenant, TriageStatus
 
 # ── DB fixture ────────────────────────────────────────────────────────────────
 
@@ -81,6 +81,7 @@ def job_with_doc_updates(db_session):
 
 # ── common patches ────────────────────────────────────────────────────────────
 
+
 def _base_patches(db_session, committer_mock):
     """Return the common patch stack for process_fix_pr tests."""
     return [
@@ -88,7 +89,9 @@ def _base_patches(db_session, committer_mock):
         patch("src.github.app.get_installation_token", return_value="fake-gh-token"),
         patch("src.security.encryption.decrypt_credential", return_value="fake-pk"),
         patch("src.github.committer.GitCommitter", return_value=committer_mock),
-        patch("src.pipeline.handler.job_manager"),  # suppress update_status/complete_job side-effects
+        patch(
+            "src.pipeline.handler.job_manager"
+        ),  # suppress update_status/complete_job side-effects
     ]
 
 
@@ -105,49 +108,59 @@ def _make_committer(auto_merge_result: bool = True, branch_name: str = "docugard
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestProcessFixPrEpic05:
 
+class TestProcessFixPrEpic05:
     @pytest.mark.asyncio
     async def test_auto_merge_true_calls_auto_merge_pr(self, db_session, job_with_doc_updates):
         """auto_merge=True + branch created → committer.auto_merge_pr() called with the fix PR URL."""
         committer = _make_committer(auto_merge_result=True)
 
-        with _base_patches(db_session, committer)[0], \
-             _base_patches(db_session, committer)[1], \
-             _base_patches(db_session, committer)[2], \
-             _base_patches(db_session, committer)[3], \
-             _base_patches(db_session, committer)[4]:
+        with (
+            _base_patches(db_session, committer)[0],
+            _base_patches(db_session, committer)[1],
+            _base_patches(db_session, committer)[2],
+            _base_patches(db_session, committer)[3],
+            _base_patches(db_session, committer)[4],
+        ):
             await process_fix_pr(job_with_doc_updates.id, auto_merge=True)
 
         committer.auto_merge_pr.assert_called_once()
         call_args = committer.auto_merge_pr.call_args
-        assert "https://github.com/TestOrg/testrepo/pull/43" == call_args[0][0]
+        assert call_args[0][0] == "https://github.com/TestOrg/testrepo/pull/43"
 
     @pytest.mark.asyncio
-    async def test_auto_merge_true_sets_triage_resolved_on_success(self, db_session, job_with_doc_updates):
+    async def test_auto_merge_true_sets_triage_resolved_on_success(
+        self, db_session, job_with_doc_updates
+    ):
         """auto_merge_pr() returns None (success) → job.triageStatus = RESOLVED committed to DB."""
         committer = _make_committer(auto_merge_result=None)
 
-        with _base_patches(db_session, committer)[0], \
-             _base_patches(db_session, committer)[1], \
-             _base_patches(db_session, committer)[2], \
-             _base_patches(db_session, committer)[3], \
-             _base_patches(db_session, committer)[4]:
+        with (
+            _base_patches(db_session, committer)[0],
+            _base_patches(db_session, committer)[1],
+            _base_patches(db_session, committer)[2],
+            _base_patches(db_session, committer)[3],
+            _base_patches(db_session, committer)[4],
+        ):
             await process_fix_pr(job_with_doc_updates.id, auto_merge=True)
 
         db_session.refresh(job_with_doc_updates)
         assert job_with_doc_updates.triageStatus == TriageStatus.RESOLVED
 
     @pytest.mark.asyncio
-    async def test_auto_merge_true_posts_pr_comment_on_success(self, db_session, job_with_doc_updates):
+    async def test_auto_merge_true_posts_pr_comment_on_success(
+        self, db_session, job_with_doc_updates
+    ):
         """auto_merge_pr() returns None (success) → committer.post_pr_comment() called."""
         committer = _make_committer(auto_merge_result=None)
 
-        with _base_patches(db_session, committer)[0], \
-             _base_patches(db_session, committer)[1], \
-             _base_patches(db_session, committer)[2], \
-             _base_patches(db_session, committer)[3], \
-             _base_patches(db_session, committer)[4]:
+        with (
+            _base_patches(db_session, committer)[0],
+            _base_patches(db_session, committer)[1],
+            _base_patches(db_session, committer)[2],
+            _base_patches(db_session, committer)[3],
+            _base_patches(db_session, committer)[4],
+        ):
             await process_fix_pr(job_with_doc_updates.id, auto_merge=True)
 
         committer.post_pr_comment.assert_called_once()
@@ -159,11 +172,13 @@ class TestProcessFixPrEpic05:
         """auto_merge=False → committer.auto_merge_pr is never called."""
         committer = _make_committer()
 
-        with _base_patches(db_session, committer)[0], \
-             _base_patches(db_session, committer)[1], \
-             _base_patches(db_session, committer)[2], \
-             _base_patches(db_session, committer)[3], \
-             _base_patches(db_session, committer)[4]:
+        with (
+            _base_patches(db_session, committer)[0],
+            _base_patches(db_session, committer)[1],
+            _base_patches(db_session, committer)[2],
+            _base_patches(db_session, committer)[3],
+            _base_patches(db_session, committer)[4],
+        ):
             await process_fix_pr(job_with_doc_updates.id, auto_merge=False)
 
         committer.auto_merge_pr.assert_not_called()
@@ -173,11 +188,13 @@ class TestProcessFixPrEpic05:
         """auto_merge=False → triageStatus is FIX_PR_OPEN (fix PR created, awaiting merge)."""
         committer = _make_committer()
 
-        with _base_patches(db_session, committer)[0], \
-             _base_patches(db_session, committer)[1], \
-             _base_patches(db_session, committer)[2], \
-             _base_patches(db_session, committer)[3], \
-             _base_patches(db_session, committer)[4]:
+        with (
+            _base_patches(db_session, committer)[0],
+            _base_patches(db_session, committer)[1],
+            _base_patches(db_session, committer)[2],
+            _base_patches(db_session, committer)[3],
+            _base_patches(db_session, committer)[4],
+        ):
             await process_fix_pr(job_with_doc_updates.id, auto_merge=False)
 
         db_session.refresh(job_with_doc_updates)
@@ -189,26 +206,32 @@ class TestProcessFixPrEpic05:
         merge skipped; webhook will transition to RESOLVED when PR is manually merged)."""
         committer = _make_committer(auto_merge_result="CI timeout")
 
-        with _base_patches(db_session, committer)[0], \
-             _base_patches(db_session, committer)[1], \
-             _base_patches(db_session, committer)[2], \
-             _base_patches(db_session, committer)[3], \
-             _base_patches(db_session, committer)[4]:
+        with (
+            _base_patches(db_session, committer)[0],
+            _base_patches(db_session, committer)[1],
+            _base_patches(db_session, committer)[2],
+            _base_patches(db_session, committer)[3],
+            _base_patches(db_session, committer)[4],
+        ):
             await process_fix_pr(job_with_doc_updates.id, auto_merge=True)
 
         db_session.refresh(job_with_doc_updates)
         assert job_with_doc_updates.triageStatus == TriageStatus.FIX_PR_OPEN
 
     @pytest.mark.asyncio
-    async def test_auto_merge_pr_fails_does_not_post_comment(self, db_session, job_with_doc_updates):
+    async def test_auto_merge_pr_fails_does_not_post_comment(
+        self, db_session, job_with_doc_updates
+    ):
         """auto_merge_pr() returns False → post_pr_comment never called."""
         committer = _make_committer(auto_merge_result=False)
 
-        with _base_patches(db_session, committer)[0], \
-             _base_patches(db_session, committer)[1], \
-             _base_patches(db_session, committer)[2], \
-             _base_patches(db_session, committer)[3], \
-             _base_patches(db_session, committer)[4]:
+        with (
+            _base_patches(db_session, committer)[0],
+            _base_patches(db_session, committer)[1],
+            _base_patches(db_session, committer)[2],
+            _base_patches(db_session, committer)[3],
+            _base_patches(db_session, committer)[4],
+        ):
             await process_fix_pr(job_with_doc_updates.id, auto_merge=True)
 
         committer.post_pr_comment.assert_not_called()

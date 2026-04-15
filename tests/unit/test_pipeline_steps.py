@@ -4,9 +4,8 @@ Issue 2 — Pipeline traceability: pipeline_steps in result payload.
 Verifies that after a successful analysis the stored result contains
 a `pipeline_steps` dict with the expected keys and sensible values.
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 
 def _make_result_payload(

@@ -16,9 +16,9 @@ from __future__ import annotations
 from src.pipeline.policy_parser import PolicyRule
 
 _ENFORCEMENT_LABELS = {
-    "blocking":             "Blocking — CI will fail and block merge if this doc is not updated",
+    "blocking": "Blocking — CI will fail and block merge if this doc is not updated",
     "blocking-with-reason": "Blocking with reason required — CI will block merge; a dismiss reason must be provided",
-    "advisory":             "Advisory — CI will warn but will not block merge",
+    "advisory": "Advisory — CI will warn but will not block merge",
 }
 
 

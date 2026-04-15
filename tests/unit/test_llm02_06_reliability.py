@@ -9,35 +9,43 @@ LLM-06: Per-tenant LLM call rate limiter
 """
 
 import asyncio
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 # ── LLM-02: _llm_call_with_retry ─────────────────────────────────────────────
-
-from src.agents.llm import _llm_call_with_retry, _is_transient
+from src.agents.llm import _is_transient, _llm_call_with_retry
 
 
 class TestIsTransient:
-
     def test_rate_limit_error_is_transient(self):
-        class RateLimitError(Exception): pass
+        class RateLimitError(Exception):
+            pass
+
         assert _is_transient(RateLimitError("quota exceeded"))
 
     def test_service_unavailable_is_transient(self):
-        class ServiceUnavailable(Exception): pass
+        class ServiceUnavailable(Exception):
+            pass
+
         assert _is_transient(ServiceUnavailable("503"))
 
     def test_resource_exhausted_is_transient(self):
-        class ResourceExhausted(Exception): pass
+        class ResourceExhausted(Exception):
+            pass
+
         assert _is_transient(ResourceExhausted("resource exhausted"))
 
     def test_connect_error_is_transient(self):
-        class ConnectError(Exception): pass
+        class ConnectError(Exception):
+            pass
+
         assert _is_transient(ConnectError("connection refused"))
 
     def test_timeout_exception_is_transient(self):
-        class TimeoutException(Exception): pass
+        class TimeoutException(Exception):
+            pass
+
         assert _is_transient(TimeoutException("timed out"))
 
     def test_value_error_is_not_transient(self):
@@ -72,7 +80,6 @@ class TestIsTransient:
 
 
 class TestLlmCallWithRetry:
-
     @pytest.mark.asyncio
     async def test_succeeds_on_first_attempt(self):
         call_count = 0
@@ -90,7 +97,8 @@ class TestLlmCallWithRetry:
     async def test_retries_on_transient_error_then_succeeds(self):
         call_count = 0
 
-        class RateLimitError(Exception): pass
+        class RateLimitError(Exception):
+            pass
 
         async def coro_fn():
             nonlocal call_count
@@ -105,7 +113,8 @@ class TestLlmCallWithRetry:
 
     @pytest.mark.asyncio
     async def test_raises_after_max_attempts(self):
-        class ServiceUnavailable(Exception): pass
+        class ServiceUnavailable(Exception):
+            pass
 
         async def coro_fn():
             raise ServiceUnavailable("down")
@@ -129,7 +138,9 @@ class TestLlmCallWithRetry:
 
     @pytest.mark.asyncio
     async def test_call_count_matches_max_attempts(self):
-        class ConnectError(Exception): pass
+        class ConnectError(Exception):
+            pass
+
         call_count = 0
 
         async def coro_fn():
@@ -144,7 +155,9 @@ class TestLlmCallWithRetry:
 
     @pytest.mark.asyncio
     async def test_single_attempt_no_retry(self):
-        class ReadTimeout(Exception): pass
+        class ReadTimeout(Exception):
+            pass
+
         call_count = 0
 
         async def coro_fn():
@@ -164,7 +177,6 @@ from src.agents.llm import OllamaClient
 
 
 class TestOllamaWireFormat:
-
     def test_default_wire_format_is_none(self):
         """Without wire_format, auto-detect should be used."""
         with patch("src.agents.llm.settings") as mock_settings:
@@ -212,7 +224,6 @@ from src.agents.verifier import _PROVIDER_COSTS, VerificationAgent
 
 
 class TestProviderCostTable:
-
     def test_gemini_has_nonzero_cost(self):
         assert _PROVIDER_COSTS["gemini"]["input"] > 0
         assert _PROVIDER_COSTS["gemini"]["output"] > 0
@@ -233,9 +244,14 @@ class TestProviderCostTable:
 class TestSessionLlmUsage:
     """Test VerificationAgent.session_llm_usage cost calculation."""
 
-    def _make_agent(self, provider: str, prompt_tokens: int, completion_tokens: int) -> VerificationAgent:
+    def _make_agent(
+        self, provider: str, prompt_tokens: int, completion_tokens: int
+    ) -> VerificationAgent:
         agent = object.__new__(VerificationAgent)
-        agent._session_tokens = {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens}
+        agent._session_tokens = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+        }
         agent._session_provider = provider
         agent._session_model = "test-model"
         return agent
@@ -288,15 +304,13 @@ class TestSessionLlmUsage:
 # ── LLM-06: Per-tenant rate limiter ──────────────────────────────────────────
 
 from src.agents.llm import (
+    LLM_RATE_CALLS_PER_MINUTE,
     LLMTenantRateLimiter,
     check_llm_rate_limit,
-    _tenant_rate_limiters,
-    LLM_RATE_CALLS_PER_MINUTE,
 )
 
 
 class TestLlmTenantRateLimiter:
-
     @pytest.mark.asyncio
     async def test_allows_calls_within_burst(self):
         limiter = LLMTenantRateLimiter(calls_per_minute=60, burst=5)
@@ -313,7 +327,6 @@ class TestLlmTenantRateLimiter:
 
     @pytest.mark.asyncio
     async def test_tokens_refill_over_time(self):
-        import time
         # Very high rate (600/min = 10/sec) so tokens refill quickly
         limiter = LLMTenantRateLimiter(calls_per_minute=600, burst=1)
         assert await limiter.acquire()  # drain
@@ -323,7 +336,6 @@ class TestLlmTenantRateLimiter:
 
 
 class TestCheckLlmRateLimit:
-
     @pytest.mark.asyncio
     async def test_different_tenants_have_separate_buckets(self):
         """Each tenant has their own rate limit bucket."""

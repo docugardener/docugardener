@@ -15,31 +15,34 @@ Covered:
 """
 
 import json
-import pytest
 from unittest.mock import MagicMock, patch
 
-from src.core.config import settings
+import pytest
 
+from src.core.config import settings
 from tests.integration.conftest import (
     WEBHOOK_SECRET,
     TestingSessionLocal,
+    _webhook_headers,
     make_signature,
     pr_opened_payload,
-    _webhook_headers,
 )
 
-
 # ── fixture: enable HMAC for all tests in this module ─────────────────────────
+
 
 @pytest.fixture(autouse=True)
 def enable_hmac():
     """Force HMAC verification on by setting a non-empty secret + debug=False."""
-    with patch.object(settings, "github_webhook_secret", WEBHOOK_SECRET), \
-         patch.object(settings, "debug", False):
+    with (
+        patch.object(settings, "github_webhook_secret", WEBHOOK_SECRET),
+        patch.object(settings, "debug", False),
+    ):
         yield
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _signed_headers(body: bytes, event: str = "pull_request") -> dict:
     """Return headers with a valid HMAC signature for the given body."""
@@ -51,8 +54,8 @@ def _signed_headers(body: bytes, event: str = "pull_request") -> dict:
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestWebhookSecurity:
 
+class TestWebhookSecurity:
     @pytest.mark.asyncio
     async def test_valid_signature_accepted(self, http_client, seed_tenant):
         """Correct HMAC signature → HTTP 200 (request processed normally)."""
@@ -61,8 +64,10 @@ class TestWebhookSecurity:
 
         body = json.dumps(pr_opened_payload()).encode()
 
-        with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal), \
-             patch("src.worker.queue.get_queue", return_value=mock_queue):
+        with (
+            patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
+            patch("src.worker.queue.get_queue", return_value=mock_queue),
+        ):
             response = await http_client.post(
                 "/webhooks/github",
                 content=body,

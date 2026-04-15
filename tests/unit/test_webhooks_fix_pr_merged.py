@@ -15,14 +15,14 @@ with the test factory (not a fixed instance) and open a fresh verify session
 for assertions — this avoids SQLAlchemy detached-object errors.
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.storage.sql_models import Base, Job, Tenant, Repository, JobStatus, TriageStatus
 from src.api.webhooks import handle_fix_pr_merged
-
+from src.storage.sql_models import Base, Job, JobStatus, Repository, Tenant, TriageStatus
 
 # ── DB setup ──────────────────────────────────────────────────────────────────
 
@@ -100,8 +100,8 @@ def _webhook_data(installation_id: int = 99999) -> dict:
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestHandleFixPrMerged:
 
+class TestHandleFixPrMerged:
     @pytest.mark.asyncio
     async def test_docugardener_branch_sets_resolved(self, seed_db):
         """docugardener-fix-42-abc branch → job triageStatus = RESOLVED."""
@@ -117,9 +117,7 @@ class TestHandleFixPrMerged:
     async def test_non_docugardener_branch_is_noop(self, seed_db):
         """A regular feature branch → triageStatus unchanged, status=skipped."""
         with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal):
-            result = await handle_fix_pr_merged(
-                _webhook_data(), head_ref="feature/my-feature"
-            )
+            result = await handle_fix_pr_merged(_webhook_data(), head_ref="feature/my-feature")
 
         assert result["status"] == "skipped"
         assert _get_job_triage_status(seed_db["job_id"]) == TriageStatus.FIX_PR_OPEN
@@ -143,11 +141,13 @@ class TestHandleFixPrMerged:
         mock_dispatcher = MagicMock()
         mock_dispatcher.post_jira_lifecycle_comment = AsyncMock()
 
-        with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal), \
-             patch("src.notifications.dispatcher.NotificationDispatcher", return_value=mock_dispatcher):
-            await handle_fix_pr_merged(
-                _webhook_data(), head_ref="docugardener-fix-42-xyz"
-            )
+        with (
+            patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
+            patch(
+                "src.notifications.dispatcher.NotificationDispatcher", return_value=mock_dispatcher
+            ),
+        ):
+            await handle_fix_pr_merged(_webhook_data(), head_ref="docugardener-fix-42-xyz")
 
         mock_dispatcher.post_jira_lifecycle_comment.assert_called_once()
         ticket_arg = mock_dispatcher.post_jira_lifecycle_comment.call_args[0][0]
@@ -156,11 +156,11 @@ class TestHandleFixPrMerged:
     @pytest.mark.asyncio
     async def test_skips_jira_when_no_ticket_key(self, seed_db):
         """Job result has no jira_ticket_key → no Jira-related activity."""
-        with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal), \
-             patch("src.notifications.dispatcher.NotificationDispatcher") as mock_cls:
-            await handle_fix_pr_merged(
-                _webhook_data(), head_ref="docugardener-fix-42-nojira"
-            )
+        with (
+            patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
+            patch("src.notifications.dispatcher.NotificationDispatcher") as mock_cls,
+        ):
+            await handle_fix_pr_merged(_webhook_data(), head_ref="docugardener-fix-42-nojira")
 
         mock_cls.assert_not_called()
 

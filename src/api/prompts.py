@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from fastapi import APIRouter, HTTPException, Depends, Header
-from pydantic import BaseModel
-from typing import List, Optional
 import re
 import uuid
 
-from src.storage.sql_models import PromptConfig, Tenant
-from src.pipeline.job_manager import SessionLocal
-from src.api.middleware import get_tenant_id
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
 from src.agents import prompts as default_prompts
+from src.api.middleware import get_tenant_id
 from src.core.logging import get_logger
+from src.pipeline.job_manager import SessionLocal
+from src.storage.sql_models import PromptConfig, Tenant
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -21,7 +21,8 @@ _MAX_PROMPT_LENGTH = 8_000
 # Jailbreak / prompt-injection signals (case-insensitive). Do NOT echo which
 # pattern matched — return a generic error to prevent trial-and-error bypass.
 _FORBIDDEN_PATTERNS: list[re.Pattern] = [
-    re.compile(p, re.IGNORECASE) for p in [
+    re.compile(p, re.IGNORECASE)
+    for p in [
         r"ignore\s+(all\s+|your\s+)?(previous\s+|prior\s+)?instructions",
         r"forget\s+(your\s+|all\s+)?instructions",
         r"you\s+are\s+(now\s+|a\s+)?(?!docugardener)",
@@ -37,9 +38,26 @@ _FORBIDDEN_PATTERNS: list[re.Pattern] = [
 
 # At least 2 of these keywords must appear (case-insensitive).
 _DOMAIN_KEYWORDS = [
-    "documentation", "doc", "drift", "code", "review", "change", "file",
-    "diff", "pull request", "pr", "analysis", "verify", "technical", "api",
-    "function", "parameter", "annotation", "comment", "markdown", "repository",
+    "documentation",
+    "doc",
+    "drift",
+    "code",
+    "review",
+    "change",
+    "file",
+    "diff",
+    "pull request",
+    "pr",
+    "analysis",
+    "verify",
+    "technical",
+    "api",
+    "function",
+    "parameter",
+    "annotation",
+    "comment",
+    "markdown",
+    "repository",
 ]
 
 
@@ -83,9 +101,11 @@ def _validate_prompt_content(content: str) -> None:
 
 # ── Models ────────────────────────────────────────────────────────────────────
 
+
 class PromptUpdate(BaseModel):
     key: str
     content: str
+
 
 class PromptInfo(BaseModel):
     key: str
@@ -95,7 +115,8 @@ class PromptInfo(BaseModel):
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-@router.get("/", response_model=List[PromptInfo])
+
+@router.get("/", response_model=list[PromptInfo])
 async def list_prompts():
     """List all available prompts with their current content (custom or default)."""
     tenant_id = get_tenant_id()
@@ -107,11 +128,13 @@ async def list_prompts():
         prompts = []
         for key in dir(default_prompts):
             if key.isupper() and isinstance(getattr(default_prompts, key), str):
-                prompts.append(PromptInfo(
-                    key=key,
-                    content=custom_map.get(key, getattr(default_prompts, key)),
-                    is_custom=key in custom_map,
-                ))
+                prompts.append(
+                    PromptInfo(
+                        key=key,
+                        content=custom_map.get(key, getattr(default_prompts, key)),
+                        is_custom=key in custom_map,
+                    )
+                )
         return prompts
     finally:
         session.close()
@@ -150,8 +173,12 @@ async def update_prompt(update: PromptUpdate):
             session.add(config)
 
         session.commit()
-        logger.info("Updated custom prompt", tenant_id=tenant_id, key=update.key,
-                    content_length=len(update.content))
+        logger.info(
+            "Updated custom prompt",
+            tenant_id=tenant_id,
+            key=update.key,
+            content_length=len(update.content),
+        )
         return {"status": "success", "key": update.key}
     except HTTPException:
         raise

@@ -14,12 +14,12 @@ error) must NOT enqueue and must NOT raise — the bypass block is fire-and-forg
 Also verifies EPIC-05 and SCALE-04 do NOT both enqueue (double-enqueue guard).
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.pipeline.handler import process_pull_request
 from src.worker.context import TenantContext
-
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -45,10 +45,11 @@ _CHANGED_FILES = [
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _make_tenant_ctx(workflow_config=None) -> TenantContext:
     return TenantContext(
         tenant_id="t-epic05",
-        app_id="123456",   # must be numeric — int() conversion in handler
+        app_id="123456",  # must be numeric — int() conversion in handler
         private_key="pk",
         llm_config=None,
         notification_config=None,
@@ -62,8 +63,7 @@ def _make_result(drift_score: int = 85, has_updates: bool = True) -> MagicMock:
     result.error = None
     result.drift_score = drift_score
     result.documentation_updates = (
-        [MagicMock(file_path="docs/auth.md", content="# Updated Auth")]
-        if has_updates else []
+        [MagicMock(file_path="docs/auth.md", content="# Updated Auth")] if has_updates else []
     )
     da = MagicMock()
     da.drift_score = drift_score
@@ -102,7 +102,9 @@ def _handler_patches(tenant_ctx: TenantContext, analysis_result: MagicMock, mock
         NotificationDispatcher=MagicMock(),
         **{
             "src.worker.queue.get_queue": MagicMock(return_value=mock_queue),
-        } if False else {},  # queue patched separately below
+        }
+        if False
+        else {},  # queue patched separately below
     )
 
 
@@ -125,7 +127,9 @@ async def _run(workflow_config, analysis_result, mock_queue, ai_authored=True):
         patch("src.pipeline.handler.create_initial_check_run", new=AsyncMock(return_value=123)),
         patch("src.pipeline.handler.job_manager", mock_jm),
         patch("src.pipeline.handler.PRAnalyzer", MagicMock(return_value=mock_analyzer_instance)),
-        patch("src.pipeline.handler.GitHubReporter", MagicMock(return_value=mock_reporter_instance)),
+        patch(
+            "src.pipeline.handler.GitHubReporter", MagicMock(return_value=mock_reporter_instance)
+        ),
         patch("src.pipeline.handler.NotificationDispatcher"),
         patch("src.worker.queue.get_queue", return_value=mock_queue),
         patch("src.worker.jobs.create_fix_pr_job"),
@@ -148,8 +152,8 @@ async def _run(workflow_config, analysis_result, mock_queue, ai_authored=True):
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-class TestEpic05AiBypass:
 
+class TestEpic05AiBypass:
     @pytest.mark.asyncio
     async def test_ai_authored_with_mode_enabled_enqueues(self):
         """

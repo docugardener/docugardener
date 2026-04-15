@@ -13,12 +13,12 @@ NOT enqueue and must NOT raise — the auto-heal block is fire-and-forget.
 """
 
 import contextlib
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
 
 from src.pipeline.handler import process_pull_request
 from src.worker.context import TenantContext
-
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -44,10 +44,11 @@ _CHANGED_FILES = [
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _make_tenant_ctx(workflow_config=None) -> TenantContext:
     return TenantContext(
         tenant_id="t-1",
-        app_id="123456",   # must be numeric — int() conversion in handler
+        app_id="123456",  # must be numeric — int() conversion in handler
         private_key="pk",
         llm_config=None,
         notification_config=None,
@@ -61,13 +62,15 @@ def _make_result(drift_score: int = 90, has_updates: bool = True) -> MagicMock:
     result.success = True
     result.error = None
     result.drift_score = drift_score
-    result.documentation_updates = [MagicMock(file_path="docs/api.md", content="# Updated")] if has_updates else []
+    result.documentation_updates = (
+        [MagicMock(file_path="docs/api.md", content="# Updated")] if has_updates else []
+    )
 
     da = MagicMock()
     da.drift_score = drift_score
     da.severity = "significant"
     da.summary = "Logic changed"
-    da.required_updates = []   # empty → skip NotificationDispatcher path
+    da.required_updates = []  # empty → skip NotificationDispatcher path
     da.items = []
     result.drift_analysis = da
 
@@ -112,8 +115,8 @@ def _run_handler(tenant_ctx: TenantContext, analysis_result: MagicMock, mock_que
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-class TestScale04AutoHeal:
 
+class TestScale04AutoHeal:
     @pytest.mark.asyncio
     async def test_autoheal_enabled_high_drift_enqueues(self):
         """
@@ -320,7 +323,7 @@ class TestScale04AutoHeal:
                 base_ref=_BASE_REF,
             )
 
-        assert result.success is True   # Main flow completed
+        assert result.success is True  # Main flow completed
 
     @pytest.mark.asyncio
     async def test_autoheal_exact_default_threshold_enqueues(self):

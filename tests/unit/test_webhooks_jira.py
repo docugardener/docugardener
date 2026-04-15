@@ -6,11 +6,10 @@ edge cases (single-letter key, missing numeric suffix, None body).
 No mocking required — pure function.
 """
 
-import pytest
 from src.api.webhooks import extract_jira_ticket_key
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _pr(branch: str = "", title: str = "", body: str | None = "") -> dict:
     """Minimal PR payload dict matching what extract_jira_ticket_key expects."""
@@ -23,8 +22,8 @@ def _pr(branch: str = "", title: str = "", body: str | None = "") -> dict:
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestExtractJiraTicketKey:
 
+class TestExtractJiraTicketKey:
     def test_extracts_key_from_branch(self):
         """Standard branch format feature/PROJ-123-slug → PROJ-123."""
         pr = _pr(branch="feature/PROJ-123-add-login")

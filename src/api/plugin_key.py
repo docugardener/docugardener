@@ -6,12 +6,11 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from typing import Optional
 
 from src.api.middleware import get_tenant_id
+from src.core.logging import get_logger
 from src.pipeline.job_manager import get_db
 from src.storage.sql_models import Tenant
-from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -22,7 +21,7 @@ _KEY_RANDOM_BYTES = 24  # 48 hex chars → 192-bit entropy
 
 
 class PluginKeyResponse(BaseModel):
-    pluginApiKey: Optional[str]
+    pluginApiKey: str | None
     isSet: bool
 
 
@@ -41,7 +40,7 @@ def get_plugin_key(db: Session = Depends(get_db)):
     key = config.get("pluginApiKey")
     if key:
         # Show prefix + first 8 chars, then mask the rest
-        visible = key[:len(_KEY_PREFIX) + 8]
+        visible = key[: len(_KEY_PREFIX) + 8]
         masked = visible + "..." + key[-4:]
         return PluginKeyResponse(pluginApiKey=masked, isSet=True)
     return PluginKeyResponse(pluginApiKey=None, isSet=False)

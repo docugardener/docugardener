@@ -7,15 +7,14 @@ Verifies three behaviours in VerificationAgent.__init__:
   3. No fallback when BUNDLED_GEMINI_KEY env var is not set (empty string).
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from src.agents.llm import LLMProvider
 from src.agents.verifier import VerificationAgent
 from src.core.config import settings
 
-
 # ── DB / tenant mock helpers ──────────────────────────────────────────────────
+
 
 def _make_mock_db(llm_config):
     """
@@ -39,6 +38,7 @@ def _make_mock_db(llm_config):
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
+
 class TestVerificationAgentFallbackKey:
     """Tests for the zero-config bundled LLM key fallback."""
 
@@ -55,8 +55,10 @@ class TestVerificationAgentFallbackKey:
         mock_get_db.side_effect = _make_mock_db(llm_config=None)
         mock_create_client.return_value = MagicMock()
 
-        with patch.object(settings, "bundled_gemini_key", "test-bundled-key"), \
-             patch.object(settings, "bundled_gemini_model", "gemini-2.0-flash"):
+        with (
+            patch.object(settings, "bundled_gemini_key", "test-bundled-key"),
+            patch.object(settings, "bundled_gemini_model", "gemini-2.0-flash"),
+        ):
             agent = VerificationAgent()
 
         mock_create_client.assert_called_once_with(
@@ -85,8 +87,10 @@ class TestVerificationAgentFallbackKey:
         mock_get_db.side_effect = _make_mock_db(llm_config=tenant_llm_config)
         mock_create_client.return_value = MagicMock()
 
-        with patch.object(settings, "bundled_gemini_key", "bundled-key-should-not-be-used"), \
-             patch.object(settings, "bundled_gemini_model", "gemini-2.0-flash"):
+        with (
+            patch.object(settings, "bundled_gemini_key", "bundled-key-should-not-be-used"),
+            patch.object(settings, "bundled_gemini_model", "gemini-2.0-flash"),
+        ):
             agent = VerificationAgent()
 
         # Must be called with the decrypted tenant key, not the bundled key
@@ -113,8 +117,10 @@ class TestVerificationAgentFallbackKey:
         mock_get_db.side_effect = _make_mock_db(llm_config=None)
         mock_create_client.return_value = MagicMock()
 
-        with patch.object(settings, "bundled_gemini_key", ""), \
-             patch.object(settings, "bundled_gemini_model", "gemini-2.0-flash"):
+        with (
+            patch.object(settings, "bundled_gemini_key", ""),
+            patch.object(settings, "bundled_gemini_model", "gemini-2.0-flash"),
+        ):
             agent = VerificationAgent()
 
         # create_llm_client must be called without api_key or model from bundled config
@@ -144,8 +150,10 @@ class TestVerificationAgentFallbackKey:
         mock_get_db.side_effect = _make_mock_db(llm_config=tenant_llm_config)
         mock_create_client.return_value = MagicMock()
 
-        with patch.object(settings, "bundled_gemini_key", "bundled-active-key"), \
-             patch.object(settings, "bundled_gemini_model", "gemini-2.0-flash"):
+        with (
+            patch.object(settings, "bundled_gemini_key", "bundled-active-key"),
+            patch.object(settings, "bundled_gemini_model", "gemini-2.0-flash"),
+        ):
             agent = VerificationAgent()
 
         # Must use the bundled key, not the old tenant key
@@ -170,8 +178,10 @@ class TestVerificationAgentFallbackKey:
         mock_get_db.side_effect = _make_mock_db(llm_config=None)
         mock_create_client.return_value = MagicMock()
 
-        with patch.object(settings, "bundled_gemini_key", "bundled-key"), \
-             patch.object(settings, "bundled_gemini_model", "gemini-2.0-flash"):
+        with (
+            patch.object(settings, "bundled_gemini_key", "bundled-key"),
+            patch.object(settings, "bundled_gemini_model", "gemini-2.0-flash"),
+        ):
             agent = VerificationAgent()
 
         args, _ = mock_create_client.call_args

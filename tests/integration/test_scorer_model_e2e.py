@@ -18,13 +18,14 @@ Covered:
   - Two tenants with different scoring models processed identically (determinism)
 """
 
-import pytest
 from contextlib import ExitStack
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
+import pytest
+
+from src.pipeline import job_manager as jm_module
 from src.pipeline.handler import process_pull_request
 from src.storage.sql_models import Tenant
-
 from tests.integration.conftest import (
     INSTALLATION_ID,
     TENANT_ID,
@@ -32,14 +33,10 @@ from tests.integration.conftest import (
     make_analysis_result,
     pipeline_patch_stack,
 )
-from src.pipeline import job_manager as jm_module
-
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-_CHANGED_FILES = [
-    {"filename": "src/core.py", "status": "modified", "additions": 3, "deletions": 1}
-]
+_CHANGED_FILES = [{"filename": "src/core.py", "status": "modified", "additions": 3, "deletions": 1}]
 
 
 def _set_llm_config(scoring_model: str | None):
@@ -72,9 +69,7 @@ async def _run_pipeline_capture_llm_config(result) -> dict | None:
         for p in base_patches:
             stack.enter_context(p)
         # Override PRAnalyzer with our capturing mock
-        stack.enter_context(
-            patch("src.pipeline.handler.PRAnalyzer", return_value=mock_analyzer)
-        )
+        stack.enter_context(patch("src.pipeline.handler.PRAnalyzer", return_value=mock_analyzer))
         stack.enter_context(
             patch.object(jm_module.job_manager, "_session_factory", TestingSessionLocal)
         )
@@ -95,8 +90,8 @@ async def _run_pipeline_capture_llm_config(result) -> dict | None:
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestScorerModelE2E:
 
+class TestScorerModelE2E:
     @pytest.mark.asyncio
     async def test_holistic_scorer_config_threaded_through(self, seed_tenant):
         """tenant.llmConfig.scoringModel='holistic' → analyze_pr llm_config contains 'holistic'."""

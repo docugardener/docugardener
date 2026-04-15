@@ -15,9 +15,9 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-import stripe as stripe_lib
 from fastapi.testclient import TestClient
+
+import stripe as stripe_lib
 
 _TEST_WEBHOOK_SECRET = "whsec_integration_test_secret_abc123"
 _TEST_SECRET_KEY = "sk_test_integration_key"
@@ -29,9 +29,10 @@ _TEST_PRICE_TEAM = "price_TEAM_INTEGRATION"
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_client() -> TestClient:
-    from src.main import create_app
     from src.core.config import settings
+    from src.main import create_app
 
     settings.stripe_secret_key = _TEST_SECRET_KEY
     settings.stripe_webhook_secret = _TEST_WEBHOOK_SECRET
@@ -60,8 +61,8 @@ def _post_event_mocked(
 # Integration: checkout.session.completed path
 # ---------------------------------------------------------------------------
 
-class TestCheckoutCompletedIntegration:
 
+class TestCheckoutCompletedIntegration:
     def test_checkout_completed_calls_sync(self) -> None:
         """POST /webhooks/stripe checkout event → sync_subscription_to_tenant called."""
         event = {
@@ -84,7 +85,9 @@ class TestCheckoutCompletedIntegration:
         with (
             patch("stripe.Webhook.construct_event", return_value=event),
             patch("stripe.Subscription.retrieve", return_value=mock_subscription),
-            patch("src.stripe.webhooks.sync_subscription_to_tenant", return_value=True) as mock_sync,
+            patch(
+                "src.stripe.webhooks.sync_subscription_to_tenant", return_value=True
+            ) as mock_sync,
             patch("src.stripe.webhooks.SessionLocal") as mock_db_cls,
         ):
             mock_db = MagicMock()
@@ -134,8 +137,8 @@ class TestCheckoutCompletedIntegration:
 # Integration: subscription.deleted path
 # ---------------------------------------------------------------------------
 
-class TestSubscriptionDeletedIntegration:
 
+class TestSubscriptionDeletedIntegration:
     def test_subscription_deleted_calls_downgrade(self) -> None:
         event = {
             "id": "evt_sub_del_int_001",
@@ -151,7 +154,9 @@ class TestSubscriptionDeletedIntegration:
 
         with (
             patch("stripe.Webhook.construct_event", return_value=event),
-            patch("src.stripe.webhooks.downgrade_tenant_to_free", return_value=True) as mock_downgrade,
+            patch(
+                "src.stripe.webhooks.downgrade_tenant_to_free", return_value=True
+            ) as mock_downgrade,
             patch("src.stripe.webhooks.SessionLocal") as mock_db_cls,
         ):
             mock_db_cls.return_value = MagicMock()
@@ -171,8 +176,8 @@ class TestSubscriptionDeletedIntegration:
 # Integration: payment_failed (no downgrade)
 # ---------------------------------------------------------------------------
 
-class TestPaymentFailedIntegration:
 
+class TestPaymentFailedIntegration:
     def test_payment_failed_does_not_call_downgrade(self) -> None:
         event = {
             "id": "evt_pf_int_001",

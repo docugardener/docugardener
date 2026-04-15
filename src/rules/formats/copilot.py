@@ -25,9 +25,9 @@ def _docs_inline(require_docs: list[str]) -> str:
 
 def _short_enforcement(enforcement: str) -> str:
     return {
-        "blocking":             "blocking",
+        "blocking": "blocking",
         "blocking-with-reason": "blocking-with-reason",
-        "advisory":             "advisory",
+        "advisory": "advisory",
     }.get(enforcement, enforcement)
 
 
@@ -58,7 +58,7 @@ def render_copilot_instructions(rules: list[PolicyRule], generated_on: str = "")
     if not rules:
         lines += [
             "- No custom rules configured. "
-              "DocuGardener will apply default drift detection on every PR.",
+            "DocuGardener will apply default drift detection on every PR.",
             "",
         ]
     else:
@@ -66,10 +66,7 @@ def render_copilot_instructions(rules: list[PolicyRule], generated_on: str = "")
             paths_str = _paths_inline(rule.paths)
             docs_str = _docs_inline(rule.require_docs)
             enforcement_str = _short_enforcement(rule.enforcement)
-            lines.append(
-                f"- Files matching {paths_str}: update {docs_str} "
-                f"({enforcement_str})"
-            )
+            lines.append(f"- Files matching {paths_str}: update {docs_str} ({enforcement_str})")
         lines.append("")
 
     lines += [

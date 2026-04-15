@@ -12,14 +12,15 @@ Covered:
   - autoMergeAiDocs=True → enqueue called with auto_merge=True kwarg
 """
 
-import pytest
 from contextlib import ExitStack
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
+import pytest
+
+from src.pipeline import job_manager as jm_module
 from src.pipeline.handler import process_pull_request
 from src.storage.sql_models import Job, Tenant
 from src.worker.jobs import create_fix_pr_job
-
 from tests.integration.conftest import (
     INSTALLATION_ID,
     TENANT_ID,
@@ -27,8 +28,6 @@ from tests.integration.conftest import (
     make_analysis_result,
     pipeline_patch_stack,
 )
-from src.pipeline import job_manager as jm_module
-
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -84,8 +83,8 @@ async def _run_pipeline(analysis_result, ai_authored: bool, extra_patches=()):
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
-class TestAiPrEpic05Bypass:
 
+class TestAiPrEpic05Bypass:
     @pytest.mark.asyncio
     async def test_ai_pr_sets_ai_authored_flag_in_db(self, seed_tenant):
         """ai_authored=True → Job.aiAuthored = True written to DB."""
@@ -106,9 +105,11 @@ class TestAiPrEpic05Bypass:
 
         captured_enqueue_calls: list = []
         mock_queue = MagicMock()
+
         def capture_enqueue(fn, *args, **kwargs):
             captured_enqueue_calls.append((fn, args, kwargs))
             return MagicMock(id="fix-rq-job")
+
         mock_queue.enqueue = capture_enqueue
 
         await _run_pipeline(
@@ -132,9 +133,11 @@ class TestAiPrEpic05Bypass:
 
         captured_enqueue_calls: list = []
         mock_queue = MagicMock()
+
         def capture_enqueue(fn, *args, **kwargs):
             captured_enqueue_calls.append(fn)
             return MagicMock(id="rq-id")
+
         mock_queue.enqueue = capture_enqueue
 
         await _run_pipeline(
@@ -155,9 +158,11 @@ class TestAiPrEpic05Bypass:
 
         captured_enqueue_calls: list = []
         mock_queue = MagicMock()
+
         def capture_enqueue(fn, *args, **kwargs):
             captured_enqueue_calls.append((fn, args, kwargs))
             return MagicMock(id="fix-rq-id")
+
         mock_queue.enqueue = capture_enqueue
 
         await _run_pipeline(

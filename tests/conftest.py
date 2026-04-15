@@ -62,6 +62,7 @@ if "git" not in sys.modules:
 # fail when the suite is run more than once within the TTL window, or when an
 # earlier test in the same session has already consumed the key.
 import os as _os
+
 import pytest as _pytest
 
 
@@ -70,6 +71,7 @@ def _clear_redis_dedup_keys():
     """Delete all webhook:delivery:* keys from Redis before each test."""
     try:
         import redis as _redis
+
         _rd = _redis.from_url(
             _os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
             decode_responses=True,

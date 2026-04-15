@@ -1,36 +1,34 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """DocuGardener FastAPI Application Entry Point."""
 
-import asyncio
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
-
 import time
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app as make_metrics_app
 
-from src.api.webhooks import router as webhooks_router
-from src.api.health import router as health_router
-from src.api.prompts import router as prompts_router
-from src.api.inbox import router as inbox_router
-from src.api.repos import router as repos_router
+from src.api.billing import router as billing_router
 from src.api.check import router as check_router
+from src.api.feedback import router as feedback_router
+from src.api.health import router as health_router
+from src.api.inbox import router as inbox_router
+from src.api.middleware import TenantContextMiddleware
 from src.api.plugin_key import router as plugin_key_router
+from src.api.prompts import router as prompts_router
+from src.api.repos import router as repos_router
+from src.api.rules import router as rules_router
 from src.api.saml import router as saml_router
 from src.api.scim import router as scim_router
-from src.api.feedback import router as feedback_router
-from src.api.rules import router as rules_router
-from src.api.billing import router as billing_router
-from src.api.middleware import TenantContextMiddleware
-from src.core.tenant import create_tenant_resolver
-from src.core.provisioning import ensure_tenant_provisioned
-from src.monitoring.metrics import HTTP_REQUESTS_TOTAL, HTTP_REQUEST_DURATION
-from src.stripe.webhooks import router as stripe_router
+from src.api.webhooks import router as webhooks_router
 from src.core.config import settings
 from src.core.logging import get_logger
+from src.core.provisioning import ensure_tenant_provisioned
+from src.core.tenant import create_tenant_resolver
+from src.monitoring.metrics import HTTP_REQUEST_DURATION, HTTP_REQUESTS_TOTAL
+from src.stripe.webhooks import router as stripe_router
 
 logger = get_logger(__name__)
 
@@ -48,7 +46,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # HYB-07: Air-gap offline license validation
     if settings.deployment_mode in ("air-gap",):
-        from src.core.license import validate_license_file, LicenseError
+        from src.core.license import LicenseError, validate_license_file
+
         try:
             license_payload = validate_license_file(settings.license_file_path)
             logger.info(
@@ -75,6 +74,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if settings.deployment_mode in ("client-installed", "air-gap"):
         try:
             from src.pipeline.job_manager import SessionLocal
+
             with SessionLocal() as db:
                 await ensure_tenant_provisioned(db, settings)
         except Exception as _prov_err:
@@ -107,7 +107,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # when the vector DB is unreachable rather than at first query.
     # Graceful degradation — the app still starts; vector search is simply unavailable.
     try:
-        from src.storage.weaviate_db import WeaviateDB, COLLECTION_NAME
+        from src.storage.weaviate_db import COLLECTION_NAME, WeaviateDB
+
         _weaviate = WeaviateDB()
         await _weaviate.initialize()
         logger.info(

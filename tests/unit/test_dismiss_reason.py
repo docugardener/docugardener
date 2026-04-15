@@ -8,16 +8,16 @@ Covers:
 4. ignore_drift_job with no reason uses default summary
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from src.main import app
-from src.storage.sql_models import Base, Job, Tenant, TriageStatus, JobStatus
-
+from src.storage.sql_models import Base, Job, JobStatus, Tenant, TriageStatus
 
 # In-memory SQLite DB for all tests in this module
 engine = create_engine(
@@ -33,6 +33,7 @@ def db_session():
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     from src.pipeline.job_manager import get_db
+
     app.dependency_overrides[get_db] = lambda: db
     yield db
     db.close()
@@ -48,7 +49,8 @@ def _make_job(db, job_id: str, result: dict | None = None) -> Job:
         prNumber=42,
         status=JobStatus.COMPLETED,
         triageStatus=TriageStatus.PENDING,
-        result=result or {"check_run_id": "99", "installation_id": "1", "repo_full_name": "org/repo"},
+        result=result
+        or {"check_run_id": "99", "installation_id": "1", "repo_full_name": "org/repo"},
     )
     db.add(job)
     db.commit()
@@ -59,6 +61,7 @@ def _make_job(db, job_id: str, result: dict | None = None) -> Job:
 # ---------------------------------------------------------------------------
 # API-level tests (FastAPI TestClient)
 # ---------------------------------------------------------------------------
+
 
 def test_ignore_without_reason_leaves_result_unchanged(db_session):
     """PATCH without dismiss_reason should not inject the key into job.result."""
@@ -103,6 +106,7 @@ def test_ignore_with_reason_persists_to_result(db_session):
 # Worker-level tests (ignore_drift_job)
 # ---------------------------------------------------------------------------
 
+
 def _make_tenant(db) -> Tenant:
     tenant = Tenant(
         id="tenant-1",
@@ -119,24 +123,33 @@ def _make_tenant(db) -> Tenant:
 def test_ignore_drift_job_includes_reason_in_check_run(db_session):
     """When job.result has dismiss_reason, the GitHub check run summary must include it."""
     _make_tenant(db_session)
-    job = _make_job(db_session, "job-reason-gh", result={
-        "check_run_id": "55",
-        "installation_id": "10",
-        "repo_full_name": "org/my-repo",
-        "head_sha": "abc1234",
-        "dismiss_reason": "Already covered in the ADR",
-    })
+    job = _make_job(
+        db_session,
+        "job-reason-gh",
+        result={
+            "check_run_id": "55",
+            "installation_id": "10",
+            "repo_full_name": "org/my-repo",
+            "head_sha": "abc1234",
+            "dismiss_reason": "Already covered in the ADR",
+        },
+    )
 
-    with patch("src.pipeline.job_manager.get_db", return_value=iter([db_session])), \
-         patch("src.security.encryption.decrypt_credential", return_value="-----BEGIN RSA PRIVATE KEY-----"), \
-         patch("src.github.app.get_github_client") as mock_gh_client:
-
+    with (
+        patch("src.pipeline.job_manager.get_db", return_value=iter([db_session])),
+        patch(
+            "src.security.encryption.decrypt_credential",
+            return_value="-----BEGIN RSA PRIVATE KEY-----",
+        ),
+        patch("src.github.app.get_github_client") as mock_gh_client,
+    ):
         mock_check_run = MagicMock()
         mock_repo = MagicMock()
         mock_repo.get_check_run.return_value = mock_check_run
         mock_gh_client.return_value.get_repo.return_value = mock_repo
 
         from src.worker.jobs import ignore_drift_job
+
         result = ignore_drift_job(job.id)
 
     assert result["status"] == "success"
@@ -150,23 +163,32 @@ def test_ignore_drift_job_includes_reason_in_check_run(db_session):
 def test_ignore_drift_job_no_reason_uses_default_summary(db_session):
     """When job.result has no dismiss_reason, the check run summary is the default."""
     _make_tenant(db_session)
-    job = _make_job(db_session, "job-no-reason-gh", result={
-        "check_run_id": "66",
-        "installation_id": "10",
-        "repo_full_name": "org/my-repo",
-        "head_sha": "abc1234",
-    })
+    job = _make_job(
+        db_session,
+        "job-no-reason-gh",
+        result={
+            "check_run_id": "66",
+            "installation_id": "10",
+            "repo_full_name": "org/my-repo",
+            "head_sha": "abc1234",
+        },
+    )
 
-    with patch("src.pipeline.job_manager.get_db", return_value=iter([db_session])), \
-         patch("src.security.encryption.decrypt_credential", return_value="-----BEGIN RSA PRIVATE KEY-----"), \
-         patch("src.github.app.get_github_client") as mock_gh_client:
-
+    with (
+        patch("src.pipeline.job_manager.get_db", return_value=iter([db_session])),
+        patch(
+            "src.security.encryption.decrypt_credential",
+            return_value="-----BEGIN RSA PRIVATE KEY-----",
+        ),
+        patch("src.github.app.get_github_client") as mock_gh_client,
+    ):
         mock_check_run = MagicMock()
         mock_repo = MagicMock()
         mock_repo.get_check_run.return_value = mock_check_run
         mock_gh_client.return_value.get_repo.return_value = mock_repo
 
         from src.worker.jobs import ignore_drift_job
+
         result = ignore_drift_job(job.id)
 
     assert result["status"] == "success"
