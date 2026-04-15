@@ -23,6 +23,7 @@
 | QA-01 | Beta E2E scenario: run Python e2e tests against live Docker stack — full PR→analysis→drift→fix PR→RESOLVED flow visible in UI | M | P1 | todo | — | — |
 | QA-02 | Self-hosting walkthrough: act as new user, clone repo, follow docs/self-hosting guide step by step; stop+fix on first failure; verify clean re-run | M | P1 | todo | — | — |
 | QA-03 | docugardener/docugardener live testing: GitHub App now installed on this repo — trigger real PR webhook flow, verify end-to-end in production | S | P1 | todo | — | — |
+| QA-04 | Owner Console verification on VPS: log in to /admin/owner on docugardener.dev, verify KPI cards, tenant health, override panel, Stripe event feed all render without errors | S | P1 | todo | — | — |
 
 ### Wave 4 — Growth Gate (≥50 paying tenants)
 
