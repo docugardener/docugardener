@@ -54,14 +54,15 @@ jobs:
           command_timeout: 30m
           script: |
             set -euo pipefail
-            cd /opt/docugardener
 
             echo "==> Pulling latest code..."
+            git config --global --add safe.directory /opt/docugardener || true
+            cd /opt/docugardener
             git fetch origin main
             git reset --hard origin/main
 
             echo "==> Building and starting services..."
-            docker compose --project-directory /opt/docugardener -f docker/docker-compose.prod.yml up --build -d
+            docker compose --env-file /opt/docugardener/.env -f /opt/docugardener/docker/docker-compose.prod.yml up --build -d
 
             echo "==> Pruning old images..."
             docker image prune -af --filter "until=24h" || true
