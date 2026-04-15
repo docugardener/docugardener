@@ -118,6 +118,8 @@ function SignInInner() {
                         <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100">
                             {error === "OAuthAccountNotLinked"
                                 ? "This email is already linked to a different sign-in method."
+                                : error === "AccessDenied"
+                                ? "Access is currently by invitation only. Join the waitlist to be notified when we open."
                                 : "Sign in failed. Please try again."}
                         </div>
                     )}

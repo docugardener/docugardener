@@ -169,6 +169,19 @@ export const authOptions: AuthOptions = {
         },
     },
     callbacks: {
+        /**
+         * SEC-ACCESS: If ALLOWED_EMAILS is set (comma-separated), only those
+         * addresses may sign in. Unset = open access (dev / local).
+         * Set this on the VPS to restrict the SaaS instance to invited users.
+         */
+        async signIn({ user }) {
+            const allowed = process.env.ALLOWED_EMAILS
+            if (!allowed) return true  // no restriction configured
+            const list = allowed.split(",").map(e => e.trim().toLowerCase())
+            const email = (user.email ?? "").toLowerCase()
+            if (!email || !list.includes(email)) return "/auth/signin?error=AccessDenied"
+            return true
+        },
         async jwt({ token, user }) {
             // Initial sign in — explicitly stamp all identity fields so they
             // are always present in the JWT regardless of provider or email
