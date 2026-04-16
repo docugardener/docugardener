@@ -66,6 +66,7 @@ class Settings(BaseSettings):
 
     # Anthropic
     anthropic_api_key: str | None = Field(default=None)
+    resend_api_key: str | None = None
     anthropic_model: str = Field(default="claude-sonnet-4-6")
 
     # Ollama

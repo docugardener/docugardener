@@ -21,6 +21,7 @@ from src.pipeline.policy_parser import parse_policies
 from src.pipeline.repo_config import apply_ignore_patterns, load_repo_config
 from src.pipeline.reporter import GitHubReporter
 from src.worker.context import get_tenant_context
+from src.notifications.first_analysis_email import maybe_send_first_analysis_email
 
 logger = get_logger(__name__)
 
@@ -337,6 +338,32 @@ async def process_pull_request(
                 result_payload["auto_fix_enqueued"] = _epic05_will_fire or _scale04_will_fire
 
                 job_manager.complete_job(job_id, result_payload)
+
+                # C-04: first-analysis email — fire-and-forget, never blocks job
+                try:
+                    _da = result_payload.get("drift_analysis") or {}
+                    _drift_score_c04: float = float(
+                        _da.get("drift_score", result.drift_score)
+                        if isinstance(_da, dict)
+                        else result.drift_score
+                    )
+                    _summary_text_c04: str = (
+                        (_da.get("summary", "") if isinstance(_da, dict) else "")
+                        or ""
+                    )
+                    maybe_send_first_analysis_email(
+                        tenant_id=tenant_id,
+                        pr_number=pr_number,
+                        repo_full_name=f"{owner}/{repo}",
+                        drift_score=_drift_score_c04,
+                        summary_text=_summary_text_c04,
+                        correlation_id=job_id,
+                    )
+                except Exception as _c04_exc:  # noqa: BLE001
+                    logger.warning(
+                        "C-04: first_analysis_email hook raised unexpectedly (non-fatal)",
+                        extra={"error": str(_c04_exc), "tenant_id": tenant_id},
+                    )
 
                 _fix_pr_enqueued = False
 

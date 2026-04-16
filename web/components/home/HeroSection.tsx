@@ -35,16 +35,21 @@ export function HeroSection() {
         Bundled LLM. GitHub Marketplace install.
       </p>
 
-      <div className="flex justify-center gap-4 mb-10">
-        <Link href="/auth/signin?signup=1">
-          <Button size="lg" className="h-12 px-8 text-base">
-            Get started free
-          </Button>
-        </Link>
-        <Link href="#demo">
-          <Button variant="outline" size="lg" className="h-12 px-8 text-base">
-            See How It Works
-          </Button>
+      <div className="flex flex-col items-center gap-3 mb-10">
+        <div className="flex justify-center gap-4">
+          <Link href="/auth/signin?signup=1">
+            <Button size="lg" className="h-12 px-8 text-base">
+              Get started free
+            </Button>
+          </Link>
+          <Link href="#demo">
+            <Button variant="outline" size="lg" className="h-12 px-8 text-base">
+              See How It Works
+            </Button>
+          </Link>
+        </div>
+        <Link href="/demo" className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors">
+          See a live sample drift report →
         </Link>
       </div>
 

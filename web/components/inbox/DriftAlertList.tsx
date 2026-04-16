@@ -8,6 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 import { SEVERITY_CONFIG, normaliseSeverity } from "@/lib/severity";
 import { Loader2, UserCheck, CheckCircle2, GitMerge } from "lucide-react";
 import { getUiStatus } from "@/lib/job-status";
+import { GettingStartedEmpty } from "@/components/onboarding/GettingStartedEmpty";
 
 export interface PolicyViolation {
     rule_name: string;
@@ -43,6 +44,7 @@ interface DriftAlertListProps {
     alerts: DriftAlert[];
     selectedId?: string;
     onSelect: (alert: DriftAlert) => void;
+    hasRepos?: boolean;
 }
 
 /** Status chip driven by getUiStatus() — single source of truth for all states. */
@@ -119,13 +121,10 @@ export function DriftAlertList({
     alerts,
     selectedId,
     onSelect,
+    hasRepos = false,
 }: DriftAlertListProps) {
     if (alerts.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400">
-                <p className="text-sm">No pending alerts</p>
-            </div>
-        );
+        return <GettingStartedEmpty hasRepos={hasRepos} context="inbox" />;
     }
 
     return (

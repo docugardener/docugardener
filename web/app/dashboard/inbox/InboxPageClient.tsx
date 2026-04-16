@@ -21,6 +21,7 @@ export function InboxPageClient({ tenantId, role }: InboxPageClientProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
+    const [hasRepos, setHasRepos] = useState(false);
 
     useEffect(() => {
         setIsMounted(true);
@@ -46,6 +47,13 @@ export function InboxPageClient({ tenantId, role }: InboxPageClientProps) {
             autoMergeSkipReason: job.autoMergeSkipReason ?? null,
             policyViolations: job.result?.policy_violations ?? [],
         }));
+
+    // Check if any repos are connected (for empty state variant)
+    useEffect(() => {
+        fetch("/api/repos").then(r => r.ok ? r.json() : { repos: [] })
+            .then(data => setHasRepos((data.repos ?? data ?? []).length > 0))
+            .catch(() => {})
+    }, [])
 
     // Fetch alerts from API
     const fetchAlerts = async (silent = false) => {
@@ -201,6 +209,7 @@ export function InboxPageClient({ tenantId, role }: InboxPageClientProps) {
                         alerts={alerts}
                         selectedId={selectedAlert?.id}
                         onSelect={setSelectedAlert}
+                        hasRepos={hasRepos}
                     />
                 }
                 content={
