@@ -5,7 +5,7 @@ async function main() {
     const prisma = new PrismaClient()
     await prisma.$connect()
 
-    const email = "wbd@tut.by"
+    const email = process.env.PROMOTE_EMAIL ?? "admin@example.com"
 
     console.log(`Promoting ${email} to ADMIN...`)
     const user = await prisma.user.update({

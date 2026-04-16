@@ -13,12 +13,12 @@
 set -euo pipefail
 
 INFISICAL_DOMAIN="http://localhost:8081"
-PROJECT_ID="2c296ecb-314b-4cd6-baef-92b8e3384c84"
+PROJECT_ID="${INFISICAL_PROJECT_ID:-}"
 ENV="dev"
 COMPOSE_FILE="docker/docker-compose.yml"
 
-# Check Infisical is reachable
-if curl -sf "${INFISICAL_DOMAIN}/api/status" > /dev/null 2>&1; then
+# Check Infisical is reachable and project ID is configured
+if [ -n "${PROJECT_ID}" ] && curl -sf "${INFISICAL_DOMAIN}/api/status" > /dev/null 2>&1; then
   echo "[dev.sh] Infisical reachable — injecting secrets from project ${PROJECT_ID} (${ENV})"
   exec infisical run \
     --domain "${INFISICAL_DOMAIN}" \

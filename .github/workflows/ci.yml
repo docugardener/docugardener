@@ -179,6 +179,22 @@ jobs:
           directory: web/coverage
           fail_ci_if_error: false
 
+  # ---------------------------------------------------------------------------
+  # Secrets Scan (SEC-M2)
+  # ---------------------------------------------------------------------------
+  secrets-scan:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so gitleaks can scan all commits on the branch
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # Docker Build removed from per-push CI — image is built on the VPS during deploy
   # (docker compose up --build). This avoids the 30-40min cold-build penalty on
   # every push. Dockerfile correctness is validated by the deploy smoke test.

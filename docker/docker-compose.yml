@@ -191,7 +191,7 @@ services:
     image: postgres:15-alpine
     container_name: docugardener-postgres
     ports:
-      - "5433:5432"   # 5432 reserved by SkillSeal; internal network still uses 5432
+      - "5433:5432"   # Host port 5433 avoids conflicts with local Postgres; internal network still uses 5432
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
@@ -257,7 +257,7 @@ services:
     image: grafana/grafana:11.4.0
     container_name: docugardener-grafana
     ports:
-      - "3004:3000"   # 3003 is Next.js dev server (3001/3002 reserved by NestFleet)
+      - "3004:3000"   # 3003 is Next.js dev server; Grafana on 3004
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GRAFANA_ALERT_WEBHOOK_URL: "http://localhost:9999/alert-sink"

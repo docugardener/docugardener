@@ -109,10 +109,14 @@ docs/active/
 docs/business/
 docs/Archive/
 docs/Production-Infrastructure-Playbook.md
+docs/ORGA-01-Launch-Setup.md
 ngrok_recovery_codes.txt
 Webpages/
 .rollback/
 Documentation Synchronization ("DocuGardener")
+
+# Infisical workspace config (contains project ID — internal infra topology)
+.infisical.json
 
 # Local IDE and agent tooling (dev machine only)
 .claude/

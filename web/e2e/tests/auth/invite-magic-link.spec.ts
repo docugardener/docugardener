@@ -2,7 +2,7 @@
  * AUTH-01: Invite Email Flow — E2E tests.
  *
  * SPEC-AUTH01-E2E-1: Admin sends invite via team page → success toast
- *                    + real invite email delivered to wbd@tut.by via Resend.
+ *                    + invite email delivered via Resend.
  *
  * SPEC-AUTH01-E2E-2: Invited user follows magic link callback →
  *                    NextAuth creates session → redirects to /dashboard.
@@ -11,7 +11,7 @@ import { test, expect } from "@playwright/test"
 import { createHash, randomBytes } from "crypto"
 import { Client } from "pg"
 
-const INVITE_EMAIL = "wbd@tut.by"
+const INVITE_EMAIL = process.env.E2E_INVITE_EMAIL ?? "invite-test@example.com"
 const TENANT_ID = "e2e-tenant-fixed"
 const DB_URL =
     process.env.DATABASE_URL ||
@@ -51,7 +51,7 @@ test.describe("Invite flow — admin sends invite email", () => {
     })
 
     test(
-        "SPEC-AUTH01-E2E-1: invite form → success toast + real email to wbd@tut.by",
+        "SPEC-AUTH01-E2E-1: invite form → success toast + invite email sent",
         async ({ page }) => {
             // Sign in fresh as ADMIN using dev credentials provider
             await page.goto("/api/auth/signin")

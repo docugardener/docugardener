@@ -6,7 +6,7 @@ async function main() {
     await prisma.$connect()
 
     // 1. Get the user's tenant
-    const userEmail = "wbd@tut.by"
+    const userEmail = process.env.SEED_USER_EMAIL ?? "admin@example.com"
     const user = await prisma.user.findUnique({
         where: { email: userEmail },
         include: { tenant: true }
