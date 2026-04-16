@@ -245,13 +245,14 @@ OLLAMA_MODEL=llama3.2
 | On-premise Helm chart (K8s) | — | — | ✅ |
 | Priority support | — | — | ✅ |
 
-> ¹ Platform LLM analyses using the bundled key (shared €10/month operator budget). BYOK tenants are limited only by their own API quota and the optional per-tenant budget in Settings.
+> ¹ Platform LLM analyses using the bundled key. BYOK tenants are limited only by their own API quota and the optional per-tenant budget in Settings.
 
-> **Self-hosted operators:** Plan limits are configurable defaults, not hard walls. Change a tenant's plan in the owner console or directly:
+> **Self-hosted operators:** Plan limits are configurable defaults, not hard walls.
+> Change a tenant's plan in **Settings → Billing** (owner console) or directly:
 > ```sql
 > UPDATE "Tenant" SET plan = 'TEAM' WHERE id = '<tenant-id>';
 > ```
-> The limits exist to help you manage your own LLM costs — see the Platform LLM table above. Self-hosters who set `BUNDLED_GEMINI_KEY` can adjust the shared cap via `PLATFORM_LLM_MONTHLY_CAP_EUR` (default €10, set to 0 to disable).
+> The limits exist to help you manage your own LLM costs — not DocuGardener-imposed paywalls.
 
 ## 👥 Team Management & Multi-Tenancy
 
