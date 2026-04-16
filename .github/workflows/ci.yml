@@ -75,7 +75,7 @@ jobs:
       - name: SCA — Python dependency audit (CI-04)
         run: |
           pip install pip-audit
-          pip-audit --skip-editable || true
+          pip-audit --skip-editable
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
