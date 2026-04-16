@@ -15,6 +15,7 @@ from src.core.config import settings
 from src.core.logging import get_logger
 from src.monitoring.metrics import record_webhook
 from src.monitoring.performance import RateLimiter
+from src.api._platform_cap import check_platform_llm_cap, stamp_platform_llm_flag  # PH15-01
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -503,44 +504,13 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
                     .first()
                 )
                 if _bt:
-                    # Platform safety cap: FREE tenants using the bundled key get max $0.50/mo
-                    # regardless of their budget setting. This protects platform LLM costs.
-                    _PLATFORM_FREE_CAP_USD = 0.50
+                    # Operator-wide platform LLM cap — PH15-01
                     _llm_cfg = dict(_bt.llmConfig) if _bt.llmConfig else {}
-                    _using_platform_llm = not _llm_cfg.get("apiKey") and not _llm_cfg.get("baseUrl")
-                    if _bt.plan == "FREE" and _using_platform_llm:
-                        _month_start_cap = datetime.now(UTC).replace(
-                            day=1, hour=0, minute=0, second=0, microsecond=0
-                        )
-                        _cap_jobs = (
-                            _db_budget.query(_BudgetJob)
-                            .filter(
-                                _BudgetJob.tenantId == _bt.id,
-                                _BudgetJob.status == "COMPLETED",
-                                _BudgetJob.createdAt >= _month_start_cap,
-                            )
-                            .all()
-                        )
-                        _platform_spend = sum(
-                            (j.result or {}).get("llm_usage", {}).get("estimated_cost_usd", 0.0)
-                            for j in _cap_jobs
-                            if isinstance(j.result, dict)
-                        )
-                        if _platform_spend >= _PLATFORM_FREE_CAP_USD:
-                            logger.warning(
-                                "Platform LLM cap reached for FREE tenant — skipping analysis",
-                                tenant=_bt.id,
-                                spend=_platform_spend,
-                                cap=_PLATFORM_FREE_CAP_USD,
-                            )
-                            return {
-                                "status": "skipped",
-                                "reason": (
-                                    f"Platform LLM budget exhausted (${_platform_spend:.4f} / "
-                                    f"${_PLATFORM_FREE_CAP_USD:.2f}). Configure your own LLM API key in Settings "
-                                    f"or upgrade to Pro for a higher allowance."
-                                ),
-                            }
+                    _cap_result = check_platform_llm_cap(
+                        db=_db_budget, settings=settings, llm_cfg=_llm_cfg
+                    )
+                    if _cap_result is not None:
+                        return _cap_result
 
                 if _bt and _bt.billingConfig:
                     _billing = dict(_bt.billingConfig)

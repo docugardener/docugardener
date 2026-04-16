@@ -132,6 +132,7 @@ class Settings(BaseSettings):
     # Leave empty to disable the fallback (tenants must supply their own key).
     bundled_gemini_key: str = Field(default="")
     bundled_gemini_model: str = Field(default="gemini-2.0-flash")
+    platform_llm_monthly_cap_eur: float = Field(default=10.0)
 
     # Stripe Billing
     # stripe_secret_key:    sk_test_xxx  (sandbox) / sk_live_xxx  (production)

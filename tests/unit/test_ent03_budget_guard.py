@@ -253,6 +253,7 @@ class TestEnt03BudgetGuard:
     async def test_reason_contains_budget_amount(self):
         """
         The skipped reason should contain the budget amount.
+        Bypasses the operator-wide platform cap so the per-tenant guard is tested.
         """
         tenant = _make_tenant("t-6", billing_config={"monthlyBudgetUsd": 25.50})
         jobs = [_make_job(30.0)]
@@ -262,6 +263,7 @@ class TestEnt03BudgetGuard:
         with (
             patch("src.pipeline.job_manager.SessionLocal", return_value=db_session),
             patch("src.worker.queue.get_queue", return_value=mock_queue),
+            patch("src.api.webhooks.check_platform_llm_cap", return_value=None),
         ):
             result = await handle_pull_request(_make_pr_payload(), "delivery-6")
 
@@ -372,6 +374,7 @@ class TestEnt03BudgetGuard:
     async def test_negative_budget_treated_as_disabled(self):
         """
         Negative budget values should be treated as disabled (guard passes).
+        Bypasses the operator-wide platform cap so the per-tenant guard is tested.
         """
         tenant = _make_tenant("t-9", billing_config={"monthlyBudgetUsd": -5.0})
         jobs = [_make_job(100.0)]  # High spend
@@ -382,6 +385,7 @@ class TestEnt03BudgetGuard:
             patch("src.pipeline.job_manager.SessionLocal", return_value=db_session),
             patch("src.worker.queue.get_queue", return_value=mock_queue),
             patch("src.worker.jobs.analyze_pr_job", MagicMock()),
+            patch("src.api.webhooks.check_platform_llm_cap", return_value=None),
         ):
             result = await handle_pull_request(_make_pr_payload(), "delivery-10")
 

@@ -5,7 +5,7 @@ import { useState, useCallback } from "react"
 import {
     Bot, RefreshCw, ExternalLink,
     CheckCircle, AlertTriangle, Circle,
-    ChevronDown, ChevronUp, Loader2,
+    ChevronDown, ChevronUp, Loader2, InfoIcon,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { UpgradeContextCard } from "@/components/billing/UpgradeContextCard"
@@ -292,6 +292,19 @@ export function AgentRulesPanel({ repos, isPro }: AgentRulesPanelProps) {
 
     return (
         <div className="space-y-4">
+            {/* PH15-04: Advisory framing */}
+            <div className="flex items-start gap-2 rounded-md bg-muted/50 border p-3 text-sm text-muted-foreground">
+                <InfoIcon className="h-4 w-4 mt-0.5 shrink-0 text-blue-500" />
+                <span>
+                    Rules are compiled into standard agent instruction files (AGENTS.md, CLAUDE.md,{" "}
+                    <code className="text-xs">.cursor/rules</code>) and committed to your repo via PR.
+                    Enforcement relies on your agents reading these files — DocuGardener does not
+                    block PRs that violate them.{" "}
+                    <a href="/docs/user-guide/agent-governance" className="underline hover:no-underline">
+                        Learn more →
+                    </a>
+                </span>
+            </div>
             {/* DG-SAAS-05: Free plan quota banner */}
             {!isPro && (<>
                 <div

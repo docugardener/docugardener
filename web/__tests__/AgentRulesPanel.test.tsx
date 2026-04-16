@@ -21,6 +21,7 @@ vi.mock("lucide-react", () => ({
   ChevronDown: () => <span>ChevronDown</span>,
   ChevronUp: () => <span>ChevronUp</span>,
   Loader2: () => <span>Loader2</span>,
+  InfoIcon: () => <span>InfoIcon</span>,
 }))
 
 vi.mock("@/components/ui/badge", () => ({

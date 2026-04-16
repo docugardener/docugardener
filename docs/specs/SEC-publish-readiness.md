@@ -1,7 +1,8 @@
 # SEC — Public GitHub Publish: Security Readiness
 
-**Date:** 2026-04-14
-**Status:** Pending — all items are hard gates before `git init`
+**Date:** 2026-04-14  
+**Updated:** 2026-04-16  
+**Status:** ✅ All blockers resolved — repo is public-ready
 **Scope:** Pre-publish security audit findings and remediation checklist for DocuGardener going to public GitHub (`github.com/docugardener`)
 **License:** AGPL-3.0-or-later
 
@@ -274,24 +275,9 @@ __pycache__/
 
 ---
 
-### SEC-M2 — Gitleaks in CI
+### SEC-M2 — Gitleaks in CI ✅ Complete 2026-04-16
 
-**Add to `.github/workflows/ci.yml`** — secrets scan job (as in NestFleet):
-
-```yaml
-secrets-scan:
-  name: Secrets Scan
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - uses: gitleaks/gitleaks-action@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
-
-Runs on every push and PR. Fails fast if any credential pattern is detected.
+Added to `.github/workflows/ci.yml` as a parallel `secrets-scan` job using `gitleaks/gitleaks-action@v2` with `fetch-depth: 0` (full history). Runs on every push and PR. Commit: `2c53c2c`.
 
 ---
 
@@ -314,22 +300,36 @@ Runs on every push and PR. Fails fast if any credential pattern is detected.
 
 ```
 SEC-C items (before git init):
-[ ] SEC-C1  Rotate all credentials listed above
-[ ] SEC-C2  Confirm secrets/ never committed; verify .gitignore
-[ ] SEC-C3  Fix docker-compose.yml — Smee URL + Postgres password
-[ ] SEC-C4  Fix Helm chart license annotation
+[x] SEC-C1  Rotate all credentials listed above  ✅ done before first commit
+[x] SEC-C2  Confirm secrets/ never committed; verify .gitignore  ✅
+[x] SEC-C3  Fix docker-compose.yml — Smee URL + Postgres password  ✅
+[x] SEC-C4  Fix Helm chart license annotation  ✅
 
 SEC-H items (before first public push):
-[ ] SEC-H1  Bulk-add SPDX headers — all Python + TypeScript files
-[ ] SEC-H2  Implement BILLING_ENABLED flag + waitlist form
-[ ] SEC-M1  Verify .gitignore explicit coverage
-[ ] SEC-M2  Add gitleaks step to ci.yml
+[x] SEC-H1  Bulk-add SPDX headers — all Python + TypeScript files  ✅
+[x] SEC-H2  Implement BILLING_ENABLED flag + waitlist form  ✅
+[x] SEC-M1  Verify .gitignore explicit coverage  ✅
+[x] SEC-M2  Add gitleaks step to ci.yml  ✅ 2026-04-16
+
+Additional blockers found in 2026-04-16 audit (B1–B5):
+[x] B1  Remove personal email wbd@tut.by from source files  ✅ 2026-04-16 (commit 2c53c2c)
+[x] B2  Gitignore docs/ORGA-01-Launch-Setup.md (personal Gmail inside)  ✅ 2026-04-16
+[x] B3  = SEC-M2 (Gitleaks)  ✅ 2026-04-16
+[x] B4  Gitignore .infisical.json; dev.sh reads INFISICAL_PROJECT_ID env var  ✅ 2026-04-16
+[x] B5  Remove SkillSeal/NestFleet from docker-compose.yml comments  ✅ 2026-04-16
 
 Final gate:
-[ ] git init → git add . → git status (verify no .env / .pem / secrets/)
-[ ] git commit -m "chore: initial commit"
-[ ] git remote add origin git@github.com:docugardener/docugardener.git
-[ ] git push -u origin main
+[x] git init → git add . → git status (verify no .env / .pem / secrets/)  ✅
+[x] git commit -m "chore: initial commit"  ✅ (initial public commit 2026-04-14)
+[x] git remote add origin git@github.com:docugardener/docugardener.git  ✅
+[x] git push -u origin main  ✅ (production live at docugardener.dev since 2026-04-15)
+
+Deferred (medium/low — post-publish):
+[ ] M1  .env.example:36 — smee.io channel → YOUR_CHANNEL_ID
+[ ] M2  Replace /Users/Alexey_Kopachev local paths in DEPLOYMENT.md + TROUBLESHOOTING.md
+[ ] M3  deploy.yml APP_URL — add self-hoster comment
+[ ] L1  AGPL §13 — add Source Code link to MarketingFooter.tsx
+[ ] L2  Add read_files*.py / tmp_read.py to .gitignore
 ```
 
 ---
@@ -339,3 +339,4 @@ Final gate:
 | Date | Change |
 |------|--------|
 | 2026-04-14 | Initial spec — created from SA/PO security audit prior to first public commit |
+| 2026-04-16 | All blockers resolved. B1–B5 from follow-up audit cleared (commit 2c53c2c). SEC-M2 (Gitleaks) added to CI. Status updated to ✅ public-ready. Deferred M1–M3, L1–L2 items added to checklist. |

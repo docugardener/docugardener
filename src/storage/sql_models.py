@@ -135,6 +135,7 @@ class Job(Base):
         SQLEnum(TriageStatus, name="TriageStatus", native_enum=False), default=TriageStatus.PENDING
     )
     aiAuthored = Column(Boolean, default=False)
+    usedPlatformLlm = Column(Boolean, default=False, nullable=True)  # PH15-01
     result = Column(JSON, nullable=True)
     logs = Column(JSON, nullable=True)
 

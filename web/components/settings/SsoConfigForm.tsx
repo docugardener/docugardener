@@ -2,6 +2,7 @@
 "use client"
 
 import { useState } from "react"
+import { InfoIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -81,6 +82,18 @@ export function SsoConfigForm({ spEntityId, spAcsUrl, initialConfig }: SsoConfig
 
     return (
         <div className="space-y-8">
+            {/* PH15-03a: Early Access banner */}
+            <div className="flex items-start gap-2 rounded-md border border-blue-800 bg-blue-950/30 p-3 text-sm text-blue-300">
+                <InfoIcon className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>
+                    <strong>Early Access</strong> — SSO/SAML works with Okta and standard SAML 2.0
+                    identity providers. For assisted setup or to report issues, contact{" "}
+                    <a href="mailto:support@docugardener.dev" className="underline">
+                        support@docugardener.dev
+                    </a>
+                    .
+                </span>
+            </div>
             {/* Enable toggle */}
             <div className="flex items-center justify-between">
                 <div>

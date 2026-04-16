@@ -20,6 +20,8 @@ Master index of detailed feature specifications for the "MVP to Enterprise" road
 | _(strategy)_ | [**GTM-09 — SaaS-First Bootstrap Strategy**](GTM-09-SaaS-First-Bootstrap-Strategy.md) | Decision record: drop OSS community edition, go SaaS-first. Acquisition channels, stability target, competitive moat ranking. | ✅ Drafted 2026-03-12 |
 | _(strategy)_ | [**PlatformCloud Strategy & Commercial Flow Assessment - Mar 2026**](../Archive/PlatformCloud%20Strategy%20%26%20Commercial%20Flow%20Assessment%20-%20Mar%202026.md) | Decision-oriented assessment of SaaS-first vs self-hosted vs hybrid for the product family. **ARCHIVED 2026-03-30** — superseded by strategic pivot to AGPL SaaS-first. See Phase 12 in main backlog. | ⛔ Archived |
 | _(distribution)_ | **Phase-8-Hybrid-Distribution-Model** | Hybrid client-installed distribution spec with PlatformCloud billing proxy. **ARCHIVED 2026-03-30** — PlatformCloud is frozen. | ⛔ Archived |
+| [PH15](PH15-self-hosted-hardening.md) | **Phase 15 — Self-Hosted Hardening & Settings Readiness** | Platform LLM €10 cap, README self-hosted framing, SAML/SSO Okta prod validation, Agent Governance advisory framing, Helm OCI publish spike, Integrations failure surface. | 🔲 Planned — next sprint |
+| [SEC-publish](SEC-publish-readiness.md) | **SEC — Public GitHub Publish Readiness** | Pre-publish audit findings + remediation. All B1–B5 blockers resolved 2026-04-16. M1–M3 / L1–L2 deferred. | ✅ Blockers resolved |
 
 ---
 

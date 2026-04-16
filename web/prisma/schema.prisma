@@ -142,6 +142,9 @@ model Job {
   fixPrUrl     String?   // Stores URL of the generated Auto-PR (DX-01)
   logs         Json?     // Array of log entries
 
+  // PH15-01: tracks whether the bundled operator Gemini key was used (for cost cap)
+  usedPlatformLlm Boolean @default(false)
+
   startedAt    DateTime?
   completedAt  DateTime?
   createdAt    DateTime  @default(now())
