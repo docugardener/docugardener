@@ -96,4 +96,6 @@ async def diagnostics() -> dict[str, Any]:
         "weaviate": weaviate_result,
         "timestamp": datetime.now(UTC).isoformat(),
     }
+
+
 # Diagnostics endpoint — added in this PR
