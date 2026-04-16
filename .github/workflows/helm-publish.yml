@@ -163,6 +163,9 @@ jobs:
           cluster_name: docugardener-test
           kubectl_version: v1.29.0
 
+      - name: Helm dependency update
+        run: helm dependency update ${{ env.CHART_PATH }} || true
+
       - name: Create namespace + secret
         run: |
           kubectl create namespace docugardener
@@ -247,6 +250,13 @@ jobs:
         run: |
           helm push /tmp/helm-pkg/docugardener-${{ steps.chart_version.outputs.version }}.tgz \
             oci://${{ env.REGISTRY }}/docugardener/helm
+
+      - name: Log in to GHCR (Docker — required for cosign)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sign chart with cosign (keyless OIDC)
         run: |
