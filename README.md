@@ -41,7 +41,7 @@ DocuGardener is the documentation safety net for AI-native engineering teams. As
 | **Docker Compose** | Local dev, single-server |
 | **Kubernetes / Helm** | On-premise regulated environments (TEAM plan), HA production |
 
-For Kubernetes, the Helm chart (`helm/docugardener/`) is published to `oci://ghcr.io/docugardener/helm/docugardener`. It ships PSA-restricted compliant, with NetworkPolicies and air-gap support. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#kubernetes-deployment-ent-13) and the chart's own [helm/docugardener/README.md](helm/docugardener/README.md).
+For Kubernetes, the Helm chart (`helm/docugardener/`) ships with PSA-restricted manifests, NetworkPolicies, and air-gap mode. OCI registry publishing (`oci://ghcr.io/docugardener/helm/docugardener`) and first enterprise K8s validation are planned for Q2 2026. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#kubernetes-deployment-ent-13) and the chart's own [helm/docugardener/README.md](helm/docugardener/README.md).
 
 ---
 
@@ -192,7 +192,7 @@ DocuGardener has three ways to run the AI analysis engine. Understanding this up
 
 | Mode | Who pays for LLM? | Cost to you | Notes |
 |---|---|---|---|
-| **Platform LLM (default)** | DocuGardener | Free up to limits | Uses a bundled Gemini Flash key. FREE plan: 50 PR analyses / month, capped at $0.50 platform cost. |
+| **Platform LLM (default)** | DocuGardener | Free up to limits | Uses a bundled Gemini Flash key. Shared €10/month operator budget (~8,000 PR analyses). Once the monthly budget is reached, analyses prompt users to configure their own API key. Self-hosters control this via `PLATFORM_LLM_MONTHLY_CAP_EUR`. |
 | **BYOK — Cloud API** | You (your API key) | $0 to DocuGardener | Bring your own Gemini / OpenAI key in Settings. No platform cost cap, but your key is billed by the provider. |
 | **BYOK — Local (Ollama)** | You (CPU/GPU) | $0 to anyone | Run any Ollama model locally. Set `LLM_PROVIDER=ollama` and `OLLAMA_URL` in your `.env`. |
 
@@ -227,7 +227,7 @@ OLLAMA_MODEL=llama3.2
 | | Free | Pro | Team |
 |---|:---:|:---:|:---:|
 | Repositories | 1 public | 5 | Unlimited |
-| PR analyses / month | 50 | 500 | Unlimited |
+| PR analyses / month ¹ | 50 | 500 | Unlimited |
 | Seat count | 1 | 10 | 100 |
 | Private repos | — | ✅ | ✅ |
 | 14-day PRO trial | ✅ (once) | — | — |
@@ -244,6 +244,14 @@ OLLAMA_MODEL=llama3.2
 | Session idle timeout | — | — | ✅ |
 | On-premise Helm chart (K8s) | — | — | ✅ |
 | Priority support | — | — | ✅ |
+
+> ¹ Platform LLM analyses using the bundled key (shared €10/month operator budget). BYOK tenants are limited only by their own API quota and the optional per-tenant budget in Settings.
+
+> **Self-hosted operators:** Plan limits are configurable defaults, not hard walls. Change a tenant's plan in the owner console or directly:
+> ```sql
+> UPDATE "Tenant" SET plan = 'TEAM' WHERE id = '<tenant-id>';
+> ```
+> The limits exist to help you manage your own LLM costs — see the Platform LLM table above. Self-hosters who set `BUNDLED_GEMINI_KEY` can adjust the shared cap via `PLATFORM_LLM_MONTHLY_CAP_EUR` (default €10, set to 0 to disable).
 
 ## 👥 Team Management & Multi-Tenancy
 

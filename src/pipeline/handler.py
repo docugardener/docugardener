@@ -471,7 +471,24 @@ async def process_pull_request(
                         summary=result.drift_analysis.summary,
                         entities=entities,
                     )
-                    await dispatcher.dispatch_drift_alert(record, jira_ticket_key=jira_ticket_key)
+                    _dispatch_results = await dispatcher.dispatch_drift_alert(record, jira_ticket_key=jira_ticket_key)
+                    # Persist integration dispatch status (PH15-06) — non-fatal
+                    if _dispatch_results:
+                        try:
+                            from src.pipeline.job_manager import get_db
+                            from src.storage.sql_models import Tenant as _TenantModel
+                            _db_st = next(get_db())
+                            try:
+                                _t = _db_st.query(_TenantModel).filter(_TenantModel.id == tenant_id).first()
+                                if _t:
+                                    _wc = dict(_t.workflowConfig) if _t.workflowConfig else {}
+                                    _wc["integrationStatus"] = _dispatch_results
+                                    _t.workflowConfig = _wc
+                                    _db_st.commit()
+                            finally:
+                                _db_st.close()
+                        except Exception as _st_err:
+                            logger.warning("Failed to persist integration dispatch status", error=str(_st_err))
                     # Persist GitHub and Linear issue references for fix-PR resolution
                     _gh_issue_num = getattr(record, "github_issue_number", None)
                     _gh_issue_repo = getattr(record, "github_issue_repo", None)

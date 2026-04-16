@@ -9,6 +9,8 @@ export function MarketingFooter() {
       <Link href="/privacy" className="hover:text-gray-600 transition">Privacy</Link>
       <span>&middot;</span>
       <span>&copy; {new Date().getFullYear()} DocuGardener. All rights reserved.</span>
+      <span>&middot;</span>
+      <a href="https://github.com/docugardener/docugardener" className="hover:text-gray-600 transition">Source (AGPL-3.0)</a>
     </footer>
   )
 }

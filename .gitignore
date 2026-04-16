@@ -145,3 +145,9 @@ test_node_decrypt.ts
 web/extract-creds.ts
 debug_sim.json
 drift_simulation_*.txt
+
+# Scratch / temp scripts generated during development sessions
+read_files.py
+read_files.sh
+read_files_2.sh
+tmp_read.py

@@ -1,6 +1,6 @@
 # DocuGardener Troubleshooting Guide
 
-> **Session Log**: Issues encountered during WORK-01 development phase (5 PRs submitted to `alexeykopachev/root`)
+> **Session Log**: Issues encountered during initial development phase.
 
 This document serves as a reference for developers to avoid repeating known issues. Each entry follows a consistent **Problem - Root Cause - Fix** format.
 
@@ -616,7 +616,7 @@ MAX_PROCESSING_TIME=600 nohup .venv/bin/python -m uvicorn src.main:app \
     --host 0.0.0.0 --port 8000 --reload > uvicorn.log 2>&1 &
 
 # 4. Start RQ worker
-cd /Users/Alexey_Kopachev/Alex/AI\ Projects/DocuGardener && \
+cd /path/to/docugardener && \
     .venv/bin/rq worker --with-scheduler
 
 # 5. Start Next.js dev server

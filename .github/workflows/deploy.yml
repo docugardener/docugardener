@@ -11,7 +11,7 @@
 #   HETZNER_SSH_KEY  — private key for the deploy user
 #
 # Required GitHub Actions variables (vars.*):
-#   APP_URL                     — https://docugardener.dev
+#   APP_URL                     — your public URL, e.g. https://docugardener.dev
 #   NEXT_PUBLIC_BILLING_ENABLED — false  (flip to true when legal entity ready)
 # =============================================================================
 

@@ -45,6 +45,7 @@ vi.mock("lucide-react", () => ({
     Triangle: () => <span data-testid="icon-triangle" />,
     Circle: () => <span data-testid="icon-circle" />,
     FlaskConical: () => <span data-testid="icon-flask" />,
+    AlertCircle: () => <span data-testid="icon-alert-circle" />,
 }))
 
 // ── Mock next/link ─────────────────────────────────────────────────────────────
@@ -55,14 +56,18 @@ vi.mock("next/link", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function statusResponse(overrides: Partial<Record<"slack" | "jira" | "linear" | "githubIssues", boolean>> = {}) {
-    return {
-        slack: false,
-        jira: false,
-        linear: false,
-        githubIssues: false,
-        ...overrides,
+type StatusEntry = { configured: boolean; status?: "ok" | "error"; lastError?: string; lastAttemptAt?: string }
+function statusResponse(overrides: Partial<Record<"slack" | "jira" | "linear" | "githubIssues", StatusEntry | boolean>> = {}) {
+    const base: Record<string, StatusEntry> = {
+        slack: { configured: false },
+        jira: { configured: false },
+        linear: { configured: false },
+        githubIssues: { configured: false },
     }
+    for (const [k, v] of Object.entries(overrides)) {
+        base[k] = typeof v === "boolean" ? { configured: v } : v
+    }
+    return base
 }
 
 function testResponse(ok: boolean, error?: string) {

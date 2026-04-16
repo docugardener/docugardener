@@ -25,7 +25,7 @@ Before deploying, ensure you have:
 
 2. Fill in the form:
    - **Name**: `DocuGardener-YourOrg`
-   - **Homepage URL**: `https://github.com/alexeykopachev/root` (or any valid HTTPS URL)
+   - **Homepage URL**: `https://your-domain.example.com` (or any valid HTTPS URL)
    - **Webhook URL**: Go to [smee.io](https://smee.io), click "Start a new channel", and paste that URL here.
    - **Webhook Secret**: Generate a secure random string
 
@@ -59,7 +59,7 @@ Before deploying, ensure you have:
 Copy `.env.example` to `.env` and fill in:
 
 ```bash
-cd /Users/Alexey_Kopachev/Alex/AI\ Projects/DocuGardener
+cd /path/to/docugardener
 cp .env.example .env
 ```
 
@@ -205,7 +205,7 @@ Since we used smee.io for the webhook, we need to forward it to our local instan
 
 ## Step 11: Test with a PR
 
-1. Create a test PR in `https://github.com/alexeykopachev/root` (or your configured test repo)
+1. Create a test PR in your configured test repository
 2. Watch the logs: `docker-compose -f docker/docker-compose.yml logs -f docugardener`
 3. You should see:
    - Webhook received

@@ -11,11 +11,14 @@ from typing import Any
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 
+from src.api._platform_cap import (  # noqa: F401 — re-exported (PH15-01)
+    check_platform_llm_cap,
+    stamp_platform_llm_flag,
+)
 from src.core.config import settings
 from src.core.logging import get_logger
 from src.monitoring.metrics import record_webhook
 from src.monitoring.performance import RateLimiter
-from src.api._platform_cap import check_platform_llm_cap, stamp_platform_llm_flag  # PH15-01
 
 router = APIRouter()
 logger = get_logger(__name__)

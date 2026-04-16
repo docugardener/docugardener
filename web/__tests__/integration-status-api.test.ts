@@ -2,10 +2,10 @@
  * GAP-INT-4: Integration status and test-ping endpoints.
  *
  * GET  /api/settings/integrations/status
- *   - Returns { slack, jira, linear, githubIssues } boolean flags
+ *   - Returns { slack, jira, linear, githubIssues } status objects with .configured boolean
  *   - Requires auth; 401 when unauthenticated
- *   - Returns false for unconfigured integrations
- *   - Returns true only when config fields are present
+ *   - Returns configured:false for unconfigured integrations
+ *   - Returns configured:true only when config fields are present
  *
  * POST /api/settings/integrations/test?type=slack|jira|linear
  *   - 400 when type is missing or invalid
@@ -66,12 +66,10 @@ describe("GET /api/settings/integrations/status", () => {
         const res = await GET(new Request("http://localhost/api/settings/integrations/status"))
         expect(res.status).toBe(200)
         const body = await res.json()
-        expect(body).toMatchObject({
-            slack: false,
-            jira: false,
-            linear: false,
-            githubIssues: false,
-        })
+        expect(body.slack.configured).toBe(false)
+        expect(body.jira.configured).toBe(false)
+        expect(body.linear.configured).toBe(false)
+        expect(body.githubIssues.configured).toBe(false)
     })
 
     it("returns slack:true when slack.webhookUrl is set", async () => {
@@ -83,8 +81,8 @@ describe("GET /api/settings/integrations/status", () => {
         const { GET } = await import("@/app/api/settings/integrations/status/route")
         const res = await GET(new Request("http://localhost/api/settings/integrations/status"))
         const body = await res.json()
-        expect(body.slack).toBe(true)
-        expect(body.jira).toBe(false)
+        expect(body.slack.configured).toBe(true)
+        expect(body.jira.configured).toBe(false)
     })
 
     it("returns jira:true when jira.host and apiToken are set", async () => {
@@ -96,8 +94,8 @@ describe("GET /api/settings/integrations/status", () => {
         const { GET } = await import("@/app/api/settings/integrations/status/route")
         const res = await GET(new Request("http://localhost/api/settings/integrations/status"))
         const body = await res.json()
-        expect(body.jira).toBe(true)
-        expect(body.slack).toBe(false)
+        expect(body.jira.configured).toBe(true)
+        expect(body.slack.configured).toBe(false)
     })
 
     it("returns linear:true when linear.apiToken is set", async () => {
@@ -109,7 +107,7 @@ describe("GET /api/settings/integrations/status", () => {
         const { GET } = await import("@/app/api/settings/integrations/status/route")
         const res = await GET(new Request("http://localhost/api/settings/integrations/status"))
         const body = await res.json()
-        expect(body.linear).toBe(true)
+        expect(body.linear.configured).toBe(true)
     })
 
     it("returns githubIssues:true when enabled and repo are set", async () => {
@@ -121,7 +119,7 @@ describe("GET /api/settings/integrations/status", () => {
         const { GET } = await import("@/app/api/settings/integrations/status/route")
         const res = await GET(new Request("http://localhost/api/settings/integrations/status"))
         const body = await res.json()
-        expect(body.githubIssues).toBe(true)
+        expect(body.githubIssues.configured).toBe(true)
     })
 })
 

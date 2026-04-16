@@ -13,11 +13,8 @@ re-export path so callers can import from either location.
 """
 from __future__ import annotations
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
-
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -65,7 +62,6 @@ def _build_db_mock(platform_jobs: list) -> MagicMock:
 
 # Primary import path — implementation module
 from src.api._platform_cap import check_platform_llm_cap, stamp_platform_llm_flag  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Test 1 — cap blocks when operator-wide spend >= cap

@@ -24,11 +24,20 @@ export async function GET(req: Request) {
     })
 
     const wc = (tenant?.workflowConfig as any) || {}
+    const is = wc.integrationStatus || {}  // PH15-06: per-integration dispatch results
+
+    function statusEntry(key: string, configured: boolean) {
+        const s = is[key]
+        return {
+            configured,
+            ...(s ? { status: s.status, lastAttemptAt: s.lastAttemptAt, lastError: s.lastError ?? null } : {}),
+        }
+    }
 
     return NextResponse.json({
-        slack:       !!(wc.slack?.webhookUrl),
-        jira:        !!(wc.jira?.host && wc.jira?.apiToken),
-        linear:      !!(wc.linear?.apiToken),
-        githubIssues: !!(wc.githubIssues?.enabled && wc.githubIssues?.repo),
+        slack:        statusEntry("slack",        !!(wc.slack?.webhookUrl)),
+        jira:         statusEntry("jira",         !!(wc.jira?.host && wc.jira?.apiToken)),
+        linear:       statusEntry("linear",       !!(wc.linear?.apiToken)),
+        githubIssues: statusEntry("githubIssues", !!(wc.githubIssues?.enabled && wc.githubIssues?.repo)),
     })
 }

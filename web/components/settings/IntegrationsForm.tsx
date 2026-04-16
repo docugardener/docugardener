@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
-import { Slack, CheckCircle2, Lock, ExternalLink, GitBranch, Triangle, Circle, FlaskConical } from "lucide-react"
+import { Slack, CheckCircle2, Lock, ExternalLink, GitBranch, Triangle, Circle, FlaskConical, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { UpgradeContextCard } from "@/components/billing/UpgradeContextCard"
 
@@ -89,12 +89,44 @@ function LockedCard({ label }: { label: string }) {
 
 // ─── Status dot ────────────────────────────────────────────────────────────
 type IntegrationKey = "slack" | "jira" | "linear" | "githubIssues"
-type StatusMap = Record<IntegrationKey, boolean>
+type IntegrationStatusEntry = {
+    configured: boolean
+    status?: "ok" | "error"
+    lastAttemptAt?: string
+    lastError?: string | null
+}
+type StatusMap = Record<IntegrationKey, IntegrationStatusEntry>
 
 function StatusDot({ type, status }: { type: IntegrationKey; status: StatusMap | null }) {
     if (!status) return null
-    const configured = status[type]
-    return configured ? (
+    const entry = status[type]
+    if (!entry.configured) {
+        return (
+            <span
+                data-testid={`status-${type}-empty`}
+                className="flex items-center gap-1 text-xs text-muted-foreground"
+            >
+                <Circle className="w-2 h-2 fill-muted-foreground text-muted-foreground opacity-40" />
+                Not configured
+            </span>
+        )
+    }
+    if (entry.status === "error") {
+        const title = entry.lastError
+            ? `Last attempt failed: ${entry.lastError}`
+            : "Last dispatch attempt failed"
+        return (
+            <span
+                data-testid={`status-${type}-error`}
+                className="flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400"
+                title={title}
+            >
+                <AlertCircle className="w-3 h-3" />
+                Last attempt failed
+            </span>
+        )
+    }
+    return (
         <span
             data-testid={`status-${type}-configured`}
             className="flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400"
@@ -102,21 +134,13 @@ function StatusDot({ type, status }: { type: IntegrationKey; status: StatusMap |
             <Circle className="w-2 h-2 fill-green-500 text-green-500" />
             Connected
         </span>
-    ) : (
-        <span
-            data-testid={`status-${type}-empty`}
-            className="flex items-center gap-1 text-xs text-muted-foreground"
-        >
-            <Circle className="w-2 h-2 fill-muted-foreground text-muted-foreground opacity-40" />
-            Not configured
-        </span>
     )
 }
 
 // ─── Send Test button ───────────────────────────────────────────────────────
 function SendTestButton({ type, status }: { type: "slack" | "jira" | "linear"; status: StatusMap | null }) {
     const [testing, setTesting] = useState(false)
-    if (!status || !status[type]) return null
+    if (!status || !status[type]?.configured) return null
 
     const handleTest = async () => {
         setTesting(true)

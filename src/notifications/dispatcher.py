@@ -4,6 +4,7 @@ Notification Dispatcher for integrating DocuGardener Drift Alerts
 with external workflows: Slack, Jira, Linear, GitHub Issues.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -49,12 +50,20 @@ class NotificationDispatcher:
 
     async def dispatch_drift_alert(
         self, drift_record: Any, jira_ticket_key: str | None = None
-    ) -> None:
-        """Dispatch a drift alert to all configured integrations."""
+    ) -> dict[str, dict[str, str]]:
+        """Dispatch a drift alert to all configured integrations.
+
+        Returns a dict of per-integration dispatch results, e.g.:
+          {"slack": {"status": "ok", "lastAttemptAt": "..."},
+           "jira":  {"status": "error", "lastError": "...", "lastAttemptAt": "..."}}
+        Only integrations that were actually attempted are included.
+        """
+        results: dict[str, dict[str, str]] = {}
         if not self.config:
             logger.debug("No workflow configuration found, skipping dispatch.")
-            return
+            return results
 
+        now_iso = datetime.now(UTC).isoformat()
         owner = getattr(drift_record, "owner", "unknown")
         repo = getattr(drift_record, "repo", "unknown")
         pr_number = getattr(drift_record, "pr_number", 0)
@@ -69,8 +78,10 @@ class NotificationDispatcher:
             if slack_config and slack_config.get("webhookUrl"):
                 try:
                     await self._send_slack_alert(drift_record, decrypt(slack_config["webhookUrl"]))
+                    results["slack"] = {"status": "ok", "lastAttemptAt": now_iso}
                 except Exception as e:
                     logger.error("Failed to send Slack alert", error=str(e))
+                    results["slack"] = {"status": "error", "lastError": str(e)[:300], "lastAttemptAt": now_iso}
 
         # ── Jira (PRO+) — comment on existing linked ticket ───────────────
         if self._has_feature("integrations_jira"):
@@ -91,12 +102,14 @@ class NotificationDispatcher:
                             f"Review and action required in the DocuGardener Inbox."
                         )
                         await self.post_jira_lifecycle_comment(jira_ticket_key, comment)
+                        results["jira"] = {"status": "ok", "lastAttemptAt": now_iso}
                     except Exception as e:
                         logger.error(
                             "Failed to post Jira drift comment",
                             ticket=jira_ticket_key,
                             error=str(e),
                         )
+                        results["jira"] = {"status": "error", "lastError": str(e)[:300], "lastAttemptAt": now_iso}
             else:
                 logger.debug("No Jira ticket key found in PR — skipping Jira notification")
 
@@ -123,8 +136,10 @@ class NotificationDispatcher:
                             drift_record.linear_issue_id = _linear_issue_id
                         except Exception:
                             pass
+                    results["linear"] = {"status": "ok", "lastAttemptAt": now_iso}
                 except Exception as e:
                     logger.error("Failed to create Linear issue", error=str(e))
+                    results["linear"] = {"status": "error", "lastError": str(e)[:300], "lastAttemptAt": now_iso}
 
         # ── GitHub Issues (all plans) — create issue ───────────────────────
         gh_issues_config = self.config.get("githubIssues")
@@ -145,14 +160,17 @@ class NotificationDispatcher:
                     labels=["documentation", "drift"],
                 )
                 if issue_number:
-                    # Store issue number on the drift record for later close
                     try:
                         drift_record.github_issue_number = issue_number
                         drift_record.github_issue_repo = target_repo
                     except Exception:
                         pass
+                results["githubIssues"] = {"status": "ok", "lastAttemptAt": now_iso}
             except Exception as e:
                 logger.error("Failed to create GitHub issue", error=str(e))
+                results["githubIssues"] = {"status": "error", "lastError": str(e)[:300], "lastAttemptAt": now_iso}
+
+        return results
 
     async def _send_slack_alert(self, drift_record: Any, webhook_url: str) -> None:
         """Send a formatted Block Kit message to Slack."""

@@ -84,6 +84,7 @@ export default function EnvironmentPage() {
           <EnvVar name="GEMINI_MODEL" description='Gemini model name. Default: "gemini-2.0-flash".' />
           <EnvVar name="BUNDLED_GEMINI_KEY" description="Operator-supplied Gemini key used for FREE-tier tenants without BYOK. Separate from your own GEMINI_API_KEY." />
           <EnvVar name="BUNDLED_GEMINI_MODEL" description='Model for bundled (non-BYOK) analysis. Default: "gemini-2.0-flash".' />
+          <EnvVar name="PLATFORM_LLM_MONTHLY_CAP_EUR" description="Operator-wide platform LLM cost ceiling in EUR across all tenants combined. Applies only when BUNDLED_GEMINI_KEY is set. Default: 10.0. Set to 0 to disable the cap." example="PLATFORM_LLM_MONTHLY_CAP_EUR=10.0" />
           <EnvVar name="OLLAMA_URL" description="Ollama server URL for local LLM inference." example="OLLAMA_URL=http://localhost:11434" />
           <EnvVar name="OLLAMA_MODEL" description='Ollama model name. Default: "llama3".' />
         </tbody>
