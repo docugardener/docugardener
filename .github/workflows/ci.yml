@@ -197,7 +197,7 @@ jobs:
             | tar -xz -C /usr/local/bin gitleaks
 
       - name: Run gitleaks
-        run: gitleaks detect --source . --log-opts="HEAD~50..HEAD" --redact --no-git=false
+        run: gitleaks detect --source . --log-opts="HEAD~50..HEAD" --redact --no-git=false --config .gitleaks.toml
 
   # Docker Build removed from per-push CI — image is built on the VPS during deploy
   # (docker compose up --build). This avoids the 30-40min cold-build penalty on

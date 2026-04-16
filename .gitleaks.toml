@@ -1,0 +1,12 @@
+title = "DocuGardener gitleaks config"
+
+[allowlist]
+description = "Allowlist test fixture files that contain intentionally fake keys"
+paths = [
+    # Test fixtures — hex strings used as mock AES keys and HMAC tokens,
+    # not real credentials. All values are structurally valid but functionally
+    # meaningless (sequential bytes / abc123 patterns).
+    '''tests/unit/test_encryption_roundtrip\.py''',
+    '''web/__tests__/owner-auth\.test\.ts''',
+    '''web/__tests__/owner-auth-route\.test\.ts''',
+]
