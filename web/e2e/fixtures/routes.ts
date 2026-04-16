@@ -125,6 +125,51 @@ export async function mockSettingsApi(page: Page): Promise<void> {
 }
 
 /**
+ * Mock GET /api/inbox (list) to return a single fixture alert.
+ * The real route proxies to the Python backend (port 8000) which is not
+ * running in the E2E CI environment — without this mock the inbox never loads.
+ */
+export async function mockInboxList(
+    page: Page,
+    jobId: string,
+    repoName: string,
+    triageStatus: "PENDING" | "ACCEPTED" | "IGNORED" = "PENDING"
+): Promise<void> {
+    await page.route("**/api/inbox", (route) => {
+        if (route.request().method() === "GET") {
+            route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify([{
+                    id: jobId,
+                    tenantId: "e2e-tenant-fixed",
+                    repositoryId: "e2e-repo-id-mock",
+                    repositoryName: repoName,
+                    repoOwner: "e2e-org",
+                    headSha: "abc1234567890",
+                    prNumber: 1,
+                    status: "COMPLETED",
+                    triageStatus,
+                    result: {
+                        drift_score: 72,
+                        drift_analysis: { severity: "significant", items: [] },
+                    },
+                    fixPrUrl: null,
+                    aiAuthored: false,
+                    autoFixEnqueued: false,
+                    aiSignal: null,
+                    autoMergeSkipReason: null,
+                    createdAt: new Date().toISOString(),
+                    completedAt: new Date().toISOString(),
+                }]),
+            })
+        } else {
+            route.continue()
+        }
+    })
+}
+
+/**
  * Intercept POST /api/repos to return a controlled sync response.
  * GET /api/repos always returns an empty repo list.
  */

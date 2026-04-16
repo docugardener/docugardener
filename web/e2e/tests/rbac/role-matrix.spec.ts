@@ -12,7 +12,7 @@ import { SidebarComponent } from "../../pages/SidebarComponent"
 import { InboxPage } from "../../pages/InboxPage"
 import { ReportsPage } from "../../pages/ReportsPage"
 import { storageStatePath } from "../../fixtures/auth"
-import { mockBillingApi } from "../../fixtures/routes"
+import { mockBillingApi, mockInboxList } from "../../fixtures/routes"
 import { createFixtureJob, deleteJob } from "../../fixtures/db"
 
 const E2E_TENANT = "e2e-tenant-fixed"
@@ -82,7 +82,8 @@ test("SPEC-RBAC-03: BILLING_ADMIN has finance access only", async ({ browser }) 
     const reports = new ReportsPage(page)
 
     await page.goto("/dashboard")
-    await expect(page).toHaveURL(/\/dashboard\/billing/)
+    await expect(page).toHaveURL(/\/dashboard\/billing/, { timeout: 10_000 })
+    await page.waitForLoadState("networkidle")
 
     await sidebar.assertNavItems("BILLING_ADMIN")
     await sidebar.assertNavAbsent("BILLING_ADMIN")
@@ -120,12 +121,15 @@ test("SPEC-RBAC-04: VIEWER sees read-only inbox", async ({ browser }) => {
         jobId = job.id
         repositoryId = job.repositoryId
 
+        await mockInboxList(page, jobId, "e2e-test-repo")
+
         const sidebar = new SidebarComponent(page)
         const inbox = new InboxPage(page)
         const reports = new ReportsPage(page)
 
         await page.goto("/dashboard")
-        await expect(page).toHaveURL(/\/dashboard\/inbox/)
+        await expect(page).toHaveURL(/\/dashboard\/inbox/, { timeout: 10_000 })
+        await page.waitForLoadState("networkidle")
 
         await sidebar.assertNavItems("VIEWER")
         await sidebar.assertNavAbsent("VIEWER")

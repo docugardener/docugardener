@@ -6,8 +6,8 @@
  * POST /api/repos is mocked via page.route() so tests are independent of
  * the actual GitHub App installation.
  *
- * The "Sync Repositories" button lives inside RepoList, which is embedded in
- * the Reports page (/dashboard/reports).
+ * The "Sync Repositories" button lives inside RepoListCard, which is embedded
+ * in the Settings page (/dashboard/settings).
  */
 import { test, expect } from "@playwright/test"
 import { storageStatePath } from "../../fixtures/auth"
@@ -34,10 +34,11 @@ test("SPEC-GAPE-01: FREE plan — sync warnings appear as toast notifications", 
         // Mock POST /api/repos to return two warnings
         await mockReposSync(page, [PRIVATE_REPO_WARNING, LIMIT_WARNING])
 
-        await page.goto("/dashboard/reports")
-        await page.getByRole("button", { name: "Repositories" }).click()
+        // RepoListCard (with Sync Repositories button) is in Settings, not Reports
+        await page.goto("/dashboard/settings")
+        await page.waitForLoadState("networkidle")
 
-        // Wait for the Sync button inside RepoList
+        // Wait for the Sync button inside RepoListCard
         const syncBtn = page.getByRole("button", { name: /sync repositories/i })
         await syncBtn.waitFor({ timeout: 10_000 })
         await syncBtn.click()
@@ -69,8 +70,8 @@ test("SPEC-GAPE-02: PRO plan — sync with no warnings shows no warning toast", 
         // Mock POST /api/repos to return no warnings
         await mockReposSync(page, [])
 
-        await page.goto("/dashboard/reports")
-        await page.getByRole("button", { name: "Repositories" }).click()
+        await page.goto("/dashboard/settings")
+        await page.waitForLoadState("networkidle")
 
         const syncBtn = page.getByRole("button", { name: /sync repositories/i })
         await syncBtn.waitFor({ timeout: 10_000 })

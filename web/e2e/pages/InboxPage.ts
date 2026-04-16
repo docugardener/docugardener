@@ -5,6 +5,8 @@ export class InboxPage {
 
     async goto() {
         await this.page.goto("/dashboard/inbox")
+        // Wait for the client-side fetch to complete (InboxPageClient fetches on mount)
+        await this.page.waitForLoadState("networkidle")
     }
 
     async assertGettingStartedVisible() {

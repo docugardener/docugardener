@@ -6,7 +6,7 @@
 import { test, expect } from "@playwright/test"
 import { InboxPage } from "../../pages/InboxPage"
 import { storageStatePath } from "../../fixtures/auth"
-import { mockInboxTriage } from "../../fixtures/routes"
+import { mockInboxTriage, mockInboxList } from "../../fixtures/routes"
 import { createFixtureJob, deleteJob } from "../../fixtures/db"
 
 const E2E_TENANT = "e2e-tenant-fixed"
@@ -30,6 +30,7 @@ test("SPEC-INBOX-01: ADMIN can accept drift (mocked)", async ({ browser }) => {
         repositoryId = job.repositoryId
 
         await mockInboxTriage(page, jobId)
+        await mockInboxList(page, jobId, "e2e-accept-repo")
         const inbox = new InboxPage(page)
         await inbox.goto()
         await inbox.selectAlertByRepoName("e2e-accept-repo")
@@ -61,7 +62,9 @@ test("SPEC-INBOX-02: significant alert requires dismiss reason", async ({ browse
         repositoryId = job.repositoryId
 
         await mockInboxTriage(page, jobId)
+        await mockInboxList(page, jobId, "e2e-dismiss-repo")
         await page.goto("/dashboard/inbox")
+        await page.waitForLoadState("networkidle")
 
         await page.getByText("e2e-dismiss-repo").first().click()
 
@@ -102,6 +105,7 @@ test("SPEC-INBOX-03: VIEWER sees read-only inbox", async ({ browser }) => {
         jobId = job.id
         repositoryId = job.repositoryId
 
+        await mockInboxList(page, jobId, "e2e-viewer-repo")
         const inbox = new InboxPage(page)
         await inbox.goto()
         await inbox.selectAlertByRepoName("e2e-viewer-repo")
