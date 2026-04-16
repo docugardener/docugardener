@@ -118,7 +118,7 @@ services:
       - GITHUB_APP_ID=${GITHUB_APP_ID}
       - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH:-/app/secrets/github-app.pem}
       - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
-      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/docugardener-web
+      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@pgbouncer:5432/docugardener-web
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - BUNDLED_GEMINI_KEY=${BUNDLED_GEMINI_KEY}
       - BUNDLED_GEMINI_MODEL=${BUNDLED_GEMINI_MODEL:-gemini-2.0-flash}
@@ -145,8 +145,8 @@ services:
         condition: service_healthy
       weaviate:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
+      pgbouncer:
+        condition: service_started
     networks:
       - docugardener-network
     healthcheck:
@@ -180,7 +180,7 @@ services:
       - GITHUB_APP_ID=${GITHUB_APP_ID}
       - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH:-/app/secrets/github-app.pem}
       - VECTOR_DB_PROVIDER=weaviate
-      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/docugardener-web
+      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@pgbouncer:5432/docugardener-web
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
       - BUNDLED_GEMINI_KEY=${BUNDLED_GEMINI_KEY}
@@ -189,7 +189,43 @@ services:
       - ../secrets:/app/secrets:ro
     depends_on:
       - redis
-      - docugardener
+      - pgbouncer
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # RQ worker-2 — second worker for horizontal scale (SCAL-02)
+  # ---------------------------------------------------------------------------
+  worker-2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: docugardener-worker-2
+    command: rq worker high default --url redis://:${REDIS_PASSWORD}@redis:6379/0
+    stop_grace_period: 60s
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    environment:
+      - APP_ENV=production
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - WEAVIATE_URL=http://weaviate:8080
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH:-/app/secrets/github-app.pem}
+      - VECTOR_DB_PROVIDER=weaviate
+      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@pgbouncer:5432/docugardener-web
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      - BUNDLED_GEMINI_KEY=${BUNDLED_GEMINI_KEY}
+      - BUNDLED_GEMINI_MODEL=${BUNDLED_GEMINI_MODEL:-gemini-2.0-flash}
+    volumes:
+      - ../secrets:/app/secrets:ro
+    depends_on:
+      - redis
+      - pgbouncer
     networks:
       - docugardener-network
 
@@ -213,10 +249,36 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GITHUB_APP_ID=${GITHUB_APP_ID}
       - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH:-/app/secrets/github-app.pem}
-      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/docugardener-web
+      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@pgbouncer:5432/docugardener-web
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
     volumes:
       - ../secrets:/app/secrets:ro
+    depends_on:
+      pgbouncer:
+        condition: service_started
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # PgBouncer — connection pooler (SCAL-01)
+  # Transaction-mode pooling between Python services and Postgres.
+  # Prisma (web/migrate) connects directly to postgres — not through pgbouncer.
+  # ---------------------------------------------------------------------------
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: docugardener-pgbouncer
+    restart: unless-stopped
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=docugardener-web
+      - POOL_MODE=transaction
+      - DEFAULT_POOL_SIZE=20
+      - MIN_POOL_SIZE=5
+      - MAX_CLIENT_CONN=200
+      - AUTH_TYPE=scram-sha-256
     depends_on:
       postgres:
         condition: service_healthy
