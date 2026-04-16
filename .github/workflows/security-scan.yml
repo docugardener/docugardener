@@ -1,20 +1,22 @@
 # =============================================================================
 # DocuGardener Security Scan — Trivy Container Image Scanning (I-06)
 # =============================================================================
-# Scans the Docker image for CRITICAL and HIGH CVEs on every push to main
-# and on every PR targeting main. Results are uploaded to GitHub Security tab.
+# Scans the Docker image for CRITICAL and HIGH CVEs.
+# Runs weekly (Monday 06:00 UTC) to catch newly-disclosed CVEs.
+# Results are uploaded to GitHub Security tab.
+#
+# NOTE: Intentionally NOT triggered on push/PR — the full image build takes
+# 30+ min and exhausts GHA runner disk on every push. Weekly schedule is
+# sufficient for CVE visibility; this is an informational scan only.
 # =============================================================================
 
 name: Security Scan
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   schedule:
     # Run weekly on Monday 06:00 UTC to catch newly-disclosed CVEs
     - cron: "0 6 * * 1"
+  workflow_dispatch:  # Allow manual trigger when needed
 
 jobs:
   trivy:

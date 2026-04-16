@@ -104,6 +104,8 @@ local/
 
 # Internal / sensitive (never publish)
 task.md
+docs/backlog.md
+docs/active/
 docs/business/
 docs/Archive/
 docs/Production-Infrastructure-Playbook.md
