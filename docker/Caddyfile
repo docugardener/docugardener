@@ -29,8 +29,14 @@
     # ── Compression ───────────────────────────────────────────────────────────
     encode gzip
 
-    # ── FastAPI: webhook endpoint (GitHub delivers here directly) ─────────────
+    # ── FastAPI: webhook endpoints (GitHub delivers here directly) ────────────
+    # /webhooks/*     — canonical path used by FastAPI router
+    # /api/webhooks/* — path baked into GitHub App manifest by onboarding flow
     handle /webhooks/* {
+        reverse_proxy docugardener:8000
+    }
+
+    handle /api/webhooks/* {
         reverse_proxy docugardener:8000
     }
 
