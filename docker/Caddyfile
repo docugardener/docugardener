@@ -5,7 +5,8 @@
 # DOMAIN and LETSENCRYPT_EMAIL are injected from the production .env file.
 #
 # Routing:
-#   /webhooks/*  →  FastAPI (docugardener:8000)  — GitHub webhook delivery
+#   /webhooks/*      →  FastAPI (docugardener:8000)  — GitHub webhook delivery (canonical)
+#   /api/webhooks/*  →  FastAPI (docugardener:8000)  — /api prefix stripped before forward
 #   /health      →  FastAPI (docugardener:8000)  — health probe
 #   *            →  Next.js (web:3001)            — web app + its own /api/*
 # =============================================================================
@@ -37,6 +38,7 @@
     }
 
     handle /api/webhooks/* {
+        uri strip_prefix /api
         reverse_proxy docugardener:8000
     }
 
