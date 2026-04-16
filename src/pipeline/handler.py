@@ -14,6 +14,7 @@ from src.core.logging import get_logger
 from src.github.app import get_installation_token
 from src.monitoring.metrics import record_analysis
 from src.notifications.dispatcher import NotificationDispatcher
+from src.notifications.first_analysis_email import maybe_send_first_analysis_email
 from src.pipeline.analyzer import FileChange, PRAnalysisResult, PRAnalyzer
 from src.pipeline.job_manager import JobStatus, job_manager
 from src.pipeline.policy_evaluator import evaluate_policies
@@ -21,7 +22,6 @@ from src.pipeline.policy_parser import parse_policies
 from src.pipeline.repo_config import apply_ignore_patterns, load_repo_config
 from src.pipeline.reporter import GitHubReporter
 from src.worker.context import get_tenant_context
-from src.notifications.first_analysis_email import maybe_send_first_analysis_email
 
 logger = get_logger(__name__)
 
@@ -39,6 +39,7 @@ async def process_pull_request(
     jira_ticket_key: str | None = None,
     ai_authored: bool = False,
     ai_signal: str = "",
+    job_id: str | None = None,
 ) -> PRAnalysisResult:
     """
     Process a Pull Request webhook event.
@@ -186,8 +187,12 @@ async def process_pull_request(
                     "Could not resolve GitHub repo ID; using fallback '0'", error=str(_e)
                 )
         github_repo_id = str(gh_repo.id) if gh_repo is not None else "0"
-        repo_id = job_manager.get_or_create_repo(tenant_id, github_repo_id, repo)
-        job_id = job_manager.create_job(tenant_id, repo_id, pr_number)
+        if job_id is None:
+            # Normal path: no pre-created record — create it now.
+            repo_id = job_manager.get_or_create_repo(tenant_id, github_repo_id, repo)
+            job_id = job_manager.create_job(tenant_id, repo_id, pr_number)
+        # else: GAP-4 path — record was pre-created in webhooks.py before Redis enqueue;
+        # on_failure callback can now mark it FAILED even if this worker never started.
         if ai_authored and job_id:
             from src.pipeline.job_manager import SessionLocal
             from src.storage.sql_models import Job as _Job
@@ -348,9 +353,8 @@ async def process_pull_request(
                         else result.drift_score
                     )
                     _summary_text_c04: str = (
-                        (_da.get("summary", "") if isinstance(_da, dict) else "")
-                        or ""
-                    )
+                        _da.get("summary", "") if isinstance(_da, dict) else ""
+                    ) or ""
                     maybe_send_first_analysis_email(
                         tenant_id=tenant_id,
                         pr_number=pr_number,
@@ -498,15 +502,22 @@ async def process_pull_request(
                         summary=result.drift_analysis.summary,
                         entities=entities,
                     )
-                    _dispatch_results = await dispatcher.dispatch_drift_alert(record, jira_ticket_key=jira_ticket_key)
+                    _dispatch_results = await dispatcher.dispatch_drift_alert(
+                        record, jira_ticket_key=jira_ticket_key
+                    )
                     # Persist integration dispatch status (PH15-06) — non-fatal
                     if _dispatch_results:
                         try:
                             from src.pipeline.job_manager import get_db
                             from src.storage.sql_models import Tenant as _TenantModel
+
                             _db_st = next(get_db())
                             try:
-                                _t = _db_st.query(_TenantModel).filter(_TenantModel.id == tenant_id).first()
+                                _t = (
+                                    _db_st.query(_TenantModel)
+                                    .filter(_TenantModel.id == tenant_id)
+                                    .first()
+                                )
                                 if _t:
                                     _wc = dict(_t.workflowConfig) if _t.workflowConfig else {}
                                     _wc["integrationStatus"] = _dispatch_results
@@ -515,7 +526,9 @@ async def process_pull_request(
                             finally:
                                 _db_st.close()
                         except Exception as _st_err:
-                            logger.warning("Failed to persist integration dispatch status", error=str(_st_err))
+                            logger.warning(
+                                "Failed to persist integration dispatch status", error=str(_st_err)
+                            )
                     # Persist GitHub and Linear issue references for fix-PR resolution
                     _gh_issue_num = getattr(record, "github_issue_number", None)
                     _gh_issue_repo = getattr(record, "github_issue_repo", None)

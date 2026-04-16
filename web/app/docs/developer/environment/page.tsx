@@ -71,7 +71,8 @@ export default function EnvironmentPage() {
       <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">Database &amp; Queue</h3>
       <table className="w-full text-sm border-collapse mb-6">
         <tbody>
-          <EnvVar name="SQL_DATABASE_URL" required description="PostgreSQL connection URL used by the Python backend." example="SQL_DATABASE_URL=postgresql://postgres:password@postgres:5432/docugardener-web" />
+          <EnvVar name="POSTGRES_PASSWORD" required description="Password for the PostgreSQL superuser. Used by the postgres container and by PgBouncer (connection pooler). Must match the password embedded in SQL_DATABASE_URL." example="POSTGRES_PASSWORD=changeme" />
+          <EnvVar name="SQL_DATABASE_URL" required description="PostgreSQL connection URL used by the Python backend. In Docker Compose this must route through PgBouncer (port 5432) — not directly to the postgres container — so that connection pooling is applied." example="SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@pgbouncer:5432/docugardener-web" />
           <EnvVar name="REDIS_URL" required description="Redis connection URL for the RQ job queue." example="REDIS_URL=redis://localhost:6379/0" />
         </tbody>
       </table>

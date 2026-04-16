@@ -42,7 +42,7 @@ spec:
         - name: worker
           image: {{ include "docugardener.image" (dict "image" .Values.worker.image "global" .Values.global "defaultTag" .Chart.AppVersion) }}
           imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
-          command: ["rq", "worker", "default", "--url", "$(REDIS_URL)"]
+          command: ["rq", "worker", "high", "default", "--url", "$(REDIS_URL)"]
           securityContext:
             {{- include "docugardener.containerSecurityContext" . | nindent 12 }}
           env:

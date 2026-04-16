@@ -344,18 +344,18 @@ class TestOnFailureCallback:
             call_args = mock_jm.fail_job.call_args[0]
             assert call_args[0] == "db-job-456"
 
-    def test_on_failure_handles_analyze_pr_job_kwargs(self):
-        """analyze_pr_job uses positional/keyword args without job_id — callback is safe."""
+    def test_on_failure_safe_when_job_id_absent(self):
+        """_on_job_failure is a no-op when job_id is absent (defensive for old in-flight jobs)."""
         from src.worker.jobs import _on_job_failure
 
         mock_rq_job = MagicMock()
-        # analyze_pr_job doesn't take job_id — callback must not crash
+        # No job_id kwarg — callback must not crash and must not call fail_job
         mock_rq_job.kwargs = {"installation_id": 42, "owner": "acme", "pr_number": 7}
         mock_rq_job.args = []
 
-        with patch("src.worker.jobs.job_manager"):
-            # Must not raise
+        with patch("src.worker.jobs.job_manager") as mock_jm:
             _on_job_failure(mock_rq_job, MagicMock(), Exception, Exception("x"), None)
+            mock_jm.fail_job.assert_not_called()
 
     def test_on_failure_callback_registered_on_enqueue(self):
         """enqueue() includes on_failure=_on_job_failure."""
@@ -369,3 +369,144 @@ class TestOnFailureCallback:
         )
         call_kwargs = mock_queue.enqueue.call_args[1]
         assert call_kwargs["on_failure"] is _on_job_failure
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GAP-4: Pre-create DB record before Redis enqueue (atomic dispatch)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestGap4AtomicDispatch:
+    """
+    Validates the GAP-4 race-condition fix:
+      - DB job record is created in webhooks.py before Redis enqueue
+      - job_id kwarg is forwarded through analyze_pr_job → process_pull_request
+      - on_failure callback can now mark analyze_pr_job FAILED via the kwarg
+      - process_pull_request skips create_job when a pre-created ID is supplied
+    """
+
+    def test_on_failure_marks_analyze_pr_job_failed_via_gap4_kwarg(self):
+        """_on_job_failure calls fail_job when analyze_pr_job carries a job_id kwarg (GAP-4)."""
+        from src.worker.jobs import _on_job_failure
+
+        mock_rq_job = MagicMock()
+        mock_rq_job.kwargs = {
+            "job_id": "db-job-gap4-abc",
+            "installation_id": 42,
+            "owner": "acme",
+            "pr_number": 7,
+        }
+        mock_rq_job.args = []
+
+        with patch("src.worker.jobs.job_manager") as mock_jm:
+            _on_job_failure(
+                mock_rq_job,
+                MagicMock(),
+                TimeoutError,
+                TimeoutError("worker killed by SIGKILL"),
+                None,
+            )
+            mock_jm.fail_job.assert_called_once()
+            assert mock_jm.fail_job.call_args[0][0] == "db-job-gap4-abc"
+
+    def test_analyze_pr_job_forwards_job_id_to_process_pull_request(self):
+        """analyze_pr_job passes its job_id kwarg through to process_pull_request."""
+        from unittest.mock import AsyncMock
+
+        mock_result = MagicMock()
+        mock_result.repo_full_name = "acme/app"
+        mock_result.pr_number = 7
+        mock_result.drift_score = 0.3
+        mock_result.processing_time_ms = 1000
+        mock_result.documentation_updates = []
+        mock_result.drift_analysis = None
+
+        with patch(
+            "src.pipeline.handler.process_pull_request",
+            new=AsyncMock(return_value=mock_result),
+        ) as mock_ppr:
+            with patch("src.monitoring.metrics.JOBS_COMPLETED"):
+                from src.worker.jobs import analyze_pr_job
+
+                analyze_pr_job(
+                    installation_id=1,
+                    owner="acme",
+                    repo="app",
+                    pr_number=7,
+                    action="opened",
+                    base_sha="abc123",
+                    head_sha="def456",
+                    changed_files=[],
+                    job_id="pre-job-gap4-999",
+                )
+
+            mock_ppr.assert_called_once()
+            assert mock_ppr.call_args.kwargs["job_id"] == "pre-job-gap4-999"
+
+    def test_process_pull_request_skips_create_job_when_job_id_pre_provided(self):
+        """process_pull_request must NOT call job_manager.create_job when job_id is supplied."""
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        from src.pipeline.handler import process_pull_request
+
+        mock_tenant_ctx = MagicMock()
+        mock_tenant_ctx.tenant_id = "tid-1"
+        mock_tenant_ctx.app_id = "9"
+        mock_tenant_ctx.private_key = "pk"
+        mock_tenant_ctx.llm_config = None
+        mock_tenant_ctx.notification_config = None
+        mock_tenant_ctx.workflow_config = None
+        mock_tenant_ctx.plan = "FREE"
+
+        with (
+            patch("src.pipeline.handler.get_tenant_context", return_value=mock_tenant_ctx),
+            patch("src.pipeline.handler.get_installation_token", return_value="tok"),
+            patch("src.pipeline.handler.load_repo_config", return_value={}),
+            patch("src.pipeline.handler.parse_policies", return_value=[]),
+            patch(
+                "src.pipeline.handler.create_initial_check_run",
+                new=AsyncMock(return_value=None),
+            ),
+            patch("src.pipeline.handler.job_manager") as mock_jm,
+            patch("src.pipeline.handler.PRAnalyzer") as mock_analyzer_cls,
+            patch("src.pipeline.handler.GitHubReporter") as mock_reporter_cls,
+            patch("src.pipeline.handler.set_tenant_id"),
+            patch("src.monitoring.metrics.record_analysis"),
+        ):
+            # Stop analysis after the DB-tracking block by making analyze_pr raise
+            mock_analyzer_cls.return_value.analyze_pr = AsyncMock(
+                side_effect=RuntimeError("stop_here")
+            )
+            # mock reporter so the finally block doesn't hit real GitHub
+            mock_reporter_cls.return_value.report_to_pr = AsyncMock()
+
+            # analyze_pr raises → process_pull_request re-raises after the finally block
+            with pytest.raises(RuntimeError, match="stop_here"):
+                asyncio.run(
+                    process_pull_request(
+                        installation_id=1,
+                        owner="acme",
+                        repo="app",
+                        pr_number=7,
+                        action="opened",
+                        base_sha="abc123",
+                        head_sha="def456",
+                        changed_files=[
+                            {
+                                "filename": "src/foo.py",
+                                "status": "modified",
+                                "additions": 1,
+                                "deletions": 0,
+                            }
+                        ],
+                        base_ref="main",
+                        job_id="pre-job-gap4-999",
+                    )
+                )
+
+            # With a pre-provided job_id, create_job and get_or_create_repo must NOT be called
+            mock_jm.create_job.assert_not_called()
+            mock_jm.get_or_create_repo.assert_not_called()
+            # update_status IS called (to mark it PROCESSING)
+            mock_jm.update_status.assert_called_once_with("pre-job-gap4-999", ANY)

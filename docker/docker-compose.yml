@@ -23,7 +23,7 @@ services:
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - STRIPE_PRICE_PRO=${STRIPE_PRICE_PRO}
       - STRIPE_PRICE_TEAM=${STRIPE_PRICE_TEAM}
-      - SQL_DATABASE_URL=postgresql://postgres:password@postgres:5432/docugardener-web
+      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@pgbouncer:5432/docugardener-web
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - APP_URL=${APP_URL:-http://localhost:8000}
       - FEEDBACK_HMAC_SECRET=${FEEDBACK_HMAC_SECRET:-}
@@ -78,7 +78,7 @@ services:
       - STRIPE_PRICE_PRO=${STRIPE_PRICE_PRO}
       - STRIPE_PRICE_TEAM=${STRIPE_PRICE_TEAM}
       - VECTOR_DB_PROVIDER=weaviate
-      - SQL_DATABASE_URL=postgresql://postgres:password@postgres:5432/docugardener-web
+      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@pgbouncer:5432/docugardener-web
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - APP_URL=${APP_URL:-http://localhost:8000}
       - FEEDBACK_HMAC_SECRET=${FEEDBACK_HMAC_SECRET:-}
@@ -94,6 +94,52 @@ services:
     depends_on:
       - redis
       - weaviate
+      - pgbouncer
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # Worker 2 — second RQ worker for horizontal scaling (SCAL-02)
+  # Prerequisite: pgbouncer (SCAL-01) must be running.
+  # ---------------------------------------------------------------------------
+  worker-2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: docugardener-worker-2
+    command: rq worker high default --url redis://redis:6379/0
+    stop_grace_period: 60s
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://redis:6379/0
+      - WEAVIATE_URL=http://weaviate:8080
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - STRIPE_PRICE_PRO=${STRIPE_PRICE_PRO}
+      - STRIPE_PRICE_TEAM=${STRIPE_PRICE_TEAM}
+      - VECTOR_DB_PROVIDER=weaviate
+      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@pgbouncer:5432/docugardener-web
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - APP_URL=${APP_URL:-http://localhost:8000}
+      - FEEDBACK_HMAC_SECRET=${FEEDBACK_HMAC_SECRET:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH}
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+    volumes:
+      - ../src:/app/src:ro
+      - ../scripts:/app/scripts:ro
+      - ../secrets:/app/secrets:ro
+    depends_on:
+      - redis
+      - weaviate
+      - pgbouncer
     networks:
       - docugardener-network
 
@@ -159,7 +205,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GITHUB_APP_ID=${GITHUB_APP_ID}
       - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH}
-      - SQL_DATABASE_URL=postgresql://postgres:password@postgres:5432/docugardener-web
+      - SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@pgbouncer:5432/docugardener-web
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - APP_URL=${APP_URL:-http://localhost:8000}
       - FEEDBACK_HMAC_SECRET=${FEEDBACK_HMAC_SECRET:-}
@@ -167,7 +213,7 @@ services:
       - ../src:/app/src:ro
       - ../secrets:/app/secrets:ro
     depends_on:
-      - postgres
+      - pgbouncer
     networks:
       - docugardener-network
     restart: unless-stopped
@@ -205,6 +251,33 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ---------------------------------------------------------------------------
+  # PgBouncer — connection pooler (SCAL-01)
+  # Transaction-mode pooling collapses per-process SQLAlchemy pools into
+  # a fixed 20-connection Postgres pool, preventing max_connections exhaustion
+  # as worker count grows. Sits between all app services and Postgres.
+  # ---------------------------------------------------------------------------
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: docugardener-pgbouncer
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=docugardener-web
+      - POOL_MODE=transaction
+      - DEFAULT_POOL_SIZE=20
+      - MIN_POOL_SIZE=5
+      - MAX_CLIENT_CONN=200
+      - AUTH_TYPE=scram-sha-256
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - docugardener-network
+    restart: unless-stopped
 
   # =============================================================================
   # ── OPTIONAL: Secrets Management (Infisical Self-Hosted) ─────────────────────

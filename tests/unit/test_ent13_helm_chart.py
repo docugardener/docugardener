@@ -226,6 +226,7 @@ EXPECTED_TEMPLATES = [
     "networkpolicy.yaml",
     "pdb.yaml",
     "hpa.yaml",
+    "keda-scaledobject.yaml",
 ]
 
 

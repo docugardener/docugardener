@@ -11,6 +11,7 @@ Imports from ``src.api._platform_cap`` (the implementation module) which is
 re-exported from ``src.api.webhooks`` via PH15-01.  Tests also verify the
 re-export path so callers can import from either location.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -19,6 +20,7 @@ from unittest.mock import MagicMock
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_budget_job(
     status: str = "COMPLETED",
@@ -67,6 +69,7 @@ from src.api._platform_cap import check_platform_llm_cap, stamp_platform_llm_fla
 # Test 1 — cap blocks when operator-wide spend >= cap
 # ---------------------------------------------------------------------------
 
+
 class TestCapBlocksWhenExceeded:
     def test_cap_blocks_when_exceeded(self):
         """Operator spend >= €10 → returns skipped response with 'budget' in reason."""
@@ -86,6 +89,7 @@ class TestCapBlocksWhenExceeded:
 # Test 2 — cap allows when under budget
 # ---------------------------------------------------------------------------
 
+
 class TestCapAllowsWhenUnder:
     def test_cap_allows_when_under(self):
         """Operator spend < €10 → returns None (processing should continue)."""
@@ -102,6 +106,7 @@ class TestCapAllowsWhenUnder:
 # Test 3 — BYOK tenant not counted and not blocked
 # ---------------------------------------------------------------------------
 
+
 class TestByokTenantNotCounted:
     def test_byok_tenant_not_counted(self):
         """Tenant with own apiKey is not blocked regardless of platform spend."""
@@ -110,9 +115,7 @@ class TestByokTenantNotCounted:
         settings = _make_settings(cap_eur=10.0)
         llm_cfg_with_own_key = {"apiKey": "tenant-own-key"}
 
-        result = check_platform_llm_cap(
-            db=db, settings=settings, llm_cfg=llm_cfg_with_own_key
-        )
+        result = check_platform_llm_cap(db=db, settings=settings, llm_cfg=llm_cfg_with_own_key)
 
         assert result is None, "BYOK tenant should not be blocked by platform cap"
 
@@ -123,9 +126,7 @@ class TestByokTenantNotCounted:
         settings = _make_settings(cap_eur=10.0)
         llm_cfg_with_base_url = {"baseUrl": "http://ollama.internal"}
 
-        result = check_platform_llm_cap(
-            db=db, settings=settings, llm_cfg=llm_cfg_with_base_url
-        )
+        result = check_platform_llm_cap(db=db, settings=settings, llm_cfg=llm_cfg_with_base_url)
 
         assert result is None, "Tenant with custom baseUrl should not be blocked by platform cap"
 
@@ -133,6 +134,7 @@ class TestByokTenantNotCounted:
 # ---------------------------------------------------------------------------
 # Test 4 — cap=0 disables enforcement
 # ---------------------------------------------------------------------------
+
 
 class TestCapZeroDisablesEnforcement:
     def test_cap_zero_disables_enforcement(self):
@@ -150,6 +152,7 @@ class TestCapZeroDisablesEnforcement:
 # Test 5 — PRO/TEAM plans also blocked (operator-wide, plan-agnostic)
 # ---------------------------------------------------------------------------
 
+
 class TestProTeamPlanAlsoBlocked:
     def test_pro_team_plan_also_blocked(self):
         """
@@ -164,9 +167,7 @@ class TestProTeamPlanAlsoBlocked:
         # No apiKey in llm_cfg → uses platform LLM, plan does not matter
         llm_cfg_no_own_key: dict = {}
 
-        result = check_platform_llm_cap(
-            db=db, settings=settings, llm_cfg=llm_cfg_no_own_key
-        )
+        result = check_platform_llm_cap(db=db, settings=settings, llm_cfg=llm_cfg_no_own_key)
 
         assert result is not None, "PRO/TEAM tenant without own key should be blocked"
         assert result.get("status") == "skipped"
@@ -176,6 +177,7 @@ class TestProTeamPlanAlsoBlocked:
 # ---------------------------------------------------------------------------
 # Test 6 — usedPlatformLlm flag stamped True when bundled key used
 # ---------------------------------------------------------------------------
+
 
 class TestUsedPlatformLlmFlagStampedTrue:
     def test_used_platform_llm_flag_stamped_true(self):
@@ -196,6 +198,7 @@ class TestUsedPlatformLlmFlagStampedTrue:
 # Test 7 — usedPlatformLlm flag stamped False for BYOK
 # ---------------------------------------------------------------------------
 
+
 class TestUsedPlatformLlmFlagStampedFalseForByok:
     def test_used_platform_llm_flag_stamped_false_for_byok(self):
         """When tenant has own apiKey, flag is set to False."""
@@ -214,6 +217,7 @@ class TestUsedPlatformLlmFlagStampedFalseForByok:
 # ---------------------------------------------------------------------------
 # Re-export verification — webhooks.py must expose these names (PH15-01)
 # ---------------------------------------------------------------------------
+
 
 class TestWebhooksReExport:
     def test_check_platform_llm_cap_importable_from_webhooks(self):

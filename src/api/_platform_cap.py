@@ -10,6 +10,7 @@ Public API
 check_platform_llm_cap(*, db, settings, llm_cfg) -> dict | None
 stamp_platform_llm_flag(*, job, db, settings, llm_cfg) -> None
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,17 +48,13 @@ def check_platform_llm_cap(
     llm_cfg:
         Tenant-level LLM configuration dict.  Keys: ``apiKey``, ``baseUrl``.
     """
-    _using_platform_llm: bool = (
-        not llm_cfg.get("apiKey") and not llm_cfg.get("baseUrl")
-    )
+    _using_platform_llm: bool = not llm_cfg.get("apiKey") and not llm_cfg.get("baseUrl")
     _cap_eur: float = float(getattr(settings, "platform_llm_monthly_cap_eur", 10.0))
 
     if not _using_platform_llm or _cap_eur <= 0:
         return None
 
-    _month_start = datetime.now(UTC).replace(
-        day=1, hour=0, minute=0, second=0, microsecond=0
-    )
+    _month_start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     # Lazy import to avoid circular dependencies.
     # In unit tests, db is a MagicMock so _BudgetJob is used only as the

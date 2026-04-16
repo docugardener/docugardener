@@ -720,6 +720,38 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
         except Exception as _idem_exc:
             logger.warning("Idempotency check failed — proceeding anyway", error=str(_idem_exc))
 
+    # GAP-4: Pre-create DB job record before Redis enqueue so that on_failure
+    # can mark it FAILED even if the worker crashes between dequeue and the
+    # create_job() call inside process_pull_request.
+    _gap4_job_id: str | None = None
+    if installation_id:
+        try:
+            from src.pipeline.job_manager import SessionLocal as _G4Session
+            from src.pipeline.job_manager import job_manager as _jm
+            from src.storage.sql_models import Tenant as _G4Tenant
+
+            _g4_db = _G4Session()
+            try:
+                _g4_tenant = (
+                    _g4_db.query(_G4Tenant)
+                    .filter(_G4Tenant.installationId == str(installation_id))
+                    .first()
+                )
+            finally:
+                _g4_db.close()
+            if _g4_tenant:
+                _g4_repo_id = _jm.get_or_create_repo(
+                    _g4_tenant.id,
+                    str(repository.get("id", 0)),
+                    repository.get("name", ""),
+                )
+                _gap4_job_id = _jm.create_job(_g4_tenant.id, _g4_repo_id, pr_number)
+        except Exception as _g4_exc:
+            logger.warning(
+                "GAP-4: pre-create job record failed — proceeding without",
+                error=str(_g4_exc),
+            )
+
     # Enqueue the analysis job
     from rq import Retry
 
@@ -742,6 +774,7 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
         ai_authored=ai_authored,
         ai_signal=_ai_signal,
         sender_type=sender_type,
+        job_id=_gap4_job_id,
         job_timeout=settings.max_processing_time,
         retry=Retry(max=3, interval=[30, 60, 120]),
         result_ttl=3600,

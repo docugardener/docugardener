@@ -84,6 +84,12 @@ GEMINI_MODEL=gemini-2.0-flash
 VECTOR_DB_PROVIDER=weaviate
 WEAVIATE_URL=http://weaviate:8080
 
+# === Database (SCAL-01) ===
+# POSTGRES_PASSWORD is shared between the postgres container and PgBouncer.
+# SQL_DATABASE_URL must route through pgbouncer:5432 (not postgres:5432 directly).
+POSTGRES_PASSWORD=changeme
+SQL_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@pgbouncer:5432/docugardener-web
+
 # === Processing ===
 DRIFT_SCORE_THRESHOLD=30
 ```
@@ -110,9 +116,11 @@ docker-compose -f docker/docker-compose.yml up -d
 This starts:
 
 - DocuGardener API (port 8000)
+- RQ Worker × 2 (jobs processed in parallel — `high` + `default` priority queues)
 - Weaviate Vector DB (port 8080)
 - Redis Queue (port 6379)
-- Postgres Web DB (port 5432)
+- Postgres Web DB (internal port 5432, host port 5433)
+- PgBouncer connection pooler (transaction mode, sits between app and Postgres)
 - Scheduler Service (Nightly Rollup at 02:00 UTC)
 
 ---

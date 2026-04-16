@@ -374,3 +374,22 @@ airGap:
   # Name of existing Secret containing the license file
   # Secret must have key: license.json
   licenseSecretName: ""
+
+# -----------------------------------------------------------------------------
+# KEDA — Kubernetes Event-Driven Autoscaling (SCAL-03)
+#
+# Requires the KEDA operator installed in the cluster:
+#   helm repo add kedacore https://kedacore.github.io/charts
+#   helm install keda kedacore/keda --namespace keda --create-namespace
+#
+# When enabled, a ScaledObject is deployed that scales the worker Deployment
+# based on Redis queue depth (rq:queue:default + rq:queue:high) rather than
+# CPU — appropriate because workers are I/O-bound (LLM + GitHub API calls)
+# and never saturate CPU even under full queue load.
+#
+# Note: leave worker.autoscaling.enabled=false when KEDA is enabled.
+# The ScaledObject owns worker replica count; the HPA must not compete.
+# -----------------------------------------------------------------------------
+keda:
+  enabled: false
+  redisAddress: ""   # e.g. "redis-master.default.svc.cluster.local:6379"

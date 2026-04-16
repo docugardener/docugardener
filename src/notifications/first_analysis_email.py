@@ -5,6 +5,7 @@ First-analysis email notification.
 Sends a one-time "Your first drift report is ready" email to all admin users
 of a tenant when their first drift analysis completes successfully.
 """
+
 from __future__ import annotations
 
 import logging
@@ -155,7 +156,9 @@ def _is_first_completed_job(tenant_id: str) -> bool:
     """Return True if this is exactly the first COMPLETED job for the tenant."""
     with SessionLocal() as session:
         count: int = session.execute(
-            select(func.count()).select_from(Job).where(
+            select(func.count())
+            .select_from(Job)
+            .where(
                 Job.tenantId == tenant_id,
                 Job.status == JobStatus.COMPLETED,
             )

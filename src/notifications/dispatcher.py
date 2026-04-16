@@ -81,7 +81,11 @@ class NotificationDispatcher:
                     results["slack"] = {"status": "ok", "lastAttemptAt": now_iso}
                 except Exception as e:
                     logger.error("Failed to send Slack alert", error=str(e))
-                    results["slack"] = {"status": "error", "lastError": str(e)[:300], "lastAttemptAt": now_iso}
+                    results["slack"] = {
+                        "status": "error",
+                        "lastError": str(e)[:300],
+                        "lastAttemptAt": now_iso,
+                    }
 
         # ── Jira (PRO+) — comment on existing linked ticket ───────────────
         if self._has_feature("integrations_jira"):
@@ -109,7 +113,11 @@ class NotificationDispatcher:
                             ticket=jira_ticket_key,
                             error=str(e),
                         )
-                        results["jira"] = {"status": "error", "lastError": str(e)[:300], "lastAttemptAt": now_iso}
+                        results["jira"] = {
+                            "status": "error",
+                            "lastError": str(e)[:300],
+                            "lastAttemptAt": now_iso,
+                        }
             else:
                 logger.debug("No Jira ticket key found in PR — skipping Jira notification")
 
@@ -139,7 +147,11 @@ class NotificationDispatcher:
                     results["linear"] = {"status": "ok", "lastAttemptAt": now_iso}
                 except Exception as e:
                     logger.error("Failed to create Linear issue", error=str(e))
-                    results["linear"] = {"status": "error", "lastError": str(e)[:300], "lastAttemptAt": now_iso}
+                    results["linear"] = {
+                        "status": "error",
+                        "lastError": str(e)[:300],
+                        "lastAttemptAt": now_iso,
+                    }
 
         # ── GitHub Issues (all plans) — create issue ───────────────────────
         gh_issues_config = self.config.get("githubIssues")
@@ -168,7 +180,11 @@ class NotificationDispatcher:
                 results["githubIssues"] = {"status": "ok", "lastAttemptAt": now_iso}
             except Exception as e:
                 logger.error("Failed to create GitHub issue", error=str(e))
-                results["githubIssues"] = {"status": "error", "lastError": str(e)[:300], "lastAttemptAt": now_iso}
+                results["githubIssues"] = {
+                    "status": "error",
+                    "lastError": str(e)[:300],
+                    "lastAttemptAt": now_iso,
+                }
 
         return results
 

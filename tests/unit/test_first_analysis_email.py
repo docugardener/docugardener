@@ -8,14 +8,15 @@ Tests cover:
 - Job completion unaffected when email send fails
 - Email NOT sent when RESEND_API_KEY is absent
 """
+
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import httpx
-import pytest
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -267,9 +268,7 @@ class TestMaybeSendFirstAnalysisEmail:
         if session_side_effect is not None:
             session_mock = MagicMock(side_effect=session_side_effect)
         else:
-            session_mock = MagicMock(
-                side_effect=_make_session_factory(job_count, admin_emails)
-            )
+            session_mock = MagicMock(side_effect=_make_session_factory(job_count, admin_emails))
 
         mock_post = MagicMock(return_value=_make_ok_response())
         if httpx_side_effect is not None:
@@ -377,7 +376,11 @@ class TestMaybeSendFirstAnalysisEmail:
 
     def test_resend_url_is_correct(self) -> None:
         mock_post = self._run(job_count=1)
-        url = mock_post.call_args.args[0] if mock_post.call_args.args else mock_post.call_args.kwargs.get("url", "")
+        url = (
+            mock_post.call_args.args[0]
+            if mock_post.call_args.args
+            else mock_post.call_args.kwargs.get("url", "")
+        )
         assert "resend.com/emails" in url
 
     def test_timeout_set_on_http_call(self) -> None:

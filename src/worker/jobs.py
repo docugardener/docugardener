@@ -23,8 +23,8 @@ def _on_job_failure(job, connection, exc_type, exc_value, traceback) -> None:
     Provides 0-lag SQL state transition to FAILED (vs the 60-second sweeper which
     handles worker-crash scenarios where this callback never fires).
 
-    For analyze_pr_job (which doesn't carry a job_id kwarg) this is a no-op —
-    that job manages its own DB state internally.
+    For analyze_pr_job the job_id kwarg is now pre-populated via GAP-4 so this
+    callback will correctly mark the DB record FAILED on worker crash.
     """
     job_id = (job.kwargs or {}).get("job_id") or (job.args[0] if job.args else None)
     if not job_id:
@@ -56,6 +56,7 @@ def analyze_pr_job(
     ai_authored: bool = False,
     ai_signal: str = "",
     sender_type: str = "human",
+    job_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Background job to analyze a Pull Request.
@@ -101,6 +102,7 @@ def analyze_pr_job(
                 jira_ticket_key=jira_ticket_key,
                 ai_authored=ai_authored,
                 ai_signal=ai_signal,
+                job_id=job_id,
             )
         )
 

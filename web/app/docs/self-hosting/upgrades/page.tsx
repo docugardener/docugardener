@@ -19,6 +19,33 @@ export default function UpgradesPage() {
         simple pull + restart. Major releases may require a database migration step.
       </p>
 
+      {/* ── Release-specific migration notes ─────────────── */}
+      <h2 className="text-xl font-bold text-gray-900 mb-4">Release-Specific Notes</h2>
+
+      <div className="border border-blue-100 rounded-lg p-5 mb-8 bg-blue-50">
+        <h3 className="text-base font-bold text-blue-900 mb-2">SCAL-01 — PgBouncer connection pooler (docker-compose)</h3>
+        <p className="text-sm text-blue-800 leading-relaxed mb-3">
+          A PgBouncer sidecar was added to the Docker Compose stack. All application services now
+          connect to Postgres through PgBouncer on port 5432 (transaction-pool mode) instead of
+          directly to the postgres container. This prevents connection exhaustion as worker count
+          grows.
+        </p>
+        <p className="text-sm font-semibold text-blue-900 mb-1">Required .env change:</p>
+        <pre className="bg-blue-900 text-blue-100 rounded p-3 text-sm font-mono mb-3">
+{`# Add this line — used by both the postgres container and PgBouncer
+POSTGRES_PASSWORD=<your_existing_postgres_password>`}
+        </pre>
+        <p className="text-sm text-blue-800 leading-relaxed">
+          If you previously had a hardcoded password in{" "}
+          <code className="bg-blue-100 px-1 rounded text-xs">SQL_DATABASE_URL</code> (e.g.{" "}
+          <code className="bg-blue-100 px-1 rounded text-xs">@postgres:password@postgres:5432</code>
+          ), extract that password value and set it as{" "}
+          <code className="bg-blue-100 px-1 rounded text-xs">POSTGRES_PASSWORD</code>. The
+          connection URL in the new docker-compose.yml is already template-driven and points to
+          pgbouncer — no manual URL change needed once the variable is set.
+        </p>
+      </div>
+
       {/* ── Upgrade checklist ────────────────────────────── */}
       <h2 className="text-xl font-bold text-gray-900 mb-4">Standard Upgrade (minor / patch)</h2>
 

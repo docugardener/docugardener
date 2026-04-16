@@ -1,0 +1,40 @@
+{{- if .Values.keda.enabled }}
+# SCAL-03: KEDA ScaledObject — queue-depth-based worker autoscaling.
+#
+# Workers are I/O-bound (LLM + GitHub API). CPU utilisation stays at 10–20%
+# even under full queue load — CPU-based HPA never fires. This ScaledObject
+# scales on Redis list length instead, which directly reflects work waiting.
+#
+# Trigger thresholds:
+#   rq:queue:default  listLength=5  — 1 worker per 5 waiting analysis jobs
+#   rq:queue:high     listLength=2  — 1 worker per 2 waiting fix/ignore jobs
+#                                     (high-priority jobs scale more aggressively)
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "docugardener.fullname" . }}-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docugardener.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "docugardener.fullname" . }}-worker
+  minReplicaCount: {{ .Values.worker.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.worker.autoscaling.maxReplicas }}
+  cooldownPeriod: 120
+  triggers:
+    - type: redis
+      metadata:
+        address: {{ .Values.keda.redisAddress | quote }}
+        listName: rq:queue:default
+        listLength: "5"
+    - type: redis
+      metadata:
+        address: {{ .Values.keda.redisAddress | quote }}
+        listName: rq:queue:high
+        listLength: "2"
+{{- end }}

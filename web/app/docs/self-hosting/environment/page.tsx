@@ -261,11 +261,18 @@ export default function EnvironmentPage() {
               "PostgreSQL connection string for the analysis plane (FastAPI). Example: postgresql://user:pass@localhost:5433/docugardener",
           },
           {
+            name: "POSTGRES_PASSWORD",
+            required: "Yes",
+            defaultVal: "—",
+            description:
+              "Password for the PostgreSQL superuser. Shared between the postgres container and PgBouncer. Must match the password in SQL_DATABASE_URL. New in SCAL-01 — add this to your .env if upgrading from an earlier release.",
+          },
+          {
             name: "SQL_DATABASE_URL",
             required: "Yes",
             defaultVal: "—",
             description:
-              "PostgreSQL connection string for the control plane (Next.js / Prisma). Can point to the same database as DATABASE_URL.",
+              "PostgreSQL connection string used by the Python backend. Must route through PgBouncer (pgbouncer:5432) in Docker Compose, not directly to postgres:5432. PgBouncer runs as a sidecar in the same Docker network and enforces transaction-mode connection pooling.",
           },
           {
             name: "REDIS_URL",

@@ -18,7 +18,7 @@ _SessionLocal = None
 def _get_engine():
     global _engine
     if _engine is None:
-        _engine = create_engine(settings.sql_database_url)
+        _engine = create_engine(settings.sql_database_url, pool_pre_ping=True)  # SCAL-01
     return _engine
 
 
