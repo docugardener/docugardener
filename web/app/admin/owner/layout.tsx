@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+export const dynamic = "force-dynamic"
+
 import { notFound } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { cookies } from "next/headers"
