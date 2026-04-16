@@ -19,9 +19,14 @@ jobs:
     steps:
       - name: Call retention endpoint
         env:
-          APP_URL: ${{ vars.APP_URL }}         # e.g. https://app.docugardener.ai
+          APP_URL: ${{ vars.APP_URL || 'https://docugardener.dev' }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::warning::CRON_SECRET is not set — skipping audit retention call"
+            exit 0
+          fi
+
           DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
 
           RESPONSE=$(curl -sf \

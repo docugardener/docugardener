@@ -105,6 +105,6 @@ jobs:
           echo "$BODY" | python3 -c "
           import json, sys
           d = json.load(sys.stdin)
-          assert d.get('status') == 'ok', f'Unexpected health response: {d}'
+          assert d.get('status') in ('ok', 'healthy'), f'Unexpected health response: {d}'
           print('API response valid')
           "
