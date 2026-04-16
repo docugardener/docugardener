@@ -35,6 +35,7 @@ jobs:
         uses: azure/setup-helm@v3
         with:
           version: "latest"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Add Bitnami OCI repo (for dependency resolution)
         run: |
@@ -62,7 +63,9 @@ jobs:
       - name: Validate manifest YAML (yamllint)
         run: |
           pip install yamllint --quiet
-          yamllint -d "{extends: relaxed, rules: {line-length: {max: 200}}}" /tmp/manifests.yaml
+          # Helm's toYaml|nindent produces trailing spaces on empty blocks and
+          # minor indentation drift — disable those style-only rules on generated output.
+          yamllint -d "{extends: relaxed, rules: {line-length: {max: 200}, trailing-spaces: disable, indentation: disable}}" /tmp/manifests.yaml
 
       - name: Validate values schema (invalid values rejected)
         run: |
@@ -86,6 +89,7 @@ jobs:
         uses: azure/setup-helm@v3
         with:
           version: "latest"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
@@ -148,6 +152,7 @@ jobs:
         uses: azure/setup-helm@v3
         with:
           version: "latest"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create kind cluster
         uses: helm/kind-action@v1
@@ -209,6 +214,7 @@ jobs:
         uses: azure/setup-helm@v3
         with:
           version: "latest"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
