@@ -46,7 +46,7 @@ All Wave 0 items are covered in detail in `docs/specs/SEC-publish-readiness.md`.
 ### PUB-01-A: Git Initialization
 
 ```bash
-cd /Users/Alexey_Kopachev/Alex/AI\ Projects/DocuGardener
+cd ~/docugardener
 
 # Initialize
 git init

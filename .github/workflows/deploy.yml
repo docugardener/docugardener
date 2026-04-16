@@ -94,6 +94,8 @@ jobs:
     permissions:
       statuses: write
     env:
+      # Self-hosters: set APP_URL as a GitHub Actions variable (Settings → Secrets and variables → Variables)
+      # e.g. APP_URL=https://your-domain.example.com
       APP_URL: ${{ vars.APP_URL || 'https://docugardener.dev' }}
 
     steps:
