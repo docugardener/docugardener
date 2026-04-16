@@ -81,6 +81,51 @@
 
 ---
 
+## Git Push Discipline (Actions Minutes Budget)
+
+GitHub Actions minutes are a shared, finite resource. Every `git push` triggers a full CI run (~20 min). **Minimize pushes — local testing is the primary development loop.**
+
+### Rules
+1. **Never push a single fix in isolation.** Batch all related changes (feature + tests + docs + lint fixes) into one commit and one push.
+2. **All suites must pass locally before any push.** Run the full table from "Test Commands & Baselines" above. If any suite fails locally, fix it before touching `git push`.
+3. **Lint before push.** Always run `ruff check src/ tests/ --fix && ruff format src/ tests/` (Python) and `npx tsc --noEmit` (TypeScript) locally — never let CI catch a lint error.
+4. **One push per logical unit of work.** A feature, a sprint, a bug — that's one push. Do not push intermediate "it compiles" states.
+5. **Never push to investigate a test failure.** Reproduce and fix locally first. CI is for final verification, not debugging.
+6. **Wait for CI to go green before the next push.** Never stack pushes — if CI is running, hold until it finishes.
+
+### Default workflow
+```
+code → local tests → ruff/tsc → commit → local tests again → push
+```
+Push is the **last step**, not a checkpoint along the way.
+
+### VPS testing while CI is failing
+
+When CI is broken and you need the code on VPS to test, use one of these — **not** a normal push:
+
+**Option A — skip CI on this push (zero minutes consumed):**
+```bash
+git commit -m "wip: test X on VPS [skip ci]"
+git push origin main
+# Then manually trigger deploy (no CI run needed):
+gh workflow run deploy.yml --repo docugardener/docugardener
+```
+
+**Option B — deploy without any push (code already on main):**
+```bash
+gh workflow run deploy.yml --repo docugardener/docugardener
+```
+This SSHes to VPS and runs `git pull + docker compose up` against whatever is already on `main`. Zero CI minutes. Zero push required.
+
+**Option C — deploy directly via SSH (fastest, truly zero Actions):**
+```bash
+ssh deploy@46.225.145.115 "cd /opt/docugardener && git pull origin main && docker compose --env-file /opt/docugardener/.env -f docker/docker-compose.prod.yml up --build -d"
+```
+
+Use `[skip ci]` in the commit message any time you're iterating on a VPS fix and CI is known-failing. Strip it from the final "clean" commit before the CI-passing push.
+
+---
+
 ## Checkpoint Protocol (Mandatory)
 
 The orchestrator **must pause** at these gates and wait for ✅:
@@ -90,8 +135,8 @@ The orchestrator **must pause** at these gates and wait for ✅:
 | G1 — Plan | Before any file write |
 | G2 — Migration | Before Alembic / Prisma migration |
 | G3 — Docker ops | Before `docker-compose` build/restart |
-| G4 — Test report | After all suites pass |
-| G5 — Commit | Before `git commit` |
+| G4 — Test report | After all suites pass locally |
+| G5 — Commit+Push | Before `git push` — confirm all suites green + batch complete |
 
 ---
 

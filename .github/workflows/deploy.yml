@@ -22,6 +22,9 @@ on:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
+  # Manual deploy: gh workflow run deploy.yml
+  # Use this to deploy without triggering CI (e.g. while CI is failing).
+  workflow_dispatch:
 
 # Never cancel an in-flight deploy — finish what we started.
 concurrency:
@@ -29,11 +32,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # ── Guard: only proceed if CI passed ─────────────────────────────────────────
+  # ── Guard: only proceed if CI passed (or this is a manual deploy) ────────────
   check-ci:
     name: Check CI result
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     permissions:
       statuses: write
     steps:
