@@ -34,7 +34,7 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
-          version: "3.14.x"
+          version: "latest"
 
       - name: Add Bitnami OCI repo (for dependency resolution)
         run: |
@@ -85,12 +85,12 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
-          version: "3.14.x"
+          version: "latest"
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
         with:
-          version: "1.29.x"
+          version: "v1.29.0"
 
       - name: Helm template → check PSA fields
         run: |
@@ -147,7 +147,7 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
-          version: "3.14.x"
+          version: "latest"
 
       - name: Create kind cluster
         uses: helm/kind-action@v1
@@ -208,7 +208,7 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
-          version: "3.14.x"
+          version: "latest"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
