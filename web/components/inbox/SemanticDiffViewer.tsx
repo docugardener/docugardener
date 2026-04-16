@@ -406,12 +406,6 @@ export function SemanticDiffViewer({
                                         </div>
                                     ))}
                                 </div>
-                                <p className="text-[9px] text-muted-foreground/40 pt-1.5">
-                                    Full run history →{" "}
-                                    <a href={`/dashboard/jobs/${alert.id}`} className="underline underline-offset-2 hover:text-muted-foreground/70 transition-colors">
-                                        Jobs queue
-                                    </a>
-                                </p>
                             </div>
                         </div>
                     </div>

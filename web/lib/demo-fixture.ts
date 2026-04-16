@@ -9,7 +9,7 @@ export const DEMO_ALERT = {
   id: "demo-alert-001",
   repositoryName: "docugardener/docugardener",
   repoOwner: "docugardener",
-  headSha: "a1b2c3d4e5f6789012345678901234567890abcd",
+  headSha: null,
   prNumber: 42,
   driftScore: 74,
   createdAt: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
