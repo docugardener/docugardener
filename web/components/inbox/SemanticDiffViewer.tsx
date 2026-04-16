@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,6 +38,8 @@ interface SemanticDiffViewerProps {
     onAccept?: () => void;
     onIgnore?: (reason?: string) => void;
     isProcessing?: boolean;
+    /** BUG-2: called every 10s while job is in-flight so the detail panel auto-updates */
+    onStatusChange?: () => void | Promise<void>;
 }
 
 /** Map file extension to a Shiki-compatible language identifier */
@@ -57,6 +59,7 @@ export function SemanticDiffViewer({
     onAccept,
     onIgnore,
     isProcessing = false,
+    onStatusChange,
 }: SemanticDiffViewerProps) {
     const [dismissState, setDismissState] = useState<"idle" | "confirming">("idle")
     const [dismissReason, setDismissReason] = useState("")
@@ -75,6 +78,17 @@ export function SemanticDiffViewer({
     const requiresReason = true
 
     const driftItems = alert.result?.drift_analysis?.items || alert.result?.drift_analysis?.reasons || [];
+
+    // BUG-2 FIX: poll every 10s while the job is in-flight (PROCESSING / PENDING)
+    // so the detail panel reflects status transitions without a full page reload.
+    const isInFlight = alert.status === "PROCESSING" || alert.status === "QUEUED" ||
+        alert.triageStatus === "ANALYZING" || alert.triageStatus === "AUTO_FIXING"
+    useEffect(() => {
+        if (!isInFlight || !onStatusChange) return
+        const id = setInterval(() => { void onStatusChange() }, 10_000)
+        return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isInFlight])
 
     return (
         <div className="flex flex-col h-full bg-background/50 backdrop-blur-md">

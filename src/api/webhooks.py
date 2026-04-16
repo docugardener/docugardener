@@ -745,7 +745,50 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
                     str(repository.get("id", 0)),
                     repository.get("name", ""),
                 )
-                _gap4_job_id = _jm.create_job(_g4_tenant.id, _g4_repo_id, pr_number)
+
+                # BUG-1 FIX: For synchronize events, reuse the existing
+                # NEEDS_REVIEW job instead of creating a duplicate inbox row.
+                # QUEUED/PROCESSING jobs are left alone — they're in-flight.
+                if action == "synchronize":
+                    try:
+                        from src.storage.sql_models import Job as _SyncJob
+                        from src.storage.sql_models import JobStatus as _SyncJS
+                        from src.storage.sql_models import TriageStatus as _SyncTS
+
+                        with _G4Session() as _s1:
+                            # BUG-1: find a COMPLETED/PENDING job (analysis done,
+                            # user hasn't triaged yet) and reuse it instead of
+                            # creating a duplicate inbox row.
+                            _open_job = (
+                                _s1.query(_SyncJob)
+                                .filter(
+                                    _SyncJob.tenantId == _g4_tenant.id,
+                                    _SyncJob.repositoryId == _g4_repo_id,
+                                    _SyncJob.prNumber == pr_number,
+                                    _SyncJob.triageStatus == _SyncTS.PENDING,
+                                    _SyncJob.status == _SyncJS.COMPLETED,
+                                )
+                                .order_by(_SyncJob.createdAt.desc())
+                                .first()
+                            )
+                            if _open_job:
+                                _open_job.status = _SyncJS.QUEUED
+                                _s1.commit()
+                                _gap4_job_id = _open_job.id
+                                logger.info(
+                                    "BUG-1: reusing existing COMPLETED/PENDING job for synchronize",
+                                    job_id=_open_job.id,
+                                    pr=pr_number,
+                                    tenant_id=_g4_tenant.id,
+                                )
+                    except Exception as _b1_exc:
+                        logger.warning(
+                            "BUG-1: open-job check failed — will create new job",
+                            error=str(_b1_exc),
+                        )
+
+                if _gap4_job_id is None:
+                    _gap4_job_id = _jm.create_job(_g4_tenant.id, _g4_repo_id, pr_number)
         except Exception as _g4_exc:
             logger.warning(
                 "GAP-4: pre-create job record failed — proceeding without",

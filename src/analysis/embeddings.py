@@ -41,7 +41,9 @@ def get_embedding_model() -> SentenceTransformer:
         logger.info(
             "Embedding model loaded",
             model=settings.embeddings_model,
-            dimension=_model.get_sentence_embedding_dimension(),
+            dimension=getattr(
+                _model, "get_embedding_dimension", _model.get_sentence_embedding_dimension
+            )(),
         )
 
     return _model

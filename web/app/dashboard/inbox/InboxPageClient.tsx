@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { InboxLayout } from "@/components/inbox/InboxLayout";
 import { DriftAlertList, DriftAlert } from "@/components/inbox/DriftAlertList";
 import { SemanticDiffViewer } from "@/components/inbox/SemanticDiffViewer";
@@ -56,10 +56,14 @@ export function InboxPageClient({ tenantId, role }: InboxPageClientProps) {
     }, [])
 
     // Fetch alerts from API
-    const fetchAlerts = async (silent = false) => {
+    // BUG-2 FIX: useCallback gives a stable ref so the 30s interval doesn't
+    // stale-close over an old version of this function.
+    const fetchAlerts = useCallback(async (silent = false) => {
         if (!silent) setIsLoading(true);
         try {
-            const response = await fetch("/api/inbox");
+            // BUG-2 FIX: cache: 'no-store' prevents Next.js / browser from
+            // serving a cached response — every poll tick hits the route handler.
+            const response = await fetch("/api/inbox", { cache: "no-store" });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
@@ -85,17 +89,18 @@ export function InboxPageClient({ tenantId, role }: InboxPageClientProps) {
         } finally {
             if (!silent) setIsLoading(false);
         }
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // stable: only depends on React state setters (which never change)
 
     useEffect(() => {
         fetchAlerts();
-    }, []);
+    }, [fetchAlerts]);
 
     // Background poll every 30 s — picks up external resolutions (fix PR merged, new webhooks)
     useEffect(() => {
         const id = setInterval(() => fetchAlerts(true), 30_000);
         return () => clearInterval(id);
-    }, []);
+    }, [fetchAlerts]);
 
     const handleTriage = async (status: "ACCEPTED" | "IGNORED", reason?: string) => {
         if (!selectedAlert || isProcessing) return;
@@ -219,6 +224,7 @@ export function InboxPageClient({ tenantId, role }: InboxPageClientProps) {
                             onAccept={role !== "VIEWER" ? () => handleTriage("ACCEPTED") : undefined}
                             onIgnore={role !== "VIEWER" ? (reason) => handleTriage("IGNORED", reason) : undefined}
                             isProcessing={isProcessing}
+                            onStatusChange={() => fetchAlerts(true)}
                         />
                     ) : null
                 }
