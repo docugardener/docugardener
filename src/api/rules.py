@@ -355,6 +355,31 @@ def generate_rules(
         logger.info("RULES-01: artifact already in sync", repo=repo.name, format=body.format)
         return GenerateResponse(status="in_sync", artifact=_artifact_out(artifact))
 
+    # UI-FIX-02: Idempotency — if there is already an open PR for this artifact,
+    # return it instead of opening a duplicate.
+    if artifact is not None and artifact.lastPrUrl:
+        try:
+            pr_number = int(artifact.lastPrUrl.rstrip("/").rsplit("/", 1)[-1])
+            existing_pr = gh_repo.get_pull(pr_number)
+            if existing_pr.state == "open":
+                logger.info(
+                    "RULES-01: open PR already exists — skipping duplicate",
+                    repo=repo.name,
+                    format=body.format,
+                    pr_url=artifact.lastPrUrl,
+                )
+                return GenerateResponse(
+                    status="pr_opened",
+                    pr_url=artifact.lastPrUrl,
+                    artifact=_artifact_out(artifact),
+                )
+        except Exception as _idem_exc:  # noqa: BLE001
+            # PR not found, number parse error, GitHub error — fall through and create new PR
+            logger.debug(
+                "RULES-01: idempotency check failed — will create new PR",
+                error=str(_idem_exc),
+            )
+
     # Create branch and PR
     branch_name = f"docugardener/rules-{body.format.replace('_', '-')}-{uuid.uuid4().hex[:6]}"
     try:

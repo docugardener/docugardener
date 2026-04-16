@@ -205,21 +205,6 @@ export function PricingTeaser() {
           })}
         </div>
 
-        {/* Self-hosted note */}
-        <p className="text-center text-sm text-gray-500">
-          Self-hosted?{" "}
-          <a
-            href="https://github.com/docugardener/docugardener"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-2"
-          >
-            Full source on GitHub
-          </a>{" "}
-          — free forever under the{" "}
-          <span className="font-semibold">AGPL</span> license.
-        </p>
-
         {/* Full comparison link */}
         <div className="text-center mt-4">
           <Link

@@ -104,8 +104,8 @@ export default function GitHubAppPage() {
             <tbody>
               {[
                 ["Checks", "Read & write", "Post check run results on PRs"],
-                ["Contents", "Read-only", "Clone repository for analysis"],
-                ["Pull requests", "Read-only", "Read PR metadata and diffs"],
+                ["Contents", "Read & write", "Clone repository for analysis + create fix PRs"],
+                ["Pull requests", "Read & write", "Read PR metadata, diffs, and open fix PRs"],
                 ["Metadata", "Read-only", "Required by GitHub for all apps"],
               ].map(([perm, level, why]) => (
                 <tr key={perm}>

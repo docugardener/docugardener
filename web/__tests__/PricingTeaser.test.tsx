@@ -176,32 +176,7 @@ describe("PricingTeaser — billing toggle", () => {
   })
 })
 
-describe("PricingTeaser — self-hosted note", () => {
-  it("renders 'Self-hosted?' text", () => {
-    render(<PricingTeaser />)
-    expect(screen.getByText(/self-hosted\?/i)).toBeInTheDocument()
-  })
-
-  it("renders 'free forever' text in self-hosted note", () => {
-    render(<PricingTeaser />)
-    // text is split by <span>AGPL</span> — match the unbroken fragment
-    expect(screen.getByText(/— free forever under the/i)).toBeInTheDocument()
-  })
-
-  it("renders 'AGPL' mention", () => {
-    render(<PricingTeaser />)
-    expect(screen.getByText(/agpl/i)).toBeInTheDocument()
-  })
-
-  it("renders a GitHub link", () => {
-    render(<PricingTeaser />)
-    const links = screen.getAllByRole("link")
-    const githubLink = links.find((l) =>
-      l.getAttribute("href")?.includes("github.com")
-    )
-    expect(githubLink).toBeDefined()
-  })
-
+describe("PricingTeaser — footer links", () => {
   it("renders 'See full comparison' link to /pricing", () => {
     render(<PricingTeaser />)
     const link = screen.getByRole("link", { name: /see full comparison/i })
