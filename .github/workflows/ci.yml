@@ -5,10 +5,10 @@
 name: CI
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
+  # Trigger manually: gh workflow run ci.yml --repo docugardener/docugardener
+  # Do NOT add push/PR triggers — each CI run consumes ~28 GHA minutes (5 parallel jobs).
+  # CI is run on-demand before releases, not on every push.
+  workflow_dispatch:
 
 env:
   PYTHON_VERSION: "3.13"

@@ -93,36 +93,31 @@ GitHub Actions minutes are a shared, finite resource. Every `git push` triggers 
 5. **Never push to investigate a test failure.** Reproduce and fix locally first. CI is for final verification, not debugging.
 6. **Wait for CI to go green before the next push.** Never stack pushes — if CI is running, hold until it finishes.
 
-### Default workflow
+### Default workflow — push costs zero CI minutes
+
+CI no longer runs on push. Every `git push` is free. The new flow:
+
 ```
-code → local tests → ruff/tsc → commit → local tests again → push
+code → local tests → ruff/tsc → commit → push → deploy (manual)
 ```
-Push is the **last step**, not a checkpoint along the way.
 
-### VPS testing while CI is failing
-
-When CI is broken and you need the code on VPS to test, use one of these — **not** a normal push:
-
-**Option A — skip CI on this push (zero minutes consumed):**
+**Push new code to VPS:**
 ```bash
-git commit -m "wip: test X on VPS [skip ci]"
 git push origin main
-# Then manually trigger deploy (no CI run needed):
 gh workflow run deploy.yml --repo docugardener/docugardener
 ```
 
-**Option B — deploy without any push (code already on main):**
+**Run CI when you want verification (before a release, after a sprint):**
+```bash
+gh workflow run ci.yml --repo docugardener/docugardener
+```
+
+**Deploy without a push (code already on main):**
 ```bash
 gh workflow run deploy.yml --repo docugardener/docugardener
 ```
-This SSHes to VPS and runs `git pull + docker compose up` against whatever is already on `main`. Zero CI minutes. Zero push required.
 
-**Option C — deploy directly via SSH (fastest, truly zero Actions):**
-```bash
-ssh deploy@46.225.145.115 "cd /opt/docugardener && git pull origin main && docker compose --env-file /opt/docugardener/.env -f docker/docker-compose.prod.yml up --build -d"
-```
-
-Use `[skip ci]` in the commit message any time you're iterating on a VPS fix and CI is known-failing. Strip it from the final "clean" commit before the CI-passing push.
+**`[skip ci]` is no longer needed** — CI never auto-runs. Remove it from commit messages.
 
 ---
 
