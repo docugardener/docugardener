@@ -184,8 +184,29 @@ class JobManager:
             session.close()
 
     def complete_job(self, job_id: str, result: dict[str, Any]) -> None:
-        """Mark job as completed with result."""
-        self.update_status(job_id, JobStatus.COMPLETED, result)
+        """Mark job as completed with result.
+
+        Jobs with drift_score == 0 are auto-resolved — no drift means nothing
+        to triage, so they must not appear in the inbox.
+        """
+        session = self._get_factory()()
+        try:
+            update_data: dict[str, Any] = {
+                "status": JobStatus.COMPLETED,
+                "completedAt": datetime.utcnow(),
+                "result": result,
+            }
+            if not result.get("drift_score"):
+                from src.storage.sql_models import TriageStatus as _TS
+
+                update_data["triageStatus"] = _TS.RESOLVED
+            session.query(Job).filter(Job.id == job_id).update(update_data)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def get_repo_last_indexed_at(self, repo_db_id: str) -> "datetime | None":
         """BUG-5: Return lastIndexedAt for a Repository, or None if never indexed."""
