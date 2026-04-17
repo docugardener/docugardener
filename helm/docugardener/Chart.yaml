@@ -4,8 +4,8 @@ description: >
   Documentation drift detection for regulated industries.
   Self-hosted Helm chart for on-premise deployments (FinTech, MedTech, Government).
 type: application
-version: 0.1.0
-appVersion: "1.0.0"
+version: 0.2.0
+appVersion: "2026-04"
 keywords:
   - documentation
   - drift-detection

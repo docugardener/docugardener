@@ -41,7 +41,16 @@ DocuGardener is the documentation safety net for AI-native engineering teams. As
 | **Docker Compose** | Local dev, single-server |
 | **Kubernetes / Helm** | On-premise regulated environments (TEAM plan), HA production |
 
-For Kubernetes, the Helm chart (`helm/docugardener/`) ships with PSA-restricted manifests, NetworkPolicies, and air-gap mode. OCI registry publishing (`oci://ghcr.io/docugardener/helm/docugardener`) and first enterprise K8s validation are planned for Q2 2026. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#kubernetes-deployment-ent-13) and the chart's own [helm/docugardener/README.md](helm/docugardener/README.md).
+For Kubernetes, the Helm chart is published to GHCR and verified:
+
+```bash
+helm pull oci://ghcr.io/docugardener/helm/docugardener --version 0.2.0
+helm install docugardener oci://ghcr.io/docugardener/helm/docugardener \
+  --version 0.2.0 --namespace docugardener --create-namespace \
+  -f your-values.yaml
+```
+
+The chart ships with PSA `restricted`-compatible pod specs, NetworkPolicies, air-gap mode, and KEDA `ScaledObject` support (disabled by default). Releases are cosign-signed via GitHub Actions OIDC. See [helm/docugardener/CHANGELOG.md](helm/docugardener/CHANGELOG.md) and the [Kubernetes docs](https://docugardener.dev/docs/self-hosting/kubernetes) for the full values reference.
 
 ---
 
