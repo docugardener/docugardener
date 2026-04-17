@@ -9,6 +9,7 @@
 #   /api/webhooks/*  →  FastAPI (docugardener:8000)  — /api prefix stripped before forward
 #   /health          →  FastAPI (docugardener:8000)  — health probe
 #   /diagnostics*    →  FastAPI (docugardener:8000)  — operator diagnostics
+#   /auth/saml/*     →  FastAPI (docugardener:8000)  — SAML 2.0 SSO endpoints
 #   *                →  Next.js (web:3001)            — web app + its own /api/*
 # =============================================================================
 
@@ -49,6 +50,11 @@
     }
 
     handle /diagnostics* {
+        reverse_proxy docugardener:8000
+    }
+
+    # ── FastAPI: SAML 2.0 SSO (SP-initiated login, ACS callback, metadata, logout) ─
+    handle /auth/saml/* {
         reverse_proxy docugardener:8000
     }
 
