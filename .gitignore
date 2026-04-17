@@ -108,8 +108,15 @@ docs/backlog.md
 docs/active/
 docs/business/
 docs/Archive/
+docs/specs/
+docs/src/
 docs/Production-Infrastructure-Playbook.md
 docs/ORGA-01-Launch-Setup.md
+docs/AUDIT-publish-readiness-2026-04-16.md
+docs/LANDING_PAGE_FAQ.md
+docs/DocuGardener_Product_Specification.md
+docs/runbook.md
+docs/RESTORE.md
 ngrok_recovery_codes.txt
 Webpages/
 .rollback/
