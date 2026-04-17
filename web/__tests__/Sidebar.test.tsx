@@ -158,13 +158,13 @@ describe('Sidebar', () => {
     })
 
     describe('Issue 6 — Inbox badge', () => {
-        it('shows badge when there are COMPLETED jobs, even while on inbox page', async () => {
+        it('shows badge when there are PENDING jobs awaiting triage', async () => {
             mockPathname.mockReturnValue('/dashboard/inbox')
             mockFetch.mockResolvedValue({
                 ok: true,
                 json: async () => [
-                    { triageStatus: 'COMPLETED' },
-                    { triageStatus: 'COMPLETED' },
+                    { triageStatus: 'PENDING' },
+                    { triageStatus: 'PENDING' },
                 ],
             })
             render(<Sidebar />)
@@ -173,29 +173,28 @@ describe('Sidebar', () => {
             })
         })
 
-        it('does not show badge when all jobs are PENDING (not yet triaged)', async () => {
+        it('does not show badge when all jobs are already triaged', async () => {
             mockPathname.mockReturnValue('/dashboard/jobs')
             mockFetch.mockResolvedValue({
                 ok: true,
                 json: async () => [
-                    { triageStatus: 'PENDING' },
-                    { triageStatus: 'PROCESSING' },
+                    { triageStatus: 'RESOLVED' },
+                    { triageStatus: 'IGNORED' },
                 ],
             })
             render(<Sidebar />)
-            // Wait a tick for the effect to settle, badge should not appear
             await waitFor(() => {
                 expect(screen.queryByText('2')).not.toBeInTheDocument()
             })
         })
 
-        it('counts only COMPLETED jobs, ignoring non-COMPLETED statuses', async () => {
+        it('counts only PENDING jobs, ignoring resolved/ignored statuses', async () => {
             mockPathname.mockReturnValue('/dashboard/jobs')
             mockFetch.mockResolvedValue({
                 ok: true,
                 json: async () => [
-                    { triageStatus: 'COMPLETED' },
                     { triageStatus: 'PENDING' },
+                    { triageStatus: 'RESOLVED' },
                     { triageStatus: 'IGNORED' },
                 ],
             })

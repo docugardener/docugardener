@@ -96,7 +96,7 @@ export function Sidebar({ className }: SidebarProps) {
                 const res = await fetch("/api/inbox")
                 if (!res.ok) return
                 const data = await res.json()
-                setInboxCount(Array.isArray(data) ? data.filter((j: any) => j.triageStatus === "COMPLETED").length : 0)
+                setInboxCount(Array.isArray(data) ? data.filter((j: any) => j.triageStatus === "PENDING").length : 0)
             } catch { /* silent */ }
         }
         fetchCount()
