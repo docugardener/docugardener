@@ -21,7 +21,7 @@ def get_inbox_jobs(tenant_id: str, repository_id: str | None = None, db: Session
     query = db.query(Job).filter(
         Job.tenantId == tenant_id,
         Job.triageStatus == TriageStatus.PENDING,
-        Job.status != _JobStatus.QUOTA_EXCEEDED,
+        Job.status == _JobStatus.COMPLETED,
     )
 
     if repository_id:
