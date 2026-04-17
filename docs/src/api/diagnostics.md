@@ -1,18 +1,15 @@
-### API Changes
-
-#### `diagnostics()`
-
-The `diagnostics` function has been updated to include PostgreSQL connectivity checks.
+```markdown
+### `diagnostics()`
 
 **Description:**
 
 Operator diagnostics — live dependency health + runtime info.
 
-Checks Redis, Weaviate, and PostgreSQL connectivity; reports RQ queue depths, Python version, and process uptime. Intended for post-deploy verification and on-call triage.
+Checks Redis, Weaviate, and PostgreSQL connectivity; reports Python version, process uptime, and hostname. Intended for post-deploy verification and on-call triage.
 
 **Returns:**
 
-JSON object with keys: `python_version`, `uptime_seconds`, `redis`, `weaviate`, `postgres`, `deployment_mode`, `timestamp`.
+JSON object with keys: `python_version`, `uptime_seconds`, `hostname`, `redis`, `weaviate`, `postgres`, `deployment_mode`, `timestamp`.
 
 **Example:**
 
@@ -34,6 +31,7 @@ if __name__ == "__main__":
 {
   "python_version": "3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0]",
   "uptime_seconds": 1234.5,
+  "hostname": "my-server-name",
   "deployment_mode": "production",
   "redis": {
     "connected": true,
@@ -47,6 +45,7 @@ if __name__ == "__main__":
     "connected": true,
     "version": "15.3"
   },
-  "timestamp": "2023-10-27T10:30:00.123456+00:00"
+  "timestamp": "2023-11-21T10:30:00.123456+00:00"
 }
+```
 ```
