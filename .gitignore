@@ -103,8 +103,10 @@ logs/
 local/
 
 # Internal / sensitive (never publish)
+CLAUDE.md
 task.md
 docs/backlog.md
+docs/INFISICAL.md
 docs/active/
 docs/business/
 docs/Archive/
