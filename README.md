@@ -334,6 +334,12 @@ Key settings (`web/.env` — Next.js frontend):
 - `GITHUB_ID` / `GITHUB_SECRET`: GitHub OAuth App credentials
 - `BUNDLED_GEMINI_KEY`: Must match the root `.env` value — controls "Platform Default" card visibility in Settings
 
+## Contributing
+
+We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, test commands, and code conventions.
+
+Frontend contributors: see [Design System](docs/design-system.md) for UI primitives and token rules.
+
 ## License
 
 DocuGardener is open source under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).

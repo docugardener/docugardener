@@ -28,6 +28,12 @@ export default function DesignSystemPage() {
                         /ux-preview/design-system.html
                     </Link>
                 </p>
+                <p className="text-sm text-muted-foreground">
+                    Repo-level quick reference:{" "}
+                    <Link href="https://github.com/docugardener/docugardener/blob/main/docs/design-system.md" target="_blank" className="text-primary hover:underline font-medium">
+                        docs/design-system.md
+                    </Link>
+                </p>
             </div>
 
             {/* Colour tokens */}
