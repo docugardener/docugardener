@@ -170,6 +170,7 @@ async def process_pull_request(
     )
 
     # Track Job in DB
+    repo_id: str | None = None  # BUG-5: resolved below for Weaviate indexing
     try:
         # Resolve GitHub numeric repo ID for DB/Weaviate namespacing.
         # gh_repo is already set when we fetched files; if the queue provided
@@ -187,9 +188,12 @@ async def process_pull_request(
                     "Could not resolve GitHub repo ID; using fallback '0'", error=str(_e)
                 )
         github_repo_id = str(gh_repo.id) if gh_repo is not None else "0"
+        # BUG-5: always resolve repo_id (get_or_create_repo is idempotent) so that
+        # analyze_pr can stamp lastIndexedAt regardless of whether this is the
+        # normal path (job_id is None) or the GAP-4 pre-created path.
+        repo_id = job_manager.get_or_create_repo(tenant_id, github_repo_id, repo)
         if job_id is None:
             # Normal path: no pre-created record — create it now.
-            repo_id = job_manager.get_or_create_repo(tenant_id, github_repo_id, repo)
             job_id = job_manager.create_job(tenant_id, repo_id, pr_number)
         # else: GAP-4 path — record was pre-created in webhooks.py before Redis enqueue;
         # on_failure callback can now mark it FAILED even if this worker never started.
@@ -231,6 +235,7 @@ async def process_pull_request(
             tenant_id=tenant_id,
             base_ref=base_ref,
             llm_config=llm_config,
+            repo_db_id=repo_id,
         )
         result.policy_violations = _policy_violations
         result.policy_blocks_merge = _policy_blocks_merge

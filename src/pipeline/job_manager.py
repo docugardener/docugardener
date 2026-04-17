@@ -177,6 +177,29 @@ class JobManager:
         """Mark job as completed with result."""
         self.update_status(job_id, JobStatus.COMPLETED, result)
 
+    def get_repo_last_indexed_at(self, repo_db_id: str) -> "datetime | None":
+        """BUG-5: Return lastIndexedAt for a Repository, or None if never indexed."""
+        session = self._get_factory()()
+        try:
+            repo = session.query(Repository).filter(Repository.id == repo_db_id).first()
+            return repo.lastIndexedAt if repo else None
+        finally:
+            session.close()
+
+    def stamp_repo_indexed(self, repo_db_id: str) -> None:
+        """BUG-5: Stamp lastIndexedAt on a Repository after Weaviate indexing completes."""
+        session = self._get_factory()()
+        try:
+            session.query(Repository).filter(Repository.id == repo_db_id).update(
+                {"lastIndexedAt": datetime.utcnow()}
+            )
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
     def patch_result(self, job_id: str, extra: dict[str, Any]) -> None:
         """Merge extra fields into an existing job result without overwriting other fields."""
         session = self._get_factory()()

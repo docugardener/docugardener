@@ -140,6 +140,7 @@ class PRAnalyzer:
         tenant_id: str,
         base_ref: str | None = None,
         llm_config: dict | None = None,
+        repo_db_id: str | None = None,
     ) -> PRAnalysisResult:
         """
         Analyze a Pull Request for documentation drift.
@@ -312,6 +313,28 @@ class PRAnalyzer:
                     # Get vector DB for related docs
                     async with get_db_manager() as db:
                         indexer = DocumentIndexer(db)
+
+                        # BUG-5: index repo into Weaviate on first analysis so that
+                        # find_related_docs() below actually returns context for the LLM.
+                        if repo_db_id:
+                            from src.pipeline.job_manager import job_manager as _jm
+
+                            if _jm.get_repo_last_indexed_at(repo_db_id) is None:
+                                try:
+                                    await indexer.index_repository(
+                                        repo_path, owner, repo, namespace=tenant_id
+                                    )
+                                    _jm.stamp_repo_indexed(repo_db_id)
+                                    logger.info(
+                                        "BUG-5: repository indexed into Weaviate",
+                                        repo=f"{owner}/{repo}",
+                                        tenant=tenant_id,
+                                    )
+                                except Exception as _idx_exc:
+                                    logger.warning(
+                                        "BUG-5: indexing failed (non-fatal, continuing without RAG context)",
+                                        error=str(_idx_exc),
+                                    )
 
                         for change in meaningful_changes[:5]:  # Limit to top 5
                             # Find related documentation

@@ -115,6 +115,9 @@ class Repository(Base):
     enabled = Column(Boolean, default=True)
     config = Column(JSON, nullable=True)
 
+    # BUG-5: set after first successful Weaviate index; None = never indexed
+    lastIndexedAt = Column(DateTime, nullable=True)
+
     createdAt = Column(DateTime, default=datetime.utcnow)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

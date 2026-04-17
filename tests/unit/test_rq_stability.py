@@ -505,8 +505,10 @@ class TestGap4AtomicDispatch:
                     )
                 )
 
-            # With a pre-provided job_id, create_job and get_or_create_repo must NOT be called
+            # With a pre-provided job_id, create_job must NOT be called.
+            # BUG-5: get_or_create_repo IS now called (idempotent — resolves repo_db_id
+            # for Weaviate indexing even in the GAP-4 pre-created-job path).
             mock_jm.create_job.assert_not_called()
-            mock_jm.get_or_create_repo.assert_not_called()
+            mock_jm.get_or_create_repo.assert_called_once()
             # update_status IS called (to mark it PROCESSING)
             mock_jm.update_status.assert_called_once_with("pre-job-gap4-999", ANY)

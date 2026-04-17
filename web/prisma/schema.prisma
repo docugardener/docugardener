@@ -110,15 +110,18 @@ model Repository {
   id           String   @id @default(cuid())
   tenantId     String
   tenant       Tenant   @relation(fields: [tenantId], references: [id])
-  
+
   githubRepoId String
   name         String
   enabled      Boolean  @default(true)
   config       Json?    // Stores drift threshold, ignored files, etc.
-  
+
+  // BUG-5: set after first successful Weaviate index; null = not yet indexed
+  lastIndexedAt DateTime?
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  
+
   jobs          Job[]
   rulesArtifacts RulesArtifact[]
 

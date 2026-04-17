@@ -220,3 +220,36 @@ class TestPatchResult:
     def test_patch_result_no_op_for_missing_job(self, jm):
         """patch_result on a non-existent job should not raise."""
         jm.patch_result("non-existent-job", {"key": "val"})
+
+
+# ── stamp_repo_indexed / get_repo_last_indexed_at (BUG-5) ─────────────────────
+
+
+class TestStampRepoIndexed:
+    def test_last_indexed_at_is_none_on_create(self, jm, sqlite_factory):
+        """BUG-5: freshly created repo has lastIndexedAt = None."""
+        repo_id = jm.get_or_create_repo("t-001", "repo-gh-bug5a", "org/repo-bug5a")
+        assert jm.get_repo_last_indexed_at(repo_id) is None
+
+    def test_stamp_sets_last_indexed_at(self, jm, sqlite_factory):
+        """BUG-5: stamp_repo_indexed sets a non-None timestamp."""
+        repo_id = jm.get_or_create_repo("t-001", "repo-gh-bug5b", "org/repo-bug5b")
+        jm.stamp_repo_indexed(repo_id)
+        ts = jm.get_repo_last_indexed_at(repo_id)
+        assert ts is not None
+
+    def test_stamp_is_idempotent(self, jm, sqlite_factory):
+        """BUG-5: calling stamp_repo_indexed twice does not raise and updates the timestamp."""
+        import time
+
+        repo_id = jm.get_or_create_repo("t-001", "repo-gh-bug5c", "org/repo-bug5c")
+        jm.stamp_repo_indexed(repo_id)
+        first_ts = jm.get_repo_last_indexed_at(repo_id)
+        time.sleep(0.01)  # ensure clock advances
+        jm.stamp_repo_indexed(repo_id)
+        second_ts = jm.get_repo_last_indexed_at(repo_id)
+        assert second_ts >= first_ts
+
+    def test_get_repo_last_indexed_at_missing_repo(self, jm):
+        """BUG-5: get_repo_last_indexed_at on a non-existent repo returns None."""
+        assert jm.get_repo_last_indexed_at("non-existent-repo") is None
