@@ -94,10 +94,20 @@ class JobManager:
         finally:
             session.close()
 
-    def create_job(self, tenant_id: str, repo_id: str, pr_number: int) -> str:
+    def create_job(
+        self,
+        tenant_id: str,
+        repo_id: str,
+        pr_number: int,
+        initial_result: "dict[str, Any] | None" = None,
+    ) -> str:
         """
         Creates a new Job record in QUEUED state.
         Returns the Job ID.
+
+        Pass initial_result to seed fields (e.g. head_sha) that the
+        idempotency guard in the webhook handler queries before the worker
+        has had a chance to write a full result.
         """
         session = self._get_factory()()
         try:
@@ -111,7 +121,7 @@ class JobManager:
                 prNumber=pr_number,
                 status=JobStatus.QUEUED,
                 logs=[],
-                result={},
+                result=initial_result or {},
             )
             session.add(job)
             session.commit()

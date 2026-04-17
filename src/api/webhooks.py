@@ -802,7 +802,16 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
                         )
 
                 if _gap4_job_id is None:
-                    _gap4_job_id = _jm.create_job(_g4_tenant.id, _g4_repo_id, pr_number)
+                    # BUG-8: seed head_sha in result at creation so the
+                    # idempotency guard above can find this QUEUED job
+                    # if GitHub fires a second event before the worker runs.
+                    _gap4_head_sha = pull_request.get("head", {}).get("sha")
+                    _gap4_job_id = _jm.create_job(
+                        _g4_tenant.id,
+                        _g4_repo_id,
+                        pr_number,
+                        initial_result={"head_sha": _gap4_head_sha} if _gap4_head_sha else None,
+                    )
         except Exception as _g4_exc:
             logger.warning(
                 "GAP-4: pre-create job record failed — proceeding without",
