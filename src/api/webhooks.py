@@ -164,9 +164,9 @@ async def handle_github_webhook(
             },
         )
 
-    # Delivery-ID dedup: smee occasionally re-delivers the same event on reconnect.
-    # Use Redis SET NX with a 5-minute TTL to deduplicate at the entry point,
-    # before any DB writes or queue operations.
+    # Delivery-ID dedup: GitHub re-delivers failed webhooks for up to 72 h;
+    # smee also replays on reconnect.  Use Redis SET NX with a 24-h TTL to
+    # deduplicate at the entry point, before any DB writes or queue operations.
     try:
         import redis as _redis_mod
 
@@ -175,7 +175,7 @@ async def handle_github_webhook(
             decode_responses=True,
         )
         _dedup_key = f"webhook:delivery:{x_github_delivery}"
-        _is_new = _rd.set(_dedup_key, "1", nx=True, ex=300)  # 5-min TTL
+        _is_new = _rd.set(_dedup_key, "1", nx=True, ex=86400)  # 24-h TTL
         if not _is_new:
             logger.info(
                 "Duplicate delivery skipped",

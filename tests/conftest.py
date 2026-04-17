@@ -57,7 +57,7 @@ if "git" not in sys.modules:
 
 
 # ── Redis webhook dedup cleanup ───────────────────────────────────────────────
-# The webhook handler uses Redis SET NX (5-min TTL) to deduplicate deliveries.
+# The webhook handler uses Redis SET NX (24-h TTL) to deduplicate deliveries.
 # Without this cleanup, tests that reuse fixed delivery IDs (e.g. "test-delivery-123")
 # fail when the suite is run more than once within the TTL window, or when an
 # earlier test in the same session has already consumed the key.

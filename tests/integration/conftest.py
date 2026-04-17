@@ -245,7 +245,7 @@ def _webhook_headers(
 ) -> dict:
     import uuid as _uuid
 
-    # Use a unique delivery ID per call so Redis dedup (5-min TTL) never rejects
+    # Use a unique delivery ID per call so Redis dedup (24-h TTL) never rejects
     # a later test that reuses the same payload. Callers can still pin a specific
     # ID when the test explicitly exercises dedup behaviour.
     if delivery_id is None:
