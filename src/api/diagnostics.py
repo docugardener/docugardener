@@ -13,6 +13,7 @@ Exposed at:
   GET /diagnostics/db     — PostgreSQL-only connectivity check
 """
 
+import socket
 import sys
 import time
 from datetime import UTC, datetime
@@ -107,7 +108,7 @@ async def diagnostics() -> dict[str, Any]:
 
     Returns:
         JSON object with keys: python_version, uptime_seconds,
-        redis, weaviate, postgres, deployment_mode, timestamp.
+        hostname, redis, weaviate, postgres, deployment_mode, timestamp.
     """
     redis_result, weaviate_result, postgres_result = (
         await _check_redis(),
@@ -120,6 +121,7 @@ async def diagnostics() -> dict[str, Any]:
     return {
         "python_version": sys.version,
         "uptime_seconds": uptime_seconds,
+        "hostname": socket.gethostname(),
         "deployment_mode": settings.deployment_mode,
         "redis": redis_result,
         "weaviate": weaviate_result,
