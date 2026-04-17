@@ -1,12 +1,9 @@
 name: E2E Regression
 
 on:
-  # PR trigger removed — was burning ~29 GHA minutes per policy-sync PR.
-  # E2E is now nightly-only + manual. Run manually: gh workflow run e2e.yml
+  # Schedule and PR triggers disabled — CI minutes budget exhausted.
+  # Run manually only: gh workflow run e2e.yml
   workflow_dispatch:
-  schedule:
-    # Nightly at 02:00 UTC — catches regressions without blocking every push
-    - cron: "0 2 * * *"
 
 jobs:
   e2e:
