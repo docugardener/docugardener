@@ -8,6 +8,7 @@ import { UserList } from "@/components/user-list"
 import { RevokeSessionsButton } from "@/components/team/RevokeSessionsButton"
 import { Users, Lock, Zap } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { StatusChip } from "@/components/ui/status-chip"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { DashboardShell } from "@/components/dashboard/DashboardShell"
 
@@ -60,8 +61,9 @@ export default async function TeamPage() {
                             </CardContent>
                         </Card>
                     ) : (
-                        <Card className="rounded-card border-border bg-card shadow-card-hover flex flex-col border-l-8 border-l-primary overflow-hidden animate-entrance">
+                        <Card className="rounded-card border-border bg-card shadow-card-hover flex flex-col overflow-hidden animate-entrance">
                             <CardHeader className="border-b border-border pb-4 bg-muted/50">
+                                <StatusChip variant="primary" label="TEAM" className="mb-2" />
                                 <div className="flex items-start justify-between gap-4">
                                     <div>
                                         <CardTitle className="type-section-header">Team Members</CardTitle>

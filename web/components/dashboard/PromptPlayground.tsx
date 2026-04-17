@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Save, RotateCcw, MessageSquare, Info, AlertTriangle } from "lucide-react"
+import { StatusChip } from "@/components/ui/status-chip"
 
 // SEC-02 AC-2 / AC-7 — client-side constants (server is the authoritative gate)
 const MAX_PROMPT_LENGTH = 8_000
@@ -159,8 +160,9 @@ export function PromptPlayground() {
     return (
         <div className="grid gap-6 lg:grid-cols-3">
             {/* List Section */}
-            <Card className="lg:col-span-1 border-border shadow-sm flex flex-col border-l-8 border-l-muted overflow-hidden">
+            <Card className="lg:col-span-1 border-border shadow-sm flex flex-col overflow-hidden">
                 <CardHeader className="bg-muted/50 border-b border-border">
+                    <StatusChip variant="neutral" label="CONTEXT" className="mb-1" />
                     <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Prompt Keys</CardTitle>
                     <CardDescription className="text-[11px] font-bold text-muted-foreground/60">Select instructions to override.</CardDescription>
                 </CardHeader>
@@ -194,7 +196,7 @@ export function PromptPlayground() {
             </Card>
 
             {/* Editor Section */}
-            <Card className="lg:col-span-2 border-border shadow-sm flex flex-col min-h-[500px] border-l-8 border-l-primary">
+            <Card className="lg:col-span-2 border-border shadow-sm flex flex-col min-h-[500px]">
                 {!selectedKey ? (
                     <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
                         Select a prompt to start editing
@@ -203,6 +205,7 @@ export function PromptPlayground() {
                     <>
                         <CardHeader className="flex flex-row items-center justify-between border-b border-border bg-muted/50 py-6">
                             <div>
+                                <StatusChip variant="primary" label="OUTPUT" className="mb-1" />
                                 <CardTitle className="text-sm font-black uppercase tracking-widest text-foreground">{selectedKey}</CardTitle>
                                 <CardDescription className="flex items-center mt-1 text-[11px] font-bold">
                                     {selectedPrompt?.is_custom ? (

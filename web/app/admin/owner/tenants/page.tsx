@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
+import { DataTable, DataTableHeader, DataTableBody, DataTableRow, DataTableHead, DataTableCell } from "@/components/ui/data-table"
 
 interface TenantRow {
   id: string
@@ -74,52 +75,52 @@ export default function TenantsPage() {
       {tenants.length === 0 ? (
         <div className="text-sm text-gray-400 py-8 text-center">No tenants yet.</div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
+        <div className="border border-border rounded-xl overflow-hidden">
+          <DataTable className="text-sm">
+            <DataTableHeader>
+              <DataTableRow>
                 {["Tenant", "Plan", "Quota (30d)", "Jobs 30d", "Last active", "Overrides", ""].map((h) => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <DataTableHead key={h} className="text-left">
                     {h}
-                  </th>
+                  </DataTableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
+              </DataTableRow>
+            </DataTableHeader>
+            <DataTableBody className="divide-y divide-border">
               {tenants.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
-                  <td className="px-4 py-3">
+                <DataTableRow key={t.id}>
+                  <DataTableCell className="font-medium">{t.name}</DataTableCell>
+                  <DataTableCell>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${PLAN_COLORS[t.plan]}`}>
                       {t.plan}
                     </span>
-                  </td>
-                  <td className="px-4 py-3">
+                  </DataTableCell>
+                  <DataTableCell>
                     <QuotaBar used={t.quotaUsed} limit={t.quotaLimit} unlimited={t.quotaUnlimited} />
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{t.jobCount30d}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">
+                  </DataTableCell>
+                  <DataTableCell className="text-muted-foreground">{t.jobCount30d}</DataTableCell>
+                  <DataTableCell className="text-muted-foreground text-xs">
                     {t.lastJobAt ? new Date(t.lastJobAt).toLocaleDateString() : "—"}
-                  </td>
-                  <td className="px-4 py-3">
+                  </DataTableCell>
+                  <DataTableCell>
                     {t.grantedFeatures ? (
-                      <span className="text-xs text-green-600 font-medium">{t.grantedFeatures.length} features</span>
+                      <span className="text-xs text-emerald-600 font-medium">{t.grantedFeatures.length} features</span>
                     ) : (
-                      <span className="text-xs text-gray-400">plan default</span>
+                      <span className="text-xs text-muted-foreground">plan default</span>
                     )}
-                  </td>
-                  <td className="px-4 py-3">
+                  </DataTableCell>
+                  <DataTableCell>
                     <Link
                       href={`/admin/owner/overrides?tenant=${t.id}`}
-                      className="text-xs font-semibold text-green-600 hover:text-green-700"
+                      className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
                     >
                       Override →
                     </Link>
-                  </td>
-                </tr>
+                  </DataTableCell>
+                </DataTableRow>
               ))}
-            </tbody>
-          </table>
+            </DataTableBody>
+          </DataTable>
         </div>
       )}
     </div>

@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DocuGardener — UX Calibration Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ════════════════════════════════════════════════════════════
+       THEME TOKENS — CURRENT (applies at :root)
+       ════════════════════════════════════════════════════════════ */
+    :root {
+      /* Light (current) */
+      --bg:          #fafafa;
+      --fg:          #09090b;
+      --card:        #ffffff;
+      --card-fg:     #09090b;
+      --muted:       #f4f4f5;
+      --muted-fg:    #71717a;
+      --border:      #e4e4e7;
+      --primary:     #4f46e5;
+      --primary-fg:  #ffffff;
+      --destructive: #ef4444;
+
+      --status-fresh:    #14b8a6;
+      --status-withered: #f59e0b;
+      --status-broken:   #f43f5e;
+
+      --radius-card:        2rem;      /* CURRENT: 32px — marketing */
+      --radius-interactive: 0.75rem;   /* 12px */
+      --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.05),
+                     0 2px 4px -2px rgb(0 0 0 / 0.05),
+                     0 0 0 1px rgb(0 0 0 / 0.02);
+    }
+
+    body.dark {
+      /* Dark (current) */
+      --bg:          #1c1c1f;
+      --fg:          #fafafa;
+      --card:        #27272a;
+      --card-fg:     #fafafa;
+      --muted:       #3f3f46;
+      --muted-fg:    #a1a1aa;
+      --border:      #52525b;
+      --primary:     #6366f1;
+      --destructive: #fb7185;
+
+      --status-fresh:    #2dd4bf;
+      --status-withered: #fbbf24;
+      --status-broken:   #fb7185;
+
+      --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.35),
+                     0 2px 4px -2px rgb(0 0 0 / 0.3),
+                     0 0 0 1px rgb(0 0 0 / 0.1);
+    }
+
+    /* ════════════════════════════════════════════════════════════
+       THEME TOKENS — PROPOSED (scoped inside [data-theme="proposed"])
+       ════════════════════════════════════════════════════════════ */
+    [data-theme="proposed"] {
+      --bg:          #f4f4f5;          /* was #fafafa — Zinc-100 (deeper) */
+      --border:      #d4d4d8;          /* was #e4e4e7 — Zinc-300 (sharper) */
+      --radius-card: 0.75rem;          /* was 2rem — UNIFIED with interactive */
+      --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.08),
+                     0 2px 4px -2px rgb(0 0 0 / 0.08),
+                     0 0 0 1px rgb(0 0 0 / 0.04);
+    }
+    body.dark [data-theme="proposed"] {
+      /* Dark mode: keep values, only unify radius */
+      --radius-card: 0.75rem;
+    }
+
+    /* ════════════════════════════════════════════════════════════
+       BASE
+       ════════════════════════════════════════════════════════════ */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-feature-settings: "cv11", "ss01", "ss03";
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.2s ease;
+    }
+    code, .mono {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-feature-settings: "liga" 0;
+    }
+
+    /* ─── Layout ────────────────────────────────────────────── */
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 6rem;
+    }
+    .hdr-global {
+      position: sticky; top: 0; z-index: 10;
+      background: color-mix(in srgb, var(--bg) 92%, transparent);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      margin: -2rem -1.5rem 2rem;
+    }
+    .hdr-global h1 {
+      font-size: 0.95rem; font-weight: 700; margin: 0;
+    }
+    .hdr-global .hint {
+      color: var(--muted-fg); font-size: 0.75rem; font-weight: 500;
+    }
+    .toggle-btn {
+      background: var(--card); color: var(--fg);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.75rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 0.8rem; font-weight: 600;
+    }
+    .toggle-btn:hover { background: var(--muted); }
+
+    section.block {
+      margin-bottom: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px dashed var(--border);
+    }
+    section.block:first-of-type { border-top: 0; padding-top: 0; }
+
+    .block-title {
+      font-size: 1.15rem; font-weight: 700;
+      margin: 0 0 0.25rem;
+    }
+    .block-subtitle {
+      font-size: 0.8rem; color: var(--muted-fg);
+      margin: 0 0 1.5rem;
+      font-weight: 500;
+    }
+    .block-subtitle code {
+      background: var(--muted);
+      padding: 0.05rem 0.35rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+    }
+
+    .cmp {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    .cmp-col-label {
+      font-size: 0.65rem; font-weight: 800;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--muted-fg);
+      margin-bottom: 0.5rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .cmp-col-label .dot {
+      width: 6px; height: 6px; border-radius: 99px;
+      background: var(--status-broken);
+    }
+    [data-theme="proposed"] .cmp-col-label .dot {
+      background: var(--status-fresh);
+    }
+
+    /* ════════════════════════════════════════════════════════════
+       REUSABLE PRIMITIVES (same API, value comes from CSS vars)
+       Each wrapper picks up its scope's vars automatically.
+       ════════════════════════════════════════════════════════════ */
+
+    /* ─── Card ──────────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      color: var(--card-fg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    }
+    [data-theme="current"] .card-header {
+      padding: 1.5rem 2rem;         /* current: py-6 px-8 */
+    }
+    .card-title {
+      font-size: 0.95rem; font-weight: 600; margin: 0;
+    }
+    .card-description {
+      font-size: 0.8rem; color: var(--muted-fg); margin: 0.15rem 0 0;
+    }
+    .card-content {
+      padding: 1rem 1.25rem;
+    }
+    [data-theme="current"] .card-content {
+      padding: 1.5rem 2rem;
+    }
+    .card-footer {
+      padding: 0.75rem 1.25rem;
+      border-top: 1px solid var(--border);
+      background: var(--muted);
+      font-size: 0.75rem; color: var(--muted-fg);
+    }
+
+    /* Current-only left-border accent demo */
+    .card.with-left-accent {
+      border-left: 8px solid var(--status-fresh);
+    }
+
+    /* ─── Status chip ───────────────────────────────────────── */
+    .chip {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 99px;
+      font-size: 0.7rem; font-weight: 600;
+      letter-spacing: 0.02em;
+      border: 1px solid transparent;
+    }
+    .chip .chip-dot {
+      width: 6px; height: 6px; border-radius: 99px;
+    }
+    .chip-fresh {
+      background: color-mix(in srgb, var(--status-fresh) 12%, transparent);
+      border-color: color-mix(in srgb, var(--status-fresh) 35%, transparent);
+      color: var(--status-fresh);
+    }
+    .chip-fresh .chip-dot { background: var(--status-fresh); }
+    .chip-withered {
+      background: color-mix(in srgb, var(--status-withered) 12%, transparent);
+      border-color: color-mix(in srgb, var(--status-withered) 35%, transparent);
+      color: var(--status-withered);
+    }
+    .chip-withered .chip-dot { background: var(--status-withered); }
+    .chip-broken {
+      background: color-mix(in srgb, var(--status-broken) 12%, transparent);
+      border-color: color-mix(in srgb, var(--status-broken) 35%, transparent);
+      color: var(--status-broken);
+    }
+    .chip-broken .chip-dot { background: var(--status-broken); }
+    .chip-neutral {
+      background: var(--muted);
+      border-color: var(--border);
+      color: var(--muted-fg);
+    }
+    .chip-primary {
+      background: color-mix(in srgb, var(--primary) 12%, transparent);
+      border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+      color: var(--primary);
+    }
+
+    /* ─── Button ────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.85rem; font-weight: 600;
+      border-radius: var(--radius-interactive);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary {
+      background: var(--primary); color: var(--primary-fg);
+    }
+    .btn-primary:hover {
+      background: color-mix(in srgb, var(--primary) 88%, black);
+    }
+    .btn-secondary {
+      background: var(--card); color: var(--fg);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover { background: var(--muted); }
+    .btn-ghost {
+      background: transparent; color: var(--fg);
+    }
+    .btn-ghost:hover { background: var(--muted); }
+    .btn-destructive {
+      background: var(--destructive); color: #fff;
+    }
+    .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+
+    /* ─── Input / Select ────────────────────────────────────── */
+    .input {
+      display: block;
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+      background: var(--card);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-interactive);
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+    .input:focus {
+      outline: 2px solid color-mix(in srgb, var(--primary) 40%, transparent);
+      outline-offset: 1px;
+      border-color: var(--primary);
+    }
+    .label {
+      display: block;
+      font-size: 0.75rem; font-weight: 600;
+      margin-bottom: 0.35rem;
+      color: var(--fg);
+    }
+
+    /* ─── Table ─────────────────────────────────────────────── */
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .table thead th {
+      text-align: left;
+      font-weight: 700;
+      color: var(--muted-fg);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 0.6rem 0.75rem;
+      background: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .table tbody td {
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .table tbody tr:hover { background: var(--muted); }
+    .table tbody tr:last-child td { border-bottom: 0; }
+
+    /* Current sparse table */
+    [data-theme="current"] .table thead th {
+      padding: 1rem 1.5rem;
+      font-size: 0.72rem;
+    }
+    [data-theme="current"] .table tbody td {
+      padding: 1rem 1.5rem;
+    }
+
+    /* ─── Tabs ──────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.25rem;
+    }
+    .tab {
+      padding: 0.6rem 0.9rem;
+      font-size: 0.82rem; font-weight: 500;
+      color: var(--muted-fg);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .tab:hover { color: var(--fg); }
+    .tab[data-active="true"] {
+      color: var(--fg);
+      font-weight: 600;
+      border-bottom-color: var(--primary);
+    }
+
+    /* Current tab variant: colored left-border frame (what the user has now) */
+    .tabs-current {
+      flex-direction: column;
+      border-bottom: none;
+      gap: 0.5rem;
+      margin-bottom: 0;
+    }
+    .tab-current {
+      padding: 0.9rem 1rem 0.9rem 1.2rem;
+      border-left: 4px solid var(--border);
+      background: var(--card);
+      border-radius: var(--radius-interactive);
+      border-top: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-current[data-active="true"] {
+      border-left: 4px solid var(--primary);
+      background: color-mix(in srgb, var(--primary) 6%, var(--card));
+    }
+
+    /* ─── PageHeader ────────────────────────────────────────── */
+    .page-header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.25rem;           /* proposed: ~20px total */
+      margin-bottom: 1rem;
+      border-radius: var(--radius-card);
+    }
+    [data-theme="current"] .page-header {
+      padding: 2rem 2.5rem;             /* current: py-8, big */
+      margin-bottom: 2rem;
+    }
+    .page-header .breadcrumb {
+      font-size: 0.7rem; color: var(--muted-fg);
+      font-weight: 500; letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 0.35rem;
+    }
+    .page-header-title {
+      font-size: 1.375rem;   /* proposed: text-2xl = 24px */
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin: 0 0 0.15rem;
+    }
+    [data-theme="current"] .page-header-title {
+      font-size: 1.875rem;   /* current: text-3xl = 30px */
+    }
+    .page-header-desc {
+      font-size: 0.82rem; color: var(--muted-fg);
+      margin: 0;
+    }
+    .page-header-inner {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 1rem;
+    }
+    .page-header-actions {
+      display: flex; gap: 0.5rem;
+    }
+
+    /* ─── Empty state ───────────────────────────────────────── */
+    .empty {
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      background: var(--card);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-card);
+    }
+    .empty-icon {
+      width: 2.5rem; height: 2.5rem;
+      border-radius: 99px;
+      background: var(--muted);
+      margin: 0 auto 0.75rem;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted-fg);
+    }
+    .empty-title {
+      font-size: 0.95rem; font-weight: 600; margin: 0 0 0.25rem;
+    }
+    .empty-desc {
+      font-size: 0.82rem; color: var(--muted-fg); margin: 0 0 1rem;
+    }
+
+    /* ─── Typography specimens ─────────────────────────────── */
+    .type-row {
+      display: grid;
+      grid-template-columns: 10rem 1fr auto;
+      gap: 1rem;
+      padding: 0.5rem 0;
+      align-items: baseline;
+      border-bottom: 1px dashed var(--border);
+    }
+    .type-row:last-child { border-bottom: 0; }
+    .type-row .name {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--muted-fg);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .type-row .spec {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.7rem;
+      color: var(--muted-fg);
+    }
+    .type-h1 { font-size: 1.875rem; font-weight: 700; letter-spacing: -0.02em; }
+    .type-h2 { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.01em; }
+    .type-page-title { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.01em; }
+    .type-card-title { font-size: 0.95rem; font-weight: 600; }
+    .type-section-header { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted-fg); }
+    .type-table-header { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-fg); }
+    .type-body { font-size: 0.875rem; font-weight: 500; }
+    .type-metadata { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-fg); }
+    .type-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.72rem; font-weight: 500; letter-spacing: -0.01em; }
+
+    /* ─── Swatch grid (color palette) ──────────────────────── */
+    .swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+      gap: 0.75rem;
+    }
+    .swatch {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-interactive);
+      overflow: hidden;
+      font-size: 0.75rem;
+    }
+    .swatch .fill {
+      height: 3rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .swatch .meta {
+      padding: 0.5rem 0.65rem;
+    }
+    .swatch .meta .n {
+      font-weight: 600; font-size: 0.78rem;
+    }
+    .swatch .meta .h {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted-fg);
+    }
+
+    /* ─── Diff callout ─────────────────────────────────────── */
+    .diff {
+      padding: 0.6rem 0.85rem;
+      background: color-mix(in srgb, var(--primary) 6%, var(--card));
+      border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+      border-radius: var(--radius-interactive);
+      margin-top: 0.75rem;
+      font-size: 0.78rem;
+    }
+    .diff strong { color: var(--primary); }
+    .diff-label { font-weight: 700; color: var(--primary); margin-right: 0.35rem; }
+
+    /* ─── Note ─────────────────────────────────────────────── */
+    .note {
+      padding: 0.75rem 1rem;
+      background: var(--muted);
+      border-left: 3px solid var(--primary);
+      border-radius: 0.25rem;
+      font-size: 0.82rem;
+      color: var(--muted-fg);
+      margin: 0.75rem 0;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hdr-global">
+      <div>
+        <h1>DocuGardener — UX Calibration Preview</h1>
+        <div class="hint">Every pair shows <em>current</em> (left) vs <em>proposed</em> (right). Toggle mode to audit both.</div>
+      </div>
+      <button class="toggle-btn" id="modeBtn" onclick="toggleMode()">🌙 Dark mode</button>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════
+         INTRO
+         ════════════════════════════════════════════════════════ -->
+    <section class="block">
+      <p class="block-title">What's changing</p>
+      <p class="block-subtitle">Calibration pass — no component renames, no token removals. Values tightened for density and contrast.</p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.75rem; font-size: 0.82rem;">
+        <div class="card" style="padding: 0.9rem 1rem;">
+          <strong>Bucket A — Cards & elevation</strong><br/>
+          <span style="color: var(--muted-fg);">• <code>--radius-card</code>: 2rem → <strong>0.75rem</strong> (unified)<br/>
+          • <code>--background</code>: Zinc-50 → <strong>Zinc-100</strong><br/>
+          • <code>--border</code>: Zinc-200 → <strong>Zinc-300</strong><br/>
+          • Shadow opacity 5% → <strong>8%</strong><br/>
+          • <code>border-l-8</code> left rail → <strong>header status chip</strong></span>
+        </div>
+        <div class="card" style="padding: 0.9rem 1rem;">
+          <strong>Bucket B — Header density</strong><br/>
+          <span style="color: var(--muted-fg);">• PageHeader <code>py-8</code> → <strong><code>py-5</code></strong><br/>
+          • Title <code>text-3xl</code> → <strong><code>text-2xl</code></strong><br/>
+          • Margin <code>mb-8</code> → <strong><code>mb-6</code></strong><br/>
+          • Card header <code>py-6 px-8</code> → <strong><code>py-4 px-5</code></strong><br/>
+          • Chrome: ~96px → <strong>~72px</strong></span>
+        </div>
+        <div class="card" style="padding: 0.9rem 1rem;">
+          <strong>Bucket C — Dense tables</strong><br/>
+          <span style="color: var(--muted-fg);">• Row padding <code>py-4</code> → <strong><code>py-2.5</code></strong><br/>
+          • Header font 0.72rem → <strong>0.68rem</strong><br/>
+          • Row height ~56px → <strong>~40px</strong><br/>
+          • Hover background via <code>--muted</code><br/>
+          • No surrounding card wrapper</span>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Consistency rule:</strong> after this calibration, each primitive (Card, PageHeader, Button, Table, Chip, Tab) has exactly one canonical version. No in-the-wild variants. The classes below are the only way to build these elements.
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════
+         COLOR PALETTE
+         ════════════════════════════════════════════════════════ -->
+    <section class="block">
+      <p class="block-title">1 — Color tokens</p>
+      <p class="block-subtitle">Biggest change: light-mode <code>--background</code> deepened, <code>--border</code> sharpened. Dark mode untouched.</p>
+
+      <div class="cmp">
+        <div data-theme="current">
+          <div class="cmp-col-label"><span class="dot"></span>Current</div>
+          <div class="swatch-grid">
+            <div class="swatch"><div class="fill" style="background: var(--bg);"></div><div class="meta"><div class="n">background</div><div class="h" id="bg-c"></div></div></div>
+            <div class="swatch"><div class="fill" style="background: var(--card);"></div><div class="meta"><div class="n">card</div><div class="h" id="card-c"></div></div></div>
+            <div class="swatch"><div class="fill" style="background: var(--border);"></div><div class="meta"><div class="n">border</div><div class="h" id="border-c"></div></div></div>
+            <div class="swatch"><div class="fill" style="background: var(--muted);"></div><div class="meta"><div class="n">muted</div><div class="h" id="muted-c"></div></div></div>
+            <div class="swatch"><div class="fill" style="background: var(--primary);"></div><div class="meta"><div class="n">primary</div><div class="h" id="prim-c"></div></div></div>
+          </div>
+        </div>
+        <div data-theme="proposed">
+          <div class="cmp-col-label"><span class="dot"></span>Proposed</div>
+          <div class="swatch-grid">
+            <div class="swatch"><div class="fill" style="background: var(--bg);"></div><div class="meta"><div class="n">background</div><div class="h" id="bg-p"></div></div></div>
+            <div class="swatch"><div class="fill" style="background: var(--card);"></div><div class="meta"><div class="n">card</div><div class="h" id="card-p"></div></div></div>
+            <div class="swatch"><div class="fill" style="background: var(--border);"></div><div class="meta"><div class="n">border</div><div class="h" id="border-p"></div></div></div>
+            <div class="swatch"><div class="fill" style="background: var(--muted);"></div><div class="meta"><div class="n">muted</div><div class="h" id="muted-p"></div></div></div>
+            <div class="swatch"><div class="fill" style="background: var(--primary);"></div><div class="meta"><div class="n">primary</div><div class="h" id="prim-p"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="diff">
+        <span class="diff-label">Δ</span>
+        Light-mode <code>background</code> <strong>#fafafa → #f4f4f5</strong> (Zinc-50 → Zinc-100), <code>border</code> <strong>#e4e4e7 → #d4d4d8</strong> (Zinc-200 → Zinc-300). Cards now read as visually distinct surfaces without relying on shadow alone.
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════
+         TYPOGRAPHY
+         ════════════════════════════════════════════════════════ -->
+    <section class="block">
+      <p class="block-title">2 — Typography specimen</p>
+      <p class="block-subtitle">Scale unchanged except the page title (smaller for density). All utilities below are canonical — use these class names, don't reinvent.</p>
+
+      <div data-theme="proposed" class="card" style="padding: 1rem 1.25rem;">
+        <div class="type-row">
+          <div class="name">H1 display</div>
+          <div class="type-h1">Documentation Drift</div>
+          <div class="spec">type-h1 · 30px · 700</div>
+        </div>
+        <div class="type-row">
+          <div class="name">H2 / Page title</div>
+          <div class="type-page-title">Inbox</div>
+          <div class="spec">type-page-title · 22px · 700</div>
+        </div>
+        <div class="type-row">
+          <div class="name">Card title</div>
+          <div class="type-card-title">Deployment Profile</div>
+          <div class="spec">type-card-title · 15px · 600</div>
+        </div>
+        <div class="type-row">
+          <div class="name">Section header</div>
+          <div class="type-section-header">AGENT GOVERNANCE</div>
+          <div class="spec">type-section-header · 11px · 800</div>
+        </div>
+        <div class="type-row">
+          <div class="name">Table header</div>
+          <div class="type-table-header">STATUS · TIER · REPO</div>
+          <div class="spec">type-table-header · 11px · 700</div>
+        </div>
+        <div class="type-row">
+          <div class="name">Body</div>
+          <div class="type-body">Connected repos will be analysed on every pull request. You can disable monitoring per-repo at any time.</div>
+          <div class="spec">type-body · 14px · 500</div>
+        </div>
+        <div class="type-row">
+          <div class="name">Metadata</div>
+          <div class="type-metadata">CREATED · 2 MIN AGO</div>
+          <div class="spec">type-metadata · 11px · 700</div>
+        </div>
+        <div class="type-row">
+          <div class="name">Monospace chip</div>
+          <div class="type-mono">a3f7e891 · 78%</div>
+          <div class="spec">type-mono · 12px · JetBrains</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════
+         PAGE HEADER
+         ════════════════════════════════════════════════════════ -->
+    <section class="block">
+      <p class="block-title">3 — Page header (concern #2)</p>
+      <p class="block-subtitle">Chrome compression: <code>~96px → ~72px</code> (25% drop). Title shrunk from 30px to 22px. Same hierarchy, tighter signal.</p>
+
+      <div class="cmp">
+        <div data-theme="current">
+          <div class="cmp-col-label"><span class="dot"></span>Current · py-8 + text-3xl</div>
+          <div class="page-header">
+            <div class="page-header-inner">
+              <div>
+                <div class="breadcrumb">Dashboard · Inbox</div>
+                <h1 class="page-header-title">Documentation Drift Inbox</h1>
+                <p class="page-header-desc">12 unresolved items across 4 repositories.</p>
+              </div>
+              <div class="page-header-actions">
+                <button class="btn btn-secondary btn-sm">Export</button>
+                <button class="btn btn-primary btn-sm">Triage all</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div data-theme="proposed">
+          <div class="cmp-col-label"><span class="dot"></span>Proposed · py-5 + text-2xl</div>
+          <div class="page-header">
+            <div class="page-header-inner">
+              <div>
+                <div class="breadcrumb">Dashboard · Inbox</div>
+                <h1 class="page-header-title">Documentation Drift Inbox</h1>
+                <p class="page-header-desc">12 unresolved items across 4 repositories.</p>
+              </div>
+              <div class="page-header-actions">
+                <button class="btn btn-secondary btn-sm">Export</button>
+                <button class="btn btn-primary btn-sm">Triage all</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="diff">
+        <span class="diff-label">Δ</span>
+        <code>padding: 2rem 2.5rem</code> → <code>1rem 1.25rem</code>, <code>margin-bottom: 2rem</code> → <code>1rem</code>, title <code>1.875rem</code> → <code>1.375rem</code>. Result: scannable on a 13" MacBook without scroll-to-read.
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════
+         CARDS
+         ════════════════════════════════════════════════════════ -->
+    <section class="block">
+      <p class="block-title">4 — Cards (concerns #1 and #3)</p>
+      <p class="block-subtitle">Left-border rail removed → replaced by a header status chip. Radius unified to 12px. Padding dropped from 24–32px → 16–20px.</p>
+
+      <div class="cmp">
+        <div data-theme="current">
+          <div class="cmp-col-label"><span class="dot"></span>Current · border-l-8 + rounded-card (2rem)</div>
+          <div class="card with-left-accent">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Deployment Profile</h3>
+                <p class="card-description">Active — TEAM plan · cloud mode</p>
+              </div>
+              <button class="btn btn-ghost btn-sm">⋯</button>
+            </div>
+            <div class="card-content">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; font-size: 0.82rem;">
+                <div>
+                  <div style="color: var(--muted-fg); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.25rem;">Plan</div>
+                  <div><code>TEAM</code></div>
+                </div>
+                <div>
+                  <div style="color: var(--muted-fg); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.25rem;">Fingerprint</div>
+                  <div class="mono">dg-a3f7e891</div>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer">Last synced 2 minutes ago</div>
+          </div>
+        </div>
+        <div data-theme="proposed">
+          <div class="cmp-col-label"><span class="dot"></span>Proposed · status chip in header + rounded 0.75rem</div>
+          <div class="card">
+            <div class="card-header">
+              <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <span class="chip chip-fresh"><span class="chip-dot"></span>ACTIVE</span>
+                <div>
+                  <h3 class="card-title">Deployment Profile</h3>
+                  <p class="card-description">TEAM plan · cloud mode</p>
+                </div>
+              </div>
+              <button class="btn btn-ghost btn-sm">⋯</button>
+            </div>
+            <div class="card-content">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; font-size: 0.82rem;">
+                <div>
+                  <div style="color: var(--muted-fg); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.25rem;">Plan</div>
+                  <div><code>TEAM</code></div>
+                </div>
+                <div>
+                  <div style="color: var(--muted-fg); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.25rem;">Fingerprint</div>
+                  <div class="mono">dg-a3f7e891</div>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer">Last synced 2 minutes ago</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="block-subtitle" style="margin-top: 1.75rem;">Other status variants (chip replaces border-l-8 entirely):</p>
+      <div data-theme="proposed" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 0.75rem;">
+        <div class="card">
+          <div class="card-header">
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+              <span class="chip chip-withered"><span class="chip-dot"></span>DRIFTED</span>
+              <div>
+                <h3 class="card-title">Execution Mode</h3>
+                <p class="card-description">Advisory · 3 pending policy updates</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+              <span class="chip chip-broken"><span class="chip-dot"></span>BROKEN</span>
+              <div>
+                <h3 class="card-title">LLM Configuration</h3>
+                <p class="card-description">Anthropic key invalid or expired</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+              <span class="chip chip-primary"><span class="chip-dot"></span>BETA</span>
+              <div>
+                <h3 class="card-title">Cross-Repo Drift</h3>
+                <p class="card-description">Early access · opt in via Settings</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════
+         STATUS CHIPS
+         ════════════════════════════════════════════════════════ -->
+    <section class="block">
+      <p class="block-title">5 — Status chips (canonical catalog)</p>
+      <p class="block-subtitle">Five variants. Use in card headers, table cells, inline labels. No other colored-label patterns permitted.</p>
+
+      <div data-theme="proposed" class="card" style="padding: 1.25rem;">
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+          <span class="chip chip-fresh"><span class="chip-dot"></span>ACTIVE</span>
+          <span class="chip chip-fresh"><span class="chip-dot"></span>IN SYNC</span>
+          <span class="chip chip-fresh"><span class="chip-dot"></span>RESOLVED</span>
+          <span class="chip chip-withered"><span class="chip-dot"></span>DRIFTED</span>
+          <span class="chip chip-withered"><span class="chip-dot"></span>NEEDS REVIEW</span>
+          <span class="chip chip-broken"><span class="chip-dot"></span>BROKEN</span>
+          <span class="chip chip-broken"><span class="chip-dot"></span>FAILED</span>
+          <span class="chip chip-primary"><span class="chip-dot"></span>BETA</span>
+          <span class="chip chip-primary"><span class="chip-dot"></span>PRO</span>
+          <span class="chip chip-neutral">DRAFT</span>
+          <span class="chip chip-neutral">ARCHIVED</span>
+        </div>
+        <div style="margin-top: 0.85rem; font-size: 0.75rem; color: var(--muted-fg);">
+          Rule: one color = one meaning. Teal = synced / healthy. Amber = drifted / needs attention. Rose = failed / broken. Indigo = branded / premium. Zinc = neutral / informational.
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════
+         BUTTONS
+         ════════════════════════════════════════════════════════ -->
+    <section class="block">
+      <p class="block-title">6 — Buttons (canonical catalog)</p>
+      <p class="block-subtitle">Four variants × two sizes. Radius <code>var(--radius-interactive)</code> = 12px — matches new unified card radius.</p>
+
+      <div data-theme="proposed" class="card" style="padding: 1.25rem;">
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
+          <button class="btn btn-primary">Primary action</button>
+          <button class="btn btn-secondary">Secondary</button>
+          <button class="btn btn-ghost">Ghost</button>
+          <button class="btn btn-destructive">Delete</button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+          <button class="btn btn-primary btn-sm">Small primary</button>
+          <button class="btn btn-secondary btn-sm">Small secondary</button>
+          <button class="btn btn-ghost btn-sm">Small ghost</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════
+         FORM
+         ════════════════════════════════════════════════════════ -->
+    <section class="block">
+      <p class="block-title">7 — Forms (canonical catalog)</p>
+      <p class="block-subtitle">Input height aligned with <code>.btn</code> height. Focus ring uses <code>--primary</code>. Radius 12px.</p>
+
+      <div data-theme="proposed" class="card" style="padding: 1.25rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div>
+            <label class="label">Repository name</label>
+            <input class="input" placeholder="owner/repo" value="docugardener/docugardener" />
+          </div>
+          <div>
+            <label class="label">Severity threshold</label>
+            <select class="input">
+              <option>Advisory (default)</option>
+              <option>Blocking</option>
+            </select>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label class="label">Notes for reviewer</label>
+            <textarea class="input" rows="3" placeholder="Context for the drift review..."></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════
+         TABLES
+         ════════════════════════════════════════════════════════ -->
+    <section class="block">
+      <p class="block-title">8 — Tables (Bucket C — dense table primitive)</p>
+      <p class="block-subtitle">Row height <code>~56px → ~40px</code>. No surrounding card — table is its own primitive. Hover uses <code>--muted</code>.</p>
+
+      <div class="cmp">
+        <div data-theme="current">
+          <div class="cmp-col-label"><span class="dot"></span>Current · inside card + py-4 rows</div>
+          <div class="card">
+            <table class="table">
+              <thead><tr><th>Repo</th><th>Status</th><th>Drift</th><th>Last run</th></tr></thead>
+              <tbody>
+                <tr><td>acme/backend</td><td><span class="chip chip-fresh"><span class="chip-dot"></span>SYNCED</span></td><td class="mono">0</td><td>2 min ago</td></tr>
+                <tr><td>acme/frontend</td><td><span class="chip chip-withered"><span class="chip-dot"></span>DRIFTED</span></td><td class="mono">3</td><td>14 min ago</td></tr>
+                <tr><td>acme/api-gateway</td><td><span class="chip chip-broken"><span class="chip-dot"></span>FAILED</span></td><td class="mono">–</td><td>1 h ago</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div data-theme="proposed">
+          <div class="cmp-col-label"><span class="dot"></span>Proposed · bare table, py-2.5 rows</div>
+          <table class="table">
+            <thead><tr><th>Repo</th><th>Status</th><th>Drift</th><th>Last run</th></tr></thead>
+            <tbody>
+              <tr><td>acme/backend</td><td><span class="chip chip-fresh"><span class="chip-dot"></span>SYNCED</span></td><td class="mono">0</td><td>2 min ago</td></tr>
+              <tr><td>acme/frontend</td><td><span class="chip chip-withered"><span class="chip-dot"></span>DRIFTED</span></td><td class="mono">3</td><td>14 min ago</td></tr>
+              <tr><td>acme/api-gateway</td><td><span class="chip chip-broken"><span class="chip-dot"></span>FAILED</span></td><td class="mono">–</td><td>1 h ago</td></tr>
+              <tr><td>acme/docs-portal</td><td><span class="chip chip-fresh"><span class="chip-dot"></span>SYNCED</span></td><td class="mono">0</td><td>6 h ago</td></tr>
+              <tr><td>acme/mobile</td><td><span class="chip chip-neutral">DRAFT</span></td><td class="mono">–</td><td>–</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="diff">
+        <span class="diff-label">Δ</span>
+        Proposed table shows <strong>~5 rows in the space current shows 3</strong>. Tabular density is the point of this tool — tables are no longer nested inside cards.
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════
+         TABS
+         ════════════════════════════════════════════════════════ -->
+    <section class="block">
+      <p class="block-title">9 — Tabs (concern #1 — frame vs underline)</p>
+      <p class="block-subtitle">Current style uses frame + colored left-border (visually heavy, duplicates chip semantics). Proposed: standard underline tab strip, subtle + consistent.</p>
+
+      <div class="cmp">
+        <div data-theme="current">
+          <div class="cmp-col-label"><span class="dot"></span>Current · framed + left-border rail</div>
+          <div class="tabs tabs-current">
+            <div class="tab tab-current" data-active="true">General</div>
+            <div class="tab tab-current">Intelligence</div>
+            <div class="tab tab-current">Integrations</div>
+            <div class="tab tab-current">Agent Governance</div>
+            <div class="tab tab-current">Team</div>
+          </div>
+        </div>
+        <div data-theme="proposed">
+          <div class="cmp-col-label"><span class="dot"></span>Proposed · underline strip</div>
+          <div class="tabs">
+            <div class="tab" data-active="true">General</div>
+            <div class="tab">Intelligence</div>
+            <div class="tab">Integrations</div>
+            <div class="tab">Agent Governance</div>
+            <div class="tab">Team</div>
+          </div>
+          <div class="card" style="padding: 1rem 1.25rem; margin-top: 0.25rem;">
+            Tab content lives here. No frame duplication — the underline carries the selection.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════
+         EMPTY STATE
+         ════════════════════════════════════════════════════════ -->
+    <section class="block">
+      <p class="block-title">10 — Empty state (canonical)</p>
+      <p class="block-subtitle">One pattern across the app: dashed border card + muted icon + title + description + single primary CTA.</p>
+
+      <div data-theme="proposed" style="max-width: 26rem; margin: 0 auto;">
+        <div class="empty">
+          <div class="empty-icon">📥</div>
+          <h3 class="empty-title">Your inbox is empty</h3>
+          <p class="empty-desc">No documentation drift detected across your watched repos. Open a pull request to trigger your first analysis.</p>
+          <button class="btn btn-primary btn-sm">View connected repos</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════
+         FOOTER NOTE
+         ════════════════════════════════════════════════════════ -->
+    <section class="block" style="border-top: 0; padding-top: 0; margin-top: 2rem;">
+      <div class="note">
+        <strong>Next steps:</strong> approve or push back on specific elements above. When locked, I'll write the calibration FEAT spec with (a) the exact <code>globals.css</code> variable diff, (b) the <code>Card</code> / <code>PageHeader</code> component changes, (c) a mechanical sweep plan for the 15 files that use <code>border-l-8</code>.
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // Populate color hex readouts from computed CSS variables
+    function populateHex() {
+      const map = {
+        'bg-c':     ['current',  '--bg'],
+        'card-c':   ['current',  '--card'],
+        'border-c': ['current',  '--border'],
+        'muted-c':  ['current',  '--muted'],
+        'prim-c':   ['current',  '--primary'],
+        'bg-p':     ['proposed', '--bg'],
+        'card-p':   ['proposed', '--card'],
+        'border-p': ['proposed', '--border'],
+        'muted-p':  ['proposed', '--muted'],
+        'prim-p':   ['proposed', '--primary']
+      };
+      for (const [id, [scope, varName]] of Object.entries(map)) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const scopeEl = document.querySelector(`[data-theme="${scope}"]`);
+        const val = getComputedStyle(scopeEl || document.documentElement).getPropertyValue(varName).trim();
+        el.textContent = val;
+      }
+    }
+
+    function toggleMode() {
+      const body = document.body;
+      const btn  = document.getElementById('modeBtn');
+      body.classList.toggle('dark');
+      btn.textContent = body.classList.contains('dark') ? '☀️ Light mode' : '🌙 Dark mode';
+      populateHex();
+    }
+
+    // run on load
+    document.addEventListener('DOMContentLoaded', populateHex);
+  </script>
+</body>
+</html>

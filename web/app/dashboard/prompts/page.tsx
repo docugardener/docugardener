@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { redirect } from "next/navigation"
 import { PromptPlayground } from "@/components/dashboard/PromptPlayground"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { StatusChip } from "@/components/ui/status-chip"
 import { Cpu } from "lucide-react"
 
 export default async function PromptsPage() {
@@ -27,8 +28,9 @@ export default async function PromptsPage() {
 
             <div className="app-container">
                 <div className="animate-entrance space-y-12">
-                    <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-blue-600 overflow-hidden">
+                    <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                         <div className="p-8 border-b border-border bg-muted/50">
+                            <StatusChip variant="primary" label="PROMPT" className="mb-2" />
                             <h3 className="type-section-header mb-1 text-muted-foreground">Intelligence Orchestration</h3>
                             <p className="type-body font-bold text-foreground">Configure core semantic evaluation logic.</p>
                         </div>

@@ -10,6 +10,7 @@ import { UpgradeContextCard } from "@/components/billing/UpgradeContextCard"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { StatusChip } from "@/components/ui/status-chip"
 import { HealthScoreWidget } from "@/components/dashboard/HealthScoreWidget"
 import { DriftVelocityChart } from "@/components/dashboard/DriftVelocityChart"
 import { WitheringZones } from "@/components/dashboard/WitheringZones"
@@ -306,9 +307,10 @@ export default async function ReportsPage() {
                         overview={<>
                             {/* Drift Velocity */}
                             <div className="col-span-12 lg:col-span-7">
-                                <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col border-l-8 border-l-primary overflow-hidden animate-entrance" style={{ animationDelay: '100ms' }}>
+                                <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col overflow-hidden animate-entrance" style={{ animationDelay: '100ms' }}>
                                     <CardHeader className="border-b border-border pb-4 flex flex-row items-center justify-between bg-muted/50">
                                         <div className="flex flex-col">
+                                            <StatusChip variant="primary" label="TRENDS" className="mb-1" />
                                             <CardTitle className="type-section-header">Drift Velocity</CardTitle>
                                             <p className="type-metadata text-muted-foreground mt-1">Cross-repository semantic decay over time</p>
                                         </div>
@@ -324,8 +326,9 @@ export default async function ReportsPage() {
 
                             {/* Vitality Index */}
                             <div className="col-span-12 lg:col-span-5">
-                                <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col border-l-8 border-l-primary overflow-hidden animate-entrance" style={{ animationDelay: '200ms' }}>
+                                <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col overflow-hidden animate-entrance" style={{ animationDelay: '200ms' }}>
                                     <CardHeader className="border-b border-border pb-4 bg-muted/50">
+                                        <StatusChip variant="primary" label="HEALTH" className="mb-1" />
                                         <CardTitle className="type-section-header">Vitality Index</CardTitle>
                                         <p className="type-metadata text-muted-foreground mt-1">Aggregated garden health score</p>
                                     </CardHeader>
@@ -357,8 +360,9 @@ export default async function ReportsPage() {
                         repositories={<>
                             {/* Withering Zones */}
                             <div className="col-span-12 lg:col-span-5">
-                                <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col border-l-8 border-l-broken overflow-hidden animate-entrance" style={{ animationDelay: '100ms' }}>
+                                <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col overflow-hidden animate-entrance" style={{ animationDelay: '100ms' }}>
                                     <CardHeader className="border-b border-border bg-muted/50">
+                                        <StatusChip variant="broken" label="HOTSPOTS" className="mb-1" />
                                         <CardTitle className="type-section-header">Withering Zones</CardTitle>
                                         <CardDescription className="type-body text-muted-foreground mt-1">Semantic Drift Hotspots</CardDescription>
                                     </CardHeader>
@@ -381,9 +385,10 @@ export default async function ReportsPage() {
                             {/* MAP-01: Documentation Risk Map — PRO+ only */}
                             {isPro ? (
                                 <div className="col-span-12 lg:col-span-7" id="repositories">
-                                    <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col border-l-8 border-l-amber-500 overflow-hidden animate-entrance" style={{ animationDelay: '200ms' }}>
+                                    <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col overflow-hidden animate-entrance" style={{ animationDelay: '200ms' }}>
                                         <CardHeader className="border-b border-border pb-4 flex flex-row items-center justify-between bg-muted/50">
                                             <div className="flex flex-col">
+                                                <StatusChip variant="withered" label="RISK MAP" className="mb-1" />
                                                 <CardTitle className="type-section-header">Documentation Risk Map</CardTitle>
                                                 <p className="type-metadata text-muted-foreground mt-1">Per-repo risk scores derived from drift history, unresolved alerts, and policy violations</p>
                                             </div>
@@ -399,8 +404,9 @@ export default async function ReportsPage() {
                                 </div>
                             ) : (
                                 <div className="col-span-12 lg:col-span-7">
-                                    <Card className="h-full rounded-card border-border bg-card shadow-card flex flex-col border-l-8 border-l-muted overflow-hidden animate-entrance" style={{ animationDelay: '200ms' }}>
+                                    <Card className="h-full rounded-card border-border bg-card shadow-card flex flex-col overflow-hidden animate-entrance" style={{ animationDelay: '200ms' }}>
                                         <CardHeader className="border-b border-border bg-muted/50">
+                                            <StatusChip variant="neutral" label="PRO" className="mb-1" />
                                             <CardTitle className="type-section-header">Documentation Risk Map</CardTitle>
                                             <CardDescription className="type-body text-muted-foreground mt-1">Per-repo risk scores and drift history</CardDescription>
                                         </CardHeader>
@@ -427,9 +433,10 @@ export default async function ReportsPage() {
                         governance={<>
                             {/* Governance Proof Points — all plans */}
                             <div className="col-span-12">
-                                <Card className="rounded-card border-border bg-card shadow-card-hover border-l-8 border-l-emerald-500 overflow-hidden animate-entrance" style={{ animationDelay: '100ms' }}>
+                                <Card className="rounded-card border-border bg-card shadow-card-hover overflow-hidden animate-entrance" style={{ animationDelay: '100ms' }}>
                                     <CardHeader className="border-b border-border pb-4 flex flex-row items-center justify-between bg-muted/50">
                                         <div className="flex flex-col">
+                                            <StatusChip variant="fresh" label="EVIDENCE" className="mb-1" />
                                             <CardTitle className="type-section-header">Governance Proof Points</CardTitle>
                                             <p className="type-metadata text-muted-foreground mt-1">Evidence-ready metrics for compliance conversations — last 200 analyses</p>
                                         </div>
@@ -528,9 +535,10 @@ export default async function ReportsPage() {
 
                                 {/* Ignore Trend chart */}
                                 <div className="col-span-12 lg:col-span-7">
-                                    <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col border-l-8 border-l-broken overflow-hidden animate-entrance" style={{ animationDelay: '500ms' }}>
+                                    <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col overflow-hidden animate-entrance" style={{ animationDelay: '500ms' }}>
                                         <CardHeader className="border-b border-border pb-4 flex flex-row items-center justify-between bg-muted/50">
                                             <div className="flex flex-col">
+                                                <StatusChip variant="broken" label="ANALYTICS" className="mb-1" />
                                                 <CardTitle className="type-section-header">Ignore Trend</CardTitle>
                                                 <p className="type-metadata text-muted-foreground mt-1">Ignored vs accepted decisions — last 30 days</p>
                                             </div>
@@ -546,8 +554,9 @@ export default async function ReportsPage() {
 
                                 {/* Dismiss Signals */}
                                 <div className="col-span-12 lg:col-span-5">
-                                    <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col border-l-8 border-l-broken overflow-hidden animate-entrance" style={{ animationDelay: '600ms' }}>
+                                    <Card className="h-full rounded-card border-border bg-card shadow-card-hover flex flex-col overflow-hidden animate-entrance" style={{ animationDelay: '600ms' }}>
                                         <CardHeader className="border-b border-border bg-muted/50">
+                                            <StatusChip variant="broken" label="SIGNALS" className="mb-1" />
                                             <CardTitle className="type-section-header">Dismiss Signals</CardTitle>
                                             <p className="type-metadata text-muted-foreground mt-1">Risk profile of silenced alerts</p>
                                         </CardHeader>
@@ -603,7 +612,10 @@ export default async function ReportsPage() {
                                 </div>
                             </>) : (
                                 <div className="col-span-12">
-                                    <Card className="rounded-card border-border bg-card shadow-card border-l-8 border-l-muted overflow-hidden">
+                                    <Card className="rounded-card border-border bg-card shadow-card overflow-hidden">
+                                        <CardHeader className="border-b border-border bg-muted/50">
+                                            <StatusChip variant="neutral" label="PRO" />
+                                        </CardHeader>
                                         <CardContent className="p-10 flex flex-col sm:flex-row items-center gap-8">
                                             <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-muted shrink-0">
                                                 <Lock className="h-7 w-7 text-muted-foreground" />

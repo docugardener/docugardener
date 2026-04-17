@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { StatusChip } from "@/components/ui/status-chip"
 import { Play, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react"
 
 export function DriftSimulator() {
@@ -51,8 +52,9 @@ export function DriftSimulator() {
     return (
         <div className="grid gap-8 lg:grid-cols-2">
             {/* Input Section */}
-            <Card className="border-border shadow-md h-full flex flex-col border-l-8 border-l-muted overflow-hidden">
+            <Card className="border-border shadow-md h-full flex flex-col overflow-hidden">
                 <CardHeader className="bg-muted/50 border-b border-border py-6">
+                    <StatusChip variant="neutral" label="INPUT" className="mb-1" />
                     <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Simulation Payload</CardTitle>
                     <CardDescription className="text-[11px] font-bold text-muted-foreground/60">Paste a Git Diff or code snippet to analyze.</CardDescription>
                 </CardHeader>
@@ -105,8 +107,9 @@ export function DriftSimulator() {
             </Card>
 
             {/* Output Section */}
-            <Card className="border-border shadow-md h-full bg-card border-l-8 border-l-primary overflow-hidden">
+            <Card className="border-border shadow-md h-full bg-card overflow-hidden">
                 <CardHeader className="bg-muted/50 border-b border-border py-6">
+                    <StatusChip variant="primary" label="RESULT" className="mb-1" />
                     <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Analysis Results</CardTitle>
                     <CardDescription className="text-[11px] font-bold text-muted-foreground/60">AI prediction based on current configuration.</CardDescription>
                 </CardHeader>

@@ -39,6 +39,12 @@ const SECTIONS = [
       "Python pytest suite, Vitest frontend tests, and Playwright end-to-end tests.",
     href: "/docs/developer/testing",
   },
+  {
+    title: "Design System",
+    description:
+      "Token reference, StatusChip, DataTable, PageHeader primitives, and UI contribution rules.",
+    href: "/docs/developer/design-system",
+  },
 ]
 
 export default function DeveloperGuidePage() {

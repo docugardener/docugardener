@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { TablePagination } from "@/components/ui/TablePagination"
+import { DataTable, DataTableHeader, DataTableBody, DataTableRow, DataTableHead, DataTableCell } from "@/components/ui/data-table"
 import { JobsFilter } from "@/components/jobs/JobsFilter"
 import { GitPullRequest, Clock, ExternalLink, ThumbsUp, ThumbsDown, Loader2, Info } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
@@ -241,14 +242,13 @@ export default async function JobsPage({
                         ) : (
                             <>
                                 {/* Table */}
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="border-b border-border text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                                <th className="px-6 py-3 text-left">Repository / PR</th>
-                                                <th className="px-4 py-3 text-right w-28">Age</th>
-                                                <th className="px-4 py-3 text-center w-16">Score</th>
-                                                <th className="px-4 py-3 text-center w-24">
+                                <DataTable className="text-sm">
+                                    <DataTableHeader>
+                                            <DataTableRow className="border-b border-border text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                <DataTableHead className="px-6 py-3 text-left">Repository / PR</DataTableHead>
+                                                <DataTableHead className="px-4 py-3 text-right w-28">Age</DataTableHead>
+                                                <DataTableHead className="px-4 py-3 text-center w-16">Score</DataTableHead>
+                                                <DataTableHead className="px-4 py-3 text-center w-24">
                                                     <span className="inline-flex items-center gap-1">
                                                         Tier
                                                         <a
@@ -261,12 +261,12 @@ export default async function JobsPage({
                                                             <Info className="h-3 w-3" />
                                                         </a>
                                                     </span>
-                                                </th>
-                                                <th className="px-4 py-3 text-center w-28">Status</th>
-                                                <th className="px-4 py-3 w-8" />
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-border">
+                                                </DataTableHead>
+                                                <DataTableHead className="px-4 py-3 text-center w-28">Status</DataTableHead>
+                                                <DataTableHead className="px-4 py-3 w-8" />
+                                            </DataTableRow>
+                                    </DataTableHeader>
+                                    <DataTableBody className="divide-y divide-border">
                                             {jobs.map((job) => {
                                                 const result         = job.result as any
                                                 const driftScore     = result?.drift_score as number | undefined
@@ -284,12 +284,12 @@ export default async function JobsPage({
                                                 const detailHref = `/dashboard/jobs/${job.id}`
 
                                                 return (
-                                                    <tr
+                                                    <DataTableRow
                                                         key={job.id}
                                                         className="hover:bg-muted/30 transition-colors group"
                                                     >
                                                         {/* Repo + PR — repo name links to detail, PR# links to GitHub */}
-                                                        <td className="px-6 py-0">
+                                                        <DataTableCell className="px-6 py-0">
                                                             <div className="flex items-center gap-3 py-3">
                                                                 <GitPullRequest className="h-4 w-4 text-muted-foreground/40 shrink-0" />
                                                                 <div className="min-w-0">
@@ -314,17 +314,17 @@ export default async function JobsPage({
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                        </td>
+                                                        </DataTableCell>
 
                                                         {/* Age */}
-                                                        <td className="px-0 py-0 text-right text-xs text-muted-foreground whitespace-nowrap">
+                                                        <DataTableCell className="px-0 py-0 text-right text-xs text-muted-foreground whitespace-nowrap">
                                                             <Link href={detailHref} className="block px-4 py-3">
                                                                 {formatDistanceToNow(job.createdAt, { addSuffix: true })}
                                                             </Link>
-                                                        </td>
+                                                        </DataTableCell>
 
                                                         {/* Score */}
-                                                        <td className="px-0 py-0 text-center">
+                                                        <DataTableCell className="px-0 py-0 text-center">
                                                             <Link href={detailHref} className="flex items-center justify-center px-4 py-3">
                                                                 {driftScore !== undefined ? (
                                                                     <span className="text-base font-black tracking-tight text-foreground tabular-nums">
@@ -334,35 +334,34 @@ export default async function JobsPage({
                                                                     <span className="text-muted-foreground/30">—</span>
                                                                 )}
                                                             </Link>
-                                                        </td>
+                                                        </DataTableCell>
 
                                                         {/* Tier */}
-                                                        <td className="px-0 py-0 text-center">
+                                                        <DataTableCell className="px-0 py-0 text-center">
                                                             <Link href={detailHref} className="flex items-center justify-center px-4 py-3">
                                                                 {job.status === "COMPLETED"
                                                                     ? <TierBadge score={driftScore} />
                                                                     : <span className="text-muted-foreground/30">—</span>
                                                                 }
                                                             </Link>
-                                                        </td>
+                                                        </DataTableCell>
 
                                                         {/* Status */}
-                                                        <td className="px-0 py-0 text-center">
+                                                        <DataTableCell className="px-0 py-0 text-center">
                                                             <Link href={detailHref} className="flex items-center justify-center px-4 py-3">
                                                                 <UiStatusBadge uiStatus={uiStatus} />
                                                             </Link>
-                                                        </td>
+                                                        </DataTableCell>
 
                                                         {/* Feedback — intentionally not a row link; small icon only */}
-                                                        <td className="px-4 py-3 text-center">
+                                                        <DataTableCell className="px-4 py-3 text-center">
                                                             <FeedbackBadge signal={feedbackSignal} />
-                                                        </td>
-                                                    </tr>
+                                                        </DataTableCell>
+                                                    </DataTableRow>
                                                 )
                                             })}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                    </DataTableBody>
+                                </DataTable>
 
                                 <Suspense>
                                     <TablePagination

@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { redirect } from "next/navigation"
 import { DriftSimulator } from "@/components/simulation/DriftSimulator"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { StatusChip } from "@/components/ui/status-chip"
 import { FlaskConical } from "lucide-react"
 
 export default async function SimulationPage() {
@@ -27,8 +28,9 @@ export default async function SimulationPage() {
 
             <div className="app-container">
                 <div className="animate-entrance space-y-12">
-                    <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-foreground overflow-hidden">
+                    <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                         <div className="p-8 border-b border-border bg-muted/50">
+                            <StatusChip variant="neutral" label="SIMULATION" className="mb-2" />
                             <h3 className="type-section-header mb-1 text-muted-foreground">Laboratory Environment</h3>
                             <p className="type-body font-bold text-foreground">Test scoring thresholds against custom code changes.</p>
                         </div>

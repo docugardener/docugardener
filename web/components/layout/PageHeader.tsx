@@ -15,12 +15,12 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, subtitle, actions, children, className }: PageHeaderProps) {
     return (
-        <div className={cn("bg-card border-b border-border mb-8 py-8", className)}>
+        <div className={cn("bg-card border-b border-border mb-6 py-5", className)}>
             <div className="app-container">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                     <div className="space-y-1">
                         {subtitle}
-                        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground">
                             {title}
                         </h1>
                         {description && (
@@ -30,7 +30,7 @@ export function PageHeader({ title, description, subtitle, actions, children, cl
                         )}
                     </div>
                     {actions && (
-                        <div className="flex gap-3">
+                        <div className="flex gap-2">
                             {actions}
                         </div>
                     )}

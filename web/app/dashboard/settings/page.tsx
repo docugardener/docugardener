@@ -18,6 +18,7 @@ import { ExecutionModeCard } from "@/components/settings/ExecutionModeCard"
 import { AgentRulesPanel } from "@/components/settings/AgentRulesPanel"
 import { RepoListCard } from "@/components/settings/RepoListCard"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { StatusChip } from "@/components/ui/status-chip"
 import { Cog, Bot } from "lucide-react"
 import { getKeyStatusPerProvider } from "@/lib/llm-config"
 import { getPlanLimits } from "@/lib/billing"
@@ -99,8 +100,9 @@ export default async function SettingsPage() {
                         />
 
 <>
-                            <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-blue-600 overflow-hidden">
+                            <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                                 <div className="p-8 border-b border-border bg-muted/50">
+                                    <StatusChip variant="primary" label="ACTIVE" className="mb-2" />
                                     <h3 className="type-section-header mb-1 text-muted-foreground">Intelligence Config</h3>
                                     <p className="type-body font-bold text-foreground">Manage LLM parameters and API connections.</p>
                                 </div>
@@ -117,9 +119,10 @@ export default async function SettingsPage() {
                             </div>
 
                             {tenant.plan !== "FREE" && (
-                                <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-amber-500 overflow-hidden">
+                                <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                                     <div className="p-8 border-b border-border bg-muted/50">
-                                        <h3 className="type-section-header mb-1 text-muted-foreground">Drift Scoring Model</h3>
+                                        <StatusChip variant="withered" label="WARNING" className="mb-2" />
+                                    <h3 className="type-section-header mb-1 text-muted-foreground">Drift Scoring Model</h3>
                                         <p className="type-body font-bold text-foreground">Select the algorithm used to assess documentation drift severity.</p>
                                     </div>
                                     <div className="p-8">
@@ -128,8 +131,9 @@ export default async function SettingsPage() {
                                 </div>
                             )}
 
-                            <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-violet-600 overflow-hidden">
+                            <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                                 <div className="p-8 border-b border-border bg-muted/50">
+                                    <StatusChip variant="primary" label="ACTIVE" className="mb-2" />
                                     <h3 className="type-section-header mb-1 text-muted-foreground">AI Author Mode</h3>
                                     <p className="type-body font-bold text-foreground">Zero-touch documentation for AI-authored PRs. Skip inbox triage when Copilot, Cursor, Devin, or Claude Code opens a PR.</p>
                                 </div>
@@ -141,8 +145,9 @@ export default async function SettingsPage() {
                     </>}
 
                     integrations={<>
-                        <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-primary overflow-hidden">
+                        <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                             <div className="p-8 border-b border-border bg-muted/50">
+                                <StatusChip variant="fresh" label="ACTIVE" className="mb-2" />
                                 <h3 className="type-section-header mb-1 text-muted-foreground">Notifications</h3>
                                 <p className="type-body font-bold text-foreground">Configure alert channels for drift detection.</p>
                             </div>
@@ -151,8 +156,9 @@ export default async function SettingsPage() {
                             </div>
                         </div>
 
-                        <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-green-600 overflow-hidden">
+                        <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                             <div className="p-8 border-b border-border bg-muted/50">
+                                <StatusChip variant="primary" label="ACTIVE" className="mb-2" />
                                 <h3 className="type-section-header mb-1 text-muted-foreground">Workflow Integrations</h3>
                                 <p className="type-body font-bold text-foreground">Connect external tools to DocuGardener for automated drift alerts.</p>
                             </div>
@@ -165,8 +171,9 @@ export default async function SettingsPage() {
                             </div>
                         </div>
 
-                        <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-indigo-500 overflow-hidden">
+                        <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                             <div className="p-8 border-b border-border bg-muted/50">
+                                <StatusChip variant="primary" label="ACTIVE" className="mb-2" />
                                 <h3 className="type-section-header mb-1 text-muted-foreground">VS Code Plugin</h3>
                                 <p className="type-body font-bold text-foreground">API key for the DocuGardener VS Code extension — pre-push drift checks in your editor.</p>
                             </div>
@@ -177,8 +184,9 @@ export default async function SettingsPage() {
                     </>}
 
                     repositories={<>
-                        <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-emerald-500 overflow-hidden">
+                        <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                             <div className="p-8 border-b border-border bg-muted/50">
+                                <StatusChip variant="fresh" label="ACTIVE" className="mb-2" />
                                 <h3 className="type-section-header mb-1 text-muted-foreground">Connected Repositories</h3>
                                 <p className="type-body font-bold text-foreground">Sync and manage repositories for drift detection.</p>
                             </div>
@@ -187,8 +195,9 @@ export default async function SettingsPage() {
                             </div>
                         </div>
 
-                        <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-foreground overflow-hidden">
+                        <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                             <div className="p-8 border-b border-border bg-muted/50">
+                                <StatusChip variant="neutral" label="DEFAULT" className="mb-2" />
                                 <h3 className="type-section-header mb-1 text-muted-foreground">GitHub Integration</h3>
                                 <p className="type-body font-bold text-foreground">Manage App installation and permissions.</p>
                             </div>
@@ -197,8 +206,9 @@ export default async function SettingsPage() {
                             </div>
                         </div>
 
-                        <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-muted overflow-hidden">
+                        <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                             <div className="p-8 border-b border-border bg-muted/50">
+                                <StatusChip variant="neutral" label="DEFAULT" className="mb-2" />
                                 <h3 className="type-section-header mb-1 text-muted-foreground">Ignore Patterns</h3>
                                 <p className="type-body font-bold text-foreground">Exclude specific files or directories from analysis.</p>
                             </div>
@@ -227,10 +237,11 @@ export default async function SettingsPage() {
                     </>}
 
                     license={<>
-                        <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-primary overflow-hidden">
+                        <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                             <div className="p-8 border-b border-border bg-muted/50 flex items-start justify-between gap-4">
                                 <div>
-                                    <h3 className="type-section-header mb-1 text-muted-foreground">Subscription</h3>
+                                    <StatusChip variant="primary" label="ACTIVE" className="mb-2" />
+                                <h3 className="type-section-header mb-1 text-muted-foreground">Subscription</h3>
                                     <p className="type-body font-bold text-foreground">
                                         Current plan and usage limits for your DocuGardener workspace.
                                     </p>
@@ -293,8 +304,9 @@ export default async function SettingsPage() {
                         </div>
 
                         {tenant.plan === "TEAM" ? (<>
-                            <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-cyan-600 overflow-hidden">
+                            <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                                 <div className="p-8 border-b border-border bg-muted/50">
+                                    <StatusChip variant="fresh" label="ACTIVE" className="mb-2" />
                                     <h3 className="type-section-header mb-1 text-muted-foreground">Single Sign-On (SSO)</h3>
                                     <p className="type-body font-bold text-foreground">
                                         Configure SAML 2.0 authentication via Okta, Microsoft Entra ID, or Google Workspace.
@@ -305,8 +317,9 @@ export default async function SettingsPage() {
                                 </div>
                             </div>
 
-                            <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-violet-600 overflow-hidden">
+                            <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
                                 <div className="p-8 border-b border-border bg-muted/50">
+                                    <StatusChip variant="primary" label="SSO" className="mb-2" />
                                     <h3 className="type-section-header mb-1 text-muted-foreground">SCIM 2.0 Provisioning</h3>
                                     <p className="type-body font-bold text-foreground">
                                         Automatically provision and deprovision users via Okta, Entra ID, or any SCIM-compatible IdP.

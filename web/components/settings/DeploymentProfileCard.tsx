@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react"
 import { Server, Copy, Check, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
+import { StatusChip } from "@/components/ui/status-chip"
 
 interface ProfileData {
     tenant_id: string
@@ -83,13 +84,14 @@ export function DeploymentProfileCard() {
     const status = data?.license_status ? STATUS_STYLE[data.license_status] : null
 
     return (
-        <div className="bg-card rounded-card border border-border shadow-card-hover border-l-8 border-l-slate-500 overflow-hidden">
+        <div className="bg-card rounded-card border border-border shadow-card-hover overflow-hidden">
             <div className="p-8 border-b border-border bg-muted/50 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted border border-border shrink-0">
                         <Server className="w-5 h-5 text-muted-foreground" />
                     </div>
                     <div>
+                        <StatusChip variant="neutral" label="ACTIVE" className="mb-1" />
                         <h3 className="type-section-header text-muted-foreground">Deployment Profile</h3>
                         <p className="type-body font-bold text-foreground">
                             Tenant identity, license, and PlatformCloud connection details.

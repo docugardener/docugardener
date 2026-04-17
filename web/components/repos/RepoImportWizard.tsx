@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { GitBranch, RefreshCw, CheckCircle2, ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { StatusChip } from "@/components/ui/status-chip"
 
 export function RepoImportWizard({ onComplete }: { onComplete: () => void }) {
     const [syncing, setSyncing] = useState(false)
@@ -28,8 +29,9 @@ export function RepoImportWizard({ onComplete }: { onComplete: () => void }) {
 
     return (
         <div className="flex flex-col items-center justify-center py-20 animate-entrance">
-            <Card className="w-full max-w-2xl border-border bg-card shadow-card-hover border-l-8 border-l-primary overflow-hidden">
+            <Card className="w-full max-w-2xl border-border bg-card shadow-card-hover overflow-hidden">
                 <CardHeader className="bg-muted/30 border-b border-border pb-6">
+                    <StatusChip variant="primary" label="IMPORT" className="mb-2" />
                     <div className="flex items-center gap-3 mb-2">
                         <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20">
                             <GitBranch className="h-5 w-5 text-primary" />

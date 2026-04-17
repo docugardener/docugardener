@@ -45,8 +45,8 @@
 :root {
   --radius: 0.5rem;
 
-  --background: #fafafa;
-  /* Zinc-50  — warm off-white, not glaring */
+  --background: #f4f4f5;
+  /* Zinc-100 — deepened so white cards pop */
   --foreground: #09090b;
   /* Zinc-950 — near-black, not pure black   */
 
@@ -75,9 +75,9 @@
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
 
-  --border: #e4e4e7;
-  /* Zinc-200 */
-  --input: #e4e4e7;
+  --border: #d4d4d8;
+  /* Zinc-300 — sharper element boundaries */
+  --input: #d4d4d8;
   --ring: #4f46e5;
 
   /* Semantic status palette */
@@ -294,17 +294,17 @@
    ═══════════════════════════════════════════════════════════ */
 .shadow-card {
   box-shadow:
-    0 4px 6px -1px rgb(0 0 0 / 0.05),
-    0 2px 4px -2px rgb(0 0 0 / 0.05),
-    0 0 0 1px rgb(0 0 0 / 0.02);
+    0 4px 6px -1px rgb(0 0 0 / 0.08),
+    0 2px 4px -2px rgb(0 0 0 / 0.08),
+    0 0 0 1px rgb(0 0 0 / 0.04);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .shadow-card-hover {
   box-shadow:
-    0 4px 6px -1px rgb(0 0 0 / 0.05),
-    0 2px 4px -2px rgb(0 0 0 / 0.05),
-    0 0 0 1px rgb(0 0 0 / 0.02);
+    0 4px 6px -1px rgb(0 0 0 / 0.08),
+    0 2px 4px -2px rgb(0 0 0 / 0.08),
+    0 0 0 1px rgb(0 0 0 / 0.04);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -317,7 +317,7 @@
 }
 
 .rounded-card {
-  border-radius: 2rem;
+  border-radius: 0.75rem;
 }
 
 .rounded-interactive {

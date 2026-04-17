@@ -4,6 +4,7 @@
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { StatusChip, type StatusChipVariant } from "@/components/ui/status-chip"
 import { Download, Cpu, Cloud, Server, ShieldCheck, Check, X } from "lucide-react"
 import { toast } from "sonner"
 
@@ -26,7 +27,8 @@ const MODE_META: Record<ExecutionMode, {
     description: string
     dataPath: string
     badgeClass: string
-    borderClass: string
+    chipVariant: StatusChipVariant
+    chipLabel: string
     icon: React.ElementType
     capabilities: { name: string; available: boolean; note?: string }[]
 }> = {
@@ -35,7 +37,8 @@ const MODE_META: Record<ExecutionMode, {
         description: "DocuGardener-hosted LLM. Zero configuration — analysis runs on shared infrastructure.",
         dataPath: "Code diffs sent to DocuGardener platform → Gemini Flash (rate-limited shared key)",
         badgeClass: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-        borderClass: "border-l-blue-500",
+        chipVariant: "primary",
+        chipLabel: "HOSTED",
         icon: Cloud,
         capabilities: [
             { name: "Drift analysis",               available: true },
@@ -52,7 +55,8 @@ const MODE_META: Record<ExecutionMode, {
         description: "Your own cloud LLM key (Gemini or OpenAI). Analysis runs on DocuGardener infra using your key.",
         dataPath: "Code diffs sent to DocuGardener platform → your LLM key (Gemini / OpenAI)",
         badgeClass: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-        borderClass: "border-l-amber-500",
+        chipVariant: "withered",
+        chipLabel: "BYOK",
         icon: Cpu,
         capabilities: [
             { name: "Drift analysis",               available: true },
@@ -69,7 +73,8 @@ const MODE_META: Record<ExecutionMode, {
         description: "Self-hosted Ollama / LM Studio. Analysis calls your local model — no data leaves your infrastructure.",
         dataPath: "Code diffs analyzed locally → your Ollama / LM Studio endpoint (no external calls)",
         badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-        borderClass: "border-l-emerald-500",
+        chipVariant: "fresh",
+        chipLabel: "LOCAL",
         icon: Server,
         capabilities: [
             { name: "Drift analysis",               available: true },
@@ -86,7 +91,8 @@ const MODE_META: Record<ExecutionMode, {
         description: "Full on-prem deployment via Helm. All services run inside your infrastructure boundary.",
         dataPath: "All traffic stays within your network — Control Plane + Analysis Plane self-hosted",
         badgeClass: "bg-violet-500/10 text-violet-400 border-violet-500/30",
-        borderClass: "border-l-violet-500",
+        chipVariant: "primary",
+        chipLabel: "ENTERPRISE",
         icon: ShieldCheck,
         capabilities: [
             { name: "Drift analysis",               available: true },
@@ -150,7 +156,7 @@ export function ExecutionModeCard({ llmProvider, deploymentMode, plan, tenantId 
     }
 
     return (
-        <div className={`bg-card rounded-card border border-border shadow-card-hover border-l-8 ${meta.borderClass} overflow-hidden`}>
+        <div className={`bg-card rounded-card border border-border shadow-card-hover overflow-hidden`}>
             <div className="p-8 border-b border-border bg-muted/50 flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted border border-border shrink-0">
@@ -158,6 +164,7 @@ export function ExecutionModeCard({ llmProvider, deploymentMode, plan, tenantId 
                     </div>
                     <div>
                         <div className="flex items-center gap-2 mb-1">
+                            <StatusChip variant={meta.chipVariant} label={meta.chipLabel} />
                             <h3 className="type-section-header text-muted-foreground">Execution Mode</h3>
                             <Badge variant="outline" className={`text-[10px] font-black px-2 py-0.5 ${meta.badgeClass}`}>
                                 {meta.label}
