@@ -698,37 +698,49 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
             logger.warning("GAP-01: quota check failed — allowing request", error=str(_exc))
 
     # Idempotency guard: skip if we already have a non-failed job for this
-    # exact (pr_number, head_sha) pair. Prevents duplicate analysis from
-    # GitHub firing opened + synchronize + check_suite for the same commit.
+    # exact (tenant, pr_number, head_sha) triple. Prevents duplicate analysis
+    # when GitHub re-delivers a webhook or fires both opened + synchronize for
+    # the same commit.  The guard is tenant-scoped to avoid cross-tenant false
+    # positives when two different orgs happen to share a PR number and SHA.
     _head_sha_check = pull_request.get("head", {}).get("sha")
-    if _head_sha_check:
+    if _head_sha_check and installation_id:
         try:
             from src.pipeline.job_manager import SessionLocal as _IdemSession
             from src.storage.sql_models import Job as _IdemJob
             from src.storage.sql_models import JobStatus as _IdemStatus
+            from src.storage.sql_models import Tenant as _IdemTenant
 
             _idem_db = _IdemSession()
             try:
-                _existing = (
-                    _idem_db.query(_IdemJob)
-                    .filter(
-                        _IdemJob.prNumber == pr_number,
-                        _IdemJob.result.op("->>")(  # type: ignore[attr-defined]
-                            "head_sha"
-                        )
-                        == _head_sha_check,
-                        _IdemJob.status != _IdemStatus.FAILED,
-                    )
+                # Resolve tenant first so the guard is properly scoped
+                _idem_tenant = (
+                    _idem_db.query(_IdemTenant)
+                    .filter(_IdemTenant.installationId == str(installation_id))
                     .first()
                 )
-                if _existing:
-                    logger.info(
-                        "Skipping duplicate analysis — job already exists for this commit",
-                        pr=pr_number,
-                        head_sha=_head_sha_check,
-                        existing_job=_existing.id,
+                if _idem_tenant:
+                    _existing = (
+                        _idem_db.query(_IdemJob)
+                        .filter(
+                            _IdemJob.tenantId == _idem_tenant.id,
+                            _IdemJob.prNumber == pr_number,
+                            _IdemJob.result.op("->>")(  # type: ignore[attr-defined]
+                                "head_sha"
+                            )
+                            == _head_sha_check,
+                            _IdemJob.status != _IdemStatus.FAILED,
+                        )
+                        .first()
                     )
-                    return {"status": "skipped", "reason": "duplicate_commit"}
+                    if _existing:
+                        logger.info(
+                            "Skipping duplicate analysis — job already exists for this commit",
+                            pr=pr_number,
+                            head_sha=_head_sha_check,
+                            existing_job=_existing.id,
+                            tenant_id=_idem_tenant.id,
+                        )
+                        return {"status": "skipped", "reason": "duplicate_commit"}
             finally:
                 _idem_db.close()
         except Exception as _idem_exc:
@@ -840,7 +852,10 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
         ai_authored=ai_authored,
         ai_signal=_ai_signal,
         sender_type=sender_type,
-        job_id=_gap4_job_id,
+        # CRITICAL: must NOT be named 'job_id' — RQ pops that kwarg as its own
+        # job identifier and never forwards it to the function. Use 'db_job_id'
+        # so analyze_pr_job receives the GAP-4 pre-created DB record ID.
+        db_job_id=_gap4_job_id,
         job_timeout=settings.max_processing_time,
         retry=Retry(max=3, interval=[30, 60, 120]),
         result_ttl=3600,

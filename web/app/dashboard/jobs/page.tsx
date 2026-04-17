@@ -14,6 +14,9 @@ import { JobsFilter } from "@/components/jobs/JobsFilter"
 import { GitPullRequest, Clock, ExternalLink, ThumbsUp, ThumbsDown, Loader2, Info } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { getUiStatus, type UiStatus } from "@/lib/job-status"
+import { JobsAutoRefresh } from "@/components/jobs/JobsAutoRefresh"
+
+const ACTIVE_UI_STATUSES: UiStatus[] = ["QUEUED", "ANALYZING", "AI_FIXING", "FIX_PR_OPEN"]
 
 export const dynamic = 'force-dynamic'
 
@@ -165,8 +168,19 @@ export default async function JobsPage({
 
     const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE))
 
+    const hasActiveJobs = jobs.some((job) =>
+        ACTIVE_UI_STATUSES.includes(
+            getUiStatus({
+                status: job.status,
+                triageStatus: (job as any).triageStatus,
+                result: job.result as Record<string, unknown> | null,
+            })
+        )
+    )
+
     return (
         <div className="w-full min-h-screen bg-background pb-20 font-sans text-foreground">
+            <JobsAutoRefresh hasActiveJobs={hasActiveJobs} />
             <PageHeader
                 title="JOB HISTORY"
                 description="All analysis runs across your connected repositories"

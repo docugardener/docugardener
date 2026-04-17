@@ -193,8 +193,51 @@ async def process_pull_request(
         # normal path (job_id is None) or the GAP-4 pre-created path.
         repo_id = job_manager.get_or_create_repo(tenant_id, github_repo_id, repo)
         if job_id is None:
-            # Normal path: no pre-created record — create it now.
-            job_id = job_manager.create_job(tenant_id, repo_id, pr_number)
+            # Defense-in-depth: check for an existing non-failed job for this
+            # (tenant, repo, pr_number, head_sha) before creating a new one.
+            # Normally GAP-4 pre-creates the record and passes it via db_job_id;
+            # this guard is a fallback for any path where that didn't happen.
+            try:
+                from src.pipeline.job_manager import SessionLocal as _HandlerIdemSession
+                from src.storage.sql_models import Job as _HandlerIdemJob
+                from src.storage.sql_models import JobStatus as _HandlerIdemStatus
+
+                _h_db = _HandlerIdemSession()
+                try:
+                    _h_existing = (
+                        _h_db.query(_HandlerIdemJob)
+                        .filter(
+                            _HandlerIdemJob.tenantId == tenant_id,
+                            _HandlerIdemJob.repositoryId == repo_id,
+                            _HandlerIdemJob.prNumber == pr_number,
+                            _HandlerIdemJob.result.op("->>")(  # type: ignore[attr-defined]
+                                "head_sha"
+                            )
+                            == head_sha,
+                            _HandlerIdemJob.status != _HandlerIdemStatus.FAILED,
+                        )
+                        .first()
+                    )
+                    if _h_existing:
+                        logger.info(
+                            "handler: existing job found — reusing instead of creating duplicate",
+                            job_id=_h_existing.id,
+                            pr=pr_number,
+                            head_sha=head_sha,
+                            tenant_id=tenant_id,
+                        )
+                        job_id = _h_existing.id
+                finally:
+                    _h_db.close()
+            except Exception as _h_idem_exc:
+                logger.warning(
+                    "handler: defense-in-depth idem check failed — will create new job",
+                    error=str(_h_idem_exc),
+                )
+
+            if job_id is None:
+                # Normal path: no pre-created record — create it now.
+                job_id = job_manager.create_job(tenant_id, repo_id, pr_number)
         # else: GAP-4 path — record was pre-created in webhooks.py before Redis enqueue;
         # on_failure callback can now mark it FAILED even if this worker never started.
         if ai_authored and job_id:

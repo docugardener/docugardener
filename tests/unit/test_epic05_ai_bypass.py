@@ -46,6 +46,25 @@ _CHANGED_FILES = [
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
+def _null_session():
+    """
+    Return a mock DB session whose query().filter().first() returns None.
+
+    Used to neutralise the defense-in-depth idempotency check in handler.py so
+    it doesn't find a spurious MagicMock as a "pre-existing job" (which would
+    bypass create_job and break the _JOB_ID assertion).
+    """
+    sess = MagicMock()
+    sess.query.return_value.filter.return_value.first.return_value = None
+    sess.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+    sess.__enter__ = MagicMock(return_value=sess)
+    sess.__exit__ = MagicMock(return_value=False)
+    sess.close = MagicMock()
+    sess.commit = MagicMock()
+    sess.rollback = MagicMock()
+    return sess
+
+
 def _make_tenant_ctx(workflow_config=None) -> TenantContext:
     return TenantContext(
         tenant_id="t-epic05",
@@ -133,8 +152,13 @@ async def _run(workflow_config, analysis_result, mock_queue, ai_authored=True):
         patch("src.pipeline.handler.NotificationDispatcher"),
         patch("src.worker.queue.get_queue", return_value=mock_queue),
         patch("src.worker.jobs.create_fix_pr_job"),
-        # Suppress aiAuthored DB update (no real DB in tests)
-        patch("src.pipeline.job_manager.SessionLocal", MagicMock()),
+        # Suppress DB session calls (aiAuthored update + defense-in-depth idem check).
+        # Returning None from first() ensures the defense-in-depth guard does NOT
+        # find a pre-existing job, so create_job() is called and _JOB_ID is used.
+        patch(
+            "src.pipeline.job_manager.SessionLocal",
+            return_value=_null_session(),
+        ),
     ):
         return await process_pull_request(
             installation_id=_INSTALL_ID,

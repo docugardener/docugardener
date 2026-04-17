@@ -4,8 +4,12 @@ SCAL-02: Second worker container — concurrency safety tests.
 
 Verifies that two concurrent analyze_pr_job invocations (simulating two
 worker containers) do not interfere with each other. The correctness is
-guaranteed by the GAP-4 pre-created job_id — each worker receives its own
-unique job_id and the jobs are fully isolated at the DB level.
+guaranteed by the GAP-4 pre-created db_job_id — each worker receives its own
+unique db_job_id and the jobs are fully isolated at the DB level.
+
+BUG-8 fix: parameter renamed 'job_id' → 'db_job_id' in analyze_pr_job because
+RQ's Queue.enqueue() pops 'job_id' from kwargs (uses it as the RQ job's own
+identifier) and never forwards it to the task function.
 """
 
 from unittest.mock import MagicMock, patch
@@ -15,7 +19,7 @@ class TestWorkerConcurrencyIsolation:
     """SCAL-02: two concurrent analyze_pr_job calls must be fully isolated."""
 
     def test_two_jobs_each_call_handler_with_own_job_id(self):
-        """Each analyze_pr_job forwards exactly its own job_id to process_pull_request."""
+        """Each analyze_pr_job forwards exactly its own db_job_id as job_id to process_pull_request."""
         received_ids: list[str] = []
 
         async def mock_process(
@@ -56,7 +60,7 @@ class TestWorkerConcurrencyIsolation:
                     base_sha="aaa",
                     head_sha="bbb",
                     changed_files=[],
-                    job_id="job-worker-1",
+                    db_job_id="job-worker-1",  # BUG-8 fix: renamed from job_id
                 )
                 analyze_pr_job(
                     installation_id=1,
@@ -67,15 +71,15 @@ class TestWorkerConcurrencyIsolation:
                     base_sha="ccc",
                     head_sha="ddd",
                     changed_files=[],
-                    job_id="job-worker-2",
+                    db_job_id="job-worker-2",  # BUG-8 fix: renamed from job_id
                 )
 
         assert received_ids == ["job-worker-1", "job-worker-2"], (
-            "Each worker must forward only its own job_id — no cross-contamination."
+            "Each worker must forward only its own db_job_id as job_id — no cross-contamination."
         )
 
     def test_job_id_absent_still_works(self):
-        """analyze_pr_job without job_id (old in-flight jobs) must not crash."""
+        """analyze_pr_job without db_job_id (old in-flight jobs) must not crash."""
 
         async def mock_process(**kwargs):
             result = MagicMock()

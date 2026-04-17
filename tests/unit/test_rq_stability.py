@@ -325,11 +325,12 @@ class TestOnFailureCallback:
         assert callable(_on_job_failure)
 
     def test_on_failure_calls_fail_job(self):
-        """_on_job_failure extracts job_id from RQ job kwargs and calls fail_job."""
+        """_on_job_failure extracts db_job_id from RQ job kwargs and calls fail_job."""
         from src.worker.jobs import _on_job_failure
 
         mock_rq_job = MagicMock()
-        mock_rq_job.kwargs = {"job_id": "db-job-456"}
+        # BUG-8 fix: key is 'db_job_id', not 'job_id' (RQ pops 'job_id' as its own identifier)
+        mock_rq_job.kwargs = {"db_job_id": "db-job-456"}
         mock_rq_job.args = []
 
         with patch("src.worker.jobs.job_manager") as mock_jm:
@@ -380,18 +381,22 @@ class TestGap4AtomicDispatch:
     """
     Validates the GAP-4 race-condition fix:
       - DB job record is created in webhooks.py before Redis enqueue
-      - job_id kwarg is forwarded through analyze_pr_job → process_pull_request
+      - db_job_id kwarg is forwarded through analyze_pr_job → process_pull_request
       - on_failure callback can now mark analyze_pr_job FAILED via the kwarg
       - process_pull_request skips create_job when a pre-created ID is supplied
+
+    BUG-8 fix: the parameter was renamed 'job_id' → 'db_job_id' because RQ's
+    Queue.enqueue() pops 'job_id' from kwargs (uses it as the RQ job's own ID)
+    and never forwards it to the task function.
     """
 
     def test_on_failure_marks_analyze_pr_job_failed_via_gap4_kwarg(self):
-        """_on_job_failure calls fail_job when analyze_pr_job carries a job_id kwarg (GAP-4)."""
+        """_on_job_failure calls fail_job when analyze_pr_job carries a db_job_id kwarg (GAP-4)."""
         from src.worker.jobs import _on_job_failure
 
         mock_rq_job = MagicMock()
         mock_rq_job.kwargs = {
-            "job_id": "db-job-gap4-abc",
+            "db_job_id": "db-job-gap4-abc",  # BUG-8 fix: renamed from job_id
             "installation_id": 42,
             "owner": "acme",
             "pr_number": 7,
@@ -409,8 +414,8 @@ class TestGap4AtomicDispatch:
             mock_jm.fail_job.assert_called_once()
             assert mock_jm.fail_job.call_args[0][0] == "db-job-gap4-abc"
 
-    def test_analyze_pr_job_forwards_job_id_to_process_pull_request(self):
-        """analyze_pr_job passes its job_id kwarg through to process_pull_request."""
+    def test_analyze_pr_job_forwards_db_job_id_to_process_pull_request(self):
+        """analyze_pr_job passes its db_job_id kwarg as job_id to process_pull_request."""
         from unittest.mock import AsyncMock
 
         mock_result = MagicMock()
@@ -437,10 +442,11 @@ class TestGap4AtomicDispatch:
                     base_sha="abc123",
                     head_sha="def456",
                     changed_files=[],
-                    job_id="pre-job-gap4-999",
+                    db_job_id="pre-job-gap4-999",  # BUG-8 fix: renamed from job_id
                 )
 
             mock_ppr.assert_called_once()
+            # db_job_id is forwarded as job_id to process_pull_request
             assert mock_ppr.call_args.kwargs["job_id"] == "pre-job-gap4-999"
 
     def test_process_pull_request_skips_create_job_when_job_id_pre_provided(self):
@@ -459,6 +465,14 @@ class TestGap4AtomicDispatch:
         mock_tenant_ctx.workflow_config = None
         mock_tenant_ctx.plan = "FREE"
 
+        # Defense-in-depth idem check inside handler uses SessionLocal.
+        # Return None from first() so the guard does NOT find a spurious job.
+        _null_sess = MagicMock()
+        _null_sess.query.return_value.filter.return_value.first.return_value = None
+        _null_sess.close = MagicMock()
+        _null_sess.__enter__ = MagicMock(return_value=_null_sess)
+        _null_sess.__exit__ = MagicMock(return_value=False)
+
         with (
             patch("src.pipeline.handler.get_tenant_context", return_value=mock_tenant_ctx),
             patch("src.pipeline.handler.get_installation_token", return_value="tok"),
@@ -473,6 +487,7 @@ class TestGap4AtomicDispatch:
             patch("src.pipeline.handler.GitHubReporter") as mock_reporter_cls,
             patch("src.pipeline.handler.set_tenant_id"),
             patch("src.monitoring.metrics.record_analysis"),
+            patch("src.pipeline.job_manager.SessionLocal", return_value=_null_sess),
         ):
             # Stop analysis after the DB-tracking block by making analyze_pr raise
             mock_analyzer_cls.return_value.analyze_pr = AsyncMock(

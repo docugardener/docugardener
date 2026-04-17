@@ -23,10 +23,13 @@ def _on_job_failure(job, connection, exc_type, exc_value, traceback) -> None:
     Provides 0-lag SQL state transition to FAILED (vs the 60-second sweeper which
     handles worker-crash scenarios where this callback never fires).
 
-    For analyze_pr_job the job_id kwarg is now pre-populated via GAP-4 so this
+    For analyze_pr_job the db_job_id kwarg is pre-populated via GAP-4 so this
     callback will correctly mark the DB record FAILED on worker crash.
+
+    NOTE: RQ strips 'job_id' from kwargs (uses it as the RQ job ID), so the
+    pre-created DB job ID is passed under the distinct key 'db_job_id'.
     """
-    job_id = (job.kwargs or {}).get("job_id") or (job.args[0] if job.args else None)
+    job_id = (job.kwargs or {}).get("db_job_id") or (job.args[0] if job.args else None)
     if not job_id:
         logger.warning(
             "on_failure: no job_id extractable, skipping DB fail_job",
@@ -56,7 +59,7 @@ def analyze_pr_job(
     ai_authored: bool = False,
     ai_signal: str = "",
     sender_type: str = "human",
-    job_id: str | None = None,
+    db_job_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Background job to analyze a Pull Request.
@@ -73,6 +76,9 @@ def analyze_pr_job(
         base_sha: Base branch SHA
         head_sha: Head branch SHA
         changed_files: List of changed file metadata
+        db_job_id: Pre-created DB job ID from GAP-4 (MUST NOT be named
+                   'job_id' — RQ strips that kwarg and uses it as the RQ
+                   job ID, so the function would always receive None)
 
     Returns:
         Analysis result summary
@@ -82,6 +88,7 @@ def analyze_pr_job(
         repo=f"{owner}/{repo}",
         pr=pr_number,
         action=action,
+        db_job_id=db_job_id,
     )
 
     try:
@@ -102,7 +109,7 @@ def analyze_pr_job(
                 jira_ticket_key=jira_ticket_key,
                 ai_authored=ai_authored,
                 ai_signal=ai_signal,
-                job_id=job_id,
+                job_id=db_job_id,
             )
         )
 
