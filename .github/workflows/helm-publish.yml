@@ -1,14 +1,9 @@
 name: Helm — Lint, Test & Publish to OCI
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "helm/**"
-      - ".github/workflows/helm-publish.yml"
-  pull_request:
-    paths:
-      - "helm/**"
+  # Manual only — do NOT add push/PR triggers.
+  # Full pipeline (lint + PSA + kind + OCI publish) costs ~4 GHA minutes.
+  # Trigger with: gh workflow run helm-publish.yml -f publish=true
   workflow_dispatch:
     inputs:
       publish:
