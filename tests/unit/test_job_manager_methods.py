@@ -142,6 +142,65 @@ class TestFailJob:
         assert job.result["error"] == "init error"
         db.close()
 
+    # BUG-4 regression tests
+
+    def test_fail_job_sets_fix_pr_failed_triage_status(self, jm, sqlite_factory):
+        """BUG-4: fail_job with triage_status='FIX_PR_FAILED' must stamp the triage status."""
+        from src.storage.sql_models import TriageStatus
+
+        repo_id = jm.get_or_create_repo("t-001", "repo-gh-bug4a", "org/repo-bug4a")
+        job_id = jm.create_job("t-001", repo_id, 11)
+        # Simulate user accepted triage — set to ACCEPTED first
+        db = sqlite_factory()
+        job = db.query(Job).filter_by(id=job_id).first()
+        job.triageStatus = TriageStatus.ACCEPTED
+        db.commit()
+        db.close()
+
+        jm.fail_job(job_id, "push failed", triage_status="FIX_PR_FAILED")
+
+        db = sqlite_factory()
+        job = db.query(Job).filter_by(id=job_id).first()
+        assert job.status == JobStatus.FAILED
+        assert job.triageStatus == TriageStatus.FIX_PR_FAILED
+        assert job.result["error"] == "push failed"
+        db.close()
+
+    def test_fail_job_without_triage_status_leaves_it_unchanged(self, jm, sqlite_factory):
+        """BUG-4: fail_job without triage_status must NOT touch the existing triage status."""
+        from src.storage.sql_models import TriageStatus
+
+        repo_id = jm.get_or_create_repo("t-001", "repo-gh-bug4b", "org/repo-bug4b")
+        job_id = jm.create_job("t-001", repo_id, 12)
+
+        jm.fail_job(job_id, "analysis error")
+
+        db = sqlite_factory()
+        job = db.query(Job).filter_by(id=job_id).first()
+        assert job.status == JobStatus.FAILED
+        # Default triageStatus from create_job is PENDING — must stay PENDING
+        assert job.triageStatus == TriageStatus.PENDING
+        db.close()
+
+    def test_fail_job_fix_pr_failed_preserves_analysis_result(self, jm, sqlite_factory):
+        """BUG-4: analysis data (drift_score) must survive the FIX_PR_FAILED transition."""
+        from src.storage.sql_models import TriageStatus
+
+        repo_id = jm.get_or_create_repo("t-001", "repo-gh-bug4c", "org/repo-bug4c")
+        job_id = jm.create_job("t-001", repo_id, 13)
+        jm.update_status(
+            job_id, JobStatus.COMPLETED, result={"drift_score": 72, "repo": "org/repo"}
+        )
+
+        jm.fail_job(job_id, "Git push rejected", triage_status="FIX_PR_FAILED")
+
+        db = sqlite_factory()
+        job = db.query(Job).filter_by(id=job_id).first()
+        assert job.triageStatus == TriageStatus.FIX_PR_FAILED
+        assert job.result["drift_score"] == 72  # analysis data preserved
+        assert job.result["error"] == "Git push rejected"
+        db.close()
+
 
 # ── patch_result ──────────────────────────────────────────────────────────────
 

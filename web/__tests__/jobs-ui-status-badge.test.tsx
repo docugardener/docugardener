@@ -89,6 +89,26 @@ describe("getUiStatus() → UiStatusBadge integration", () => {
         renderBadge("QUOTA_EXCEEDED")
         expect(screen.getByText(/quota exceeded/i)).toBeTruthy()
     })
+
+    // BUG-4 regression tests
+
+    it("J11 — BUG-4: FAILED + FIX_PR_FAILED triage → shows Fix PR failed (amber, not red Failed)", () => {
+        const uiStatus = renderBadge("FAILED", "FIX_PR_FAILED", { drift_score: 70 })
+        expect(uiStatus).toBe("FIX_PR_FAILED")
+        expect(screen.getByText(/fix pr failed/i)).toBeTruthy()
+    })
+
+    it("J12 — BUG-4: FIX_PR_FAILED triage on COMPLETED → shows Fix PR failed", () => {
+        const uiStatus = renderBadge("COMPLETED", "FIX_PR_FAILED", { drift_score: 70 })
+        expect(uiStatus).toBe("FIX_PR_FAILED")
+        expect(screen.getByText(/fix pr failed/i)).toBeTruthy()
+    })
+
+    it("J13 — BUG-4: FAILED without FIX_PR_FAILED triage → still shows Failed (regression)", () => {
+        const uiStatus = renderBadge("FAILED", "ACCEPTED", { drift_score: 70 })
+        expect(uiStatus).toBe("FAILED")
+        expect(screen.getByText(/^failed$/i)).toBeTruthy()
+    })
 })
 
 // ── UiStatusBadge renders spinner for in-flight states ─────────────────────────

@@ -144,18 +144,27 @@ class JobManager:
         finally:
             session.close()
 
-    def fail_job(self, job_id: str, error: str) -> None:
-        """Mark job as failed, merging error into existing result so analysis data is preserved."""
+    def fail_job(self, job_id: str, error: str, triage_status: str | None = None) -> None:
+        """Mark job as failed, merging error into existing result so analysis data is preserved.
+
+        Args:
+            job_id: Job to fail.
+            error: Human-readable error message stored in result.error.
+            triage_status: Optional TriageStatus override (e.g. "FIX_PR_FAILED" to distinguish
+                fix-PR push failures from analysis failures). Leaves triageStatus unchanged if None.
+        """
         session = self._get_factory()()
         try:
             job = session.query(Job).filter(Job.id == job_id).first()
             existing_result = dict(job.result) if job and isinstance(job.result, dict) else {}
             existing_result["error"] = error
-            update_data = {
+            update_data: dict[str, Any] = {
                 "status": JobStatus.FAILED,
                 "completedAt": datetime.utcnow(),
                 "result": existing_result,
             }
+            if triage_status is not None:
+                update_data["triageStatus"] = triage_status
             session.query(Job).filter(Job.id == job_id).update(update_data)
             session.commit()
         except Exception:

@@ -138,3 +138,60 @@ class TestWebhookEndpoint:
 
         assert data["status"] == "ignored"
         assert data["event"] == "issues"
+
+
+class TestLoopPrevention:
+    """BUG-7 regression tests — DocuGardener self-generated PRs must be skipped."""
+
+    def _pr_payload(self, branch: str, action: str = "opened") -> dict:
+        return {
+            "action": action,
+            "pull_request": {
+                "number": 99,
+                "title": "docs: update .github/copilot-instructions.md (DocuGardener policy sync)",
+                "head": {"ref": branch},
+            },
+            "repository": {"full_name": "org/repo"},
+        }
+
+    def _post(self, client: TestClient, payload: dict) -> dict:
+        resp = client.post(
+            "/webhooks/github",
+            json=payload,
+            headers={
+                "X-GitHub-Event": "pull_request",
+                "X-GitHub-Delivery": "test-bug7",
+            },
+        )
+        assert resp.status_code == 200
+        return resp.json()
+
+    def test_policy_sync_pr_skipped(self, client: TestClient):
+        """BUG-7: docugardener/rules-* branch must be skipped — not analysed."""
+        data = self._post(client, self._pr_payload("docugardener/rules-agents-md-abc123"))
+        assert data["status"] == "skipped"
+        assert "policy-sync" in data["reason"].lower() or "loop" in data["reason"].lower()
+
+    def test_policy_sync_copilot_variant_skipped(self, client: TestClient):
+        """BUG-7: copilot-instructions variant also uses docugardener/ prefix."""
+        data = self._post(client, self._pr_payload("docugardener/rules-copilot-instructions-xyz"))
+        assert data["status"] == "skipped"
+
+    def test_policy_sync_synchronize_also_skipped(self, client: TestClient):
+        """BUG-7: synchronize events on policy-sync PRs must also be skipped."""
+        data = self._post(
+            client, self._pr_payload("docugardener/rules-agents-md-abc123", action="synchronize")
+        )
+        assert data["status"] == "skipped"
+
+    def test_fix_pr_still_skipped(self, client: TestClient):
+        """Regression: existing docugardener-fix-* guard must still work."""
+        data = self._post(client, self._pr_payload("docugardener-fix-pr-42-abc123"))
+        assert data["status"] == "skipped"
+
+    def test_normal_pr_not_skipped(self, client: TestClient):
+        """Regression: regular user PRs must still be queued, not skipped."""
+        data = self._post(client, self._pr_payload("feature/my-feature"))
+        # queued (or skipped for other reasons like tenant not found), but NOT the loop-prevention skip
+        assert "policy-sync" not in data.get("reason", "")
+        assert "loop" not in data.get("reason", "")

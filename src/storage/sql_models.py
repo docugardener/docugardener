@@ -47,6 +47,9 @@ class TriageStatus(enum.StrEnum):
     # FIX_PR_OPEN: fix PR has been created on GitHub but not yet merged.
     # Transitions to RESOLVED when the docugardener-fix-* merge webhook fires.
     FIX_PR_OPEN = "FIX_PR_OPEN"
+    # BUG-4: FIX_PR_FAILED: fix PR creation/push failed (e.g. missing Contents: write).
+    # Distinct from job FAILED status (which means analysis failed).
+    FIX_PR_FAILED = "FIX_PR_FAILED"
     RESOLVED = "RESOLVED"
 
 

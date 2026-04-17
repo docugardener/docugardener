@@ -8,10 +8,12 @@
  * State machine:
  *   jobStatus:    QUEUED → PROCESSING → COMPLETED | FAILED | QUOTA_EXCEEDED
  *   triageStatus: PENDING → ACCEPTED → FIX_PR_OPEN → RESOLVED
- *                         → IGNORED  (dismissed)
+ *                         → IGNORED       (dismissed)
+ *                         → FIX_PR_FAILED (fix PR push failed — amber, actionable)
  *
  * UiStatus priority (highest first):
  *   FAILED / QUOTA_EXCEEDED  — terminal error states (override everything)
+ *   FIX_PR_FAILED            — fix PR push failed (amber, distinct from analysis failure)
  *   DISMISSED                — user dismissed (triageStatus=IGNORED)
  *   RESOLVED                 — fix PR merged (terminal success)
  *   FIX_PR_OPEN              — fix PR created, awaiting merge
@@ -28,6 +30,7 @@ export type UiStatus =
     | "NEEDS_REVIEW"
     | "AI_FIXING"
     | "FIX_PR_OPEN"
+    | "FIX_PR_FAILED"
     | "RESOLVED"
     | "DISMISSED"
     | "NO_DRIFT"
@@ -42,10 +45,15 @@ export interface JobLike {
 
 export function getUiStatus(job: JobLike): UiStatus {
     // Error terminals take precedence over everything
-    if (job.status === "FAILED") return "FAILED"
+    if (job.status === "FAILED") {
+        // BUG-4: FIX_PR_FAILED is a distinct amber state — fix push failed, analysis data intact
+        if (job.triageStatus === "FIX_PR_FAILED") return "FIX_PR_FAILED"
+        return "FAILED"
+    }
     if (job.status === "QUOTA_EXCEEDED") return "QUOTA_EXCEEDED"
 
     // Triage-based terminal / in-flight states
+    if (job.triageStatus === "FIX_PR_FAILED") return "FIX_PR_FAILED"
     if (job.triageStatus === "IGNORED") return "DISMISSED"
     if (job.triageStatus === "RESOLVED") return "RESOLVED"
     if (job.triageStatus === "FIX_PR_OPEN") return "FIX_PR_OPEN"
@@ -70,6 +78,7 @@ export const UI_STATUS_LABEL: Record<UiStatus, string> = {
     NEEDS_REVIEW: "Review required",
     AI_FIXING: "AI fixing…",
     FIX_PR_OPEN: "Fix PR open",
+    FIX_PR_FAILED: "Fix PR failed",
     RESOLVED: "Resolved",
     DISMISSED: "Dismissed",
     NO_DRIFT: "No drift",

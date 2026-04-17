@@ -357,7 +357,7 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
         logger.debug("Skipping PR action", action=action)
         return {"status": "skipped", "reason": f"Action '{action}' does not require analysis"}
 
-    # Loop prevention: skip DocuGardener's own fix PRs to avoid infinite analysis cycles
+    # Loop prevention: skip DocuGardener's own PRs to avoid infinite analysis cycles
     head_ref: str = pull_request.get("head", {}).get("ref", "")
     if head_ref.startswith("docugardener-fix-"):
         logger.info(
@@ -369,6 +369,20 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
         return {
             "status": "skipped",
             "reason": "DocuGardener fix PR — not analyzed to prevent loop",
+        }
+    # BUG-7: skip Agent Governance policy-sync PRs (branch: docugardener/rules-*)
+    # These PRs *are* the documentation update — scoring them for drift is meaningless
+    # and pollutes the inbox with 0-score items.
+    if head_ref.startswith("docugardener/"):
+        logger.info(
+            "Skipping DocuGardener policy-sync PR — loop prevention",
+            branch=head_ref,
+            pr=pr_number,
+            repo=repo_full_name,
+        )
+        return {
+            "status": "skipped",
+            "reason": "DocuGardener policy-sync PR — not analyzed to prevent loop",
         }
 
     # SCALE-02: Actor-Aware Thresholding — skip analysis for ignored actors

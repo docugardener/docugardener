@@ -151,7 +151,7 @@ async def test_process_fix_pr_tenant_missing_org(db_session):
         mock_get_db.return_value = iter([db_session])
 
         # Manually trigger the failure side effect on the mock or capture it
-        def side_effect_fail(jid, err):
+        def side_effect_fail(jid, err, triage_status=None):
             job.status = JobStatus.FAILED
             job.error = err
             db_session.commit()
@@ -203,9 +203,12 @@ async def test_process_fix_pr_committer_fails(db_session):
         mock_get_db.return_value = iter([db_session])
         mock_get_token.return_value = "token"
 
-        def side_effect_fail(jid, err):
+        def side_effect_fail(jid, err, triage_status=None):
+            # BUG-4: fail_job now accepts optional triage_status kwarg
             job.status = JobStatus.FAILED
             job.error = err
+            if triage_status is not None:
+                job.triageStatus = triage_status
             db_session.commit()
 
         mock_jm.fail_job.side_effect = side_effect_fail
@@ -222,3 +225,7 @@ async def test_process_fix_pr_committer_fails(db_session):
         db_session.refresh(job)
         assert job.status == JobStatus.FAILED
         assert "Auto-PR generation error" in job.error
+        # BUG-4: triageStatus must be FIX_PR_FAILED (not left as ACCEPTED)
+        from src.storage.sql_models import TriageStatus
+
+        assert job.triageStatus == TriageStatus.FIX_PR_FAILED

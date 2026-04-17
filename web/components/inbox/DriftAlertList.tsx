@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { SEVERITY_CONFIG, normaliseSeverity } from "@/lib/severity";
-import { Loader2, UserCheck, CheckCircle2, GitMerge } from "lucide-react";
+import { Loader2, UserCheck, CheckCircle2, GitMerge, AlertTriangle } from "lucide-react";
 import { getUiStatus } from "@/lib/job-status";
 import { GettingStartedEmpty } from "@/components/onboarding/GettingStartedEmpty";
 
@@ -81,6 +81,13 @@ function AlertStatusChip({ alert }: { alert: DriftAlert }) {
             className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-px rounded-full">
             <GitMerge className="w-2 h-2" />
             Fix PR open
+        </span>
+    )
+    if (uiStatus === "FIX_PR_FAILED") return (
+        <span data-testid="status-chip-fix-pr-failed"
+            className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-px rounded-full">
+            <AlertTriangle className="w-2 h-2" />
+            Fix PR failed
         </span>
     )
     if (uiStatus === "NEEDS_REVIEW") return (

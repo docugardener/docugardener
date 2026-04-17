@@ -909,11 +909,22 @@ async def process_fix_pr(job_id: str, auto_merge: bool = False) -> None:
                         "Failed to post Jira fix PR comment", ticket=jira_ticket_key, error=str(e)
                     )
         else:
-            job_manager.fail_job(job_id, "Git committer failed to create or push branch")
+            # BUG-4: use FIX_PR_FAILED (not plain FAILED) so the UI can show an amber
+            # "Fix PR could not be pushed" state, distinct from an analysis failure.
+            job_manager.fail_job(
+                job_id,
+                "Git committer failed to create or push branch",
+                triage_status="FIX_PR_FAILED",
+            )
 
     except Exception as e:
         logger.error("Auto-PR creation failed with exception", error=str(e), job_id=job_id)
-        job_manager.fail_job(job_id, f"Auto-PR generation error: {str(e)}")
+        # BUG-4: same — mark as FIX_PR_FAILED so the inbox shows an actionable amber state.
+        job_manager.fail_job(
+            job_id,
+            f"Auto-PR generation error: {str(e)}",
+            triage_status="FIX_PR_FAILED",
+        )
         raise  # GAP-3: re-raise so RQ moves job to FailedJobRegistry
 
 

@@ -80,6 +80,11 @@ export function UiStatusBadge({ uiStatus }: { uiStatus: UiStatus }) {
             Fix PR open
         </Badge>
     )
+    if (uiStatus === "FIX_PR_FAILED") return (
+        <Badge variant="outline" className={`${base} border-amber-500/50 text-amber-600 dark:text-amber-400`}>
+            Fix PR failed
+        </Badge>
+    )
     if (uiStatus === "NEEDS_REVIEW") return (
         <Badge variant="outline" className={`${base} border-amber-500/50 text-amber-600 dark:text-amber-400`}>
             Review

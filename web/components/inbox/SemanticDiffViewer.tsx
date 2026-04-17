@@ -210,6 +210,21 @@ export function SemanticDiffViewer({
                         </div>
                     )}
 
+                    {/* ── BUG-4: Fix PR failed — amber actionable banner ── */}
+                    {uiStatus === "FIX_PR_FAILED" && (
+                        <div className="flex flex-col gap-1.5">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full self-start">
+                                <AlertTriangle className="w-3 h-3" />
+                                Fix PR could not be pushed
+                            </span>
+                            <p className="text-[11px] text-muted-foreground pl-0.5">
+                                The documentation fix PR failed to push. Ensure the GitHub App has{" "}
+                                <span className="font-semibold text-foreground">Contents: Read &amp; write</span>{" "}
+                                permission, then re-accept this alert to retry.
+                            </p>
+                        </div>
+                    )}
+
                     {/* ── Needs review — show Accept / Dismiss only here ── */}
                     {uiStatus === "NEEDS_REVIEW" && (onAccept || onIgnore) && (
                         <div className="flex flex-col items-end gap-2">
