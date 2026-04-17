@@ -27,6 +27,9 @@ class User(Base):
     externalId = Column(String, nullable=True)  # IdP SCIM externalId
     scimActive = Column(Boolean, default=True, nullable=False)  # false = deprovisioned
 
+    createdAt = Column(DateTime, default=datetime.utcnow)
+    updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     @property
     def tenant_id(self):
         return self.tenantId

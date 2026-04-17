@@ -11,6 +11,8 @@ import { prisma } from "@/lib/prisma"
 export const dynamic = "force-dynamic"
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
+// For browser redirects use the public app URL, not the internal Docker backend hostname
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || BACKEND_URL
 
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
@@ -38,6 +40,6 @@ export async function GET(req: Request) {
         )
     }
 
-    const loginUrl = `${BACKEND_URL}/auth/saml/login?tenant_id=${user.tenantId}`
+    const loginUrl = `${APP_URL}/auth/saml/login?tenant_id=${user.tenantId}`
     return NextResponse.json({ loginUrl })
 }

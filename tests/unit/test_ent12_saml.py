@@ -297,6 +297,88 @@ class TestJitProvisioning:
 # ── G. _build_request_data scheme detection ───────────────────────────────────
 
 
+# ── H. First-user-ADMIN JIT provisioning ─────────────────────────────────────
+
+
+class TestFirstUserAdmin:
+    """
+    _get_or_create_user() must promote the first SSO user in a tenant to ADMIN.
+    All subsequent users keep the role resolved from the SAML assertion.
+    """
+
+    def _call(self, mock_db, email="user@example.com", tenant_id="t-test", role="VIEWER"):
+        from src.api.saml import _get_or_create_user
+
+        with patch("src.api.saml.SessionLocal", return_value=mock_db):
+            return _get_or_create_user(email, tenant_id, role)
+
+    def _make_db(self, existing_user=None, tenant_user_count=0):
+        """Build a mock DB session. existing_user=None simulates new user."""
+        db = MagicMock()
+        query_mock = MagicMock()
+        db.query.return_value = query_mock
+
+        # Chain: db.query(User).filter(...).first() → existing_user
+        filter_mock = MagicMock()
+        query_mock.filter.return_value = filter_mock
+        filter_mock.first.return_value = existing_user
+
+        # Chain: db.query(User).filter(...).count() → tenant_user_count
+        filter_mock.count.return_value = tenant_user_count
+
+        db.add = MagicMock()
+        db.commit = MagicMock()
+        db.refresh = MagicMock(side_effect=lambda u: None)
+        db.__enter__ = MagicMock(return_value=db)
+        db.__exit__ = MagicMock(return_value=False)
+        db.close = MagicMock()
+        return db
+
+    def test_first_user_in_tenant_gets_admin(self):
+        """No existing users in tenant → new SSO user promoted to ADMIN."""
+        db = self._make_db(existing_user=None, tenant_user_count=0)
+        user = self._call(db, role="VIEWER")
+        db.add.assert_called_once()
+        created_user = db.add.call_args[0][0]
+        assert created_user.role == "ADMIN"
+
+    def test_first_user_viewer_role_overridden_to_admin(self):
+        """Even if assertion resolves VIEWER, first user in tenant becomes ADMIN."""
+        db = self._make_db(existing_user=None, tenant_user_count=0)
+        self._call(db, role="VIEWER")
+        created_user = db.add.call_args[0][0]
+        assert created_user.role == "ADMIN"
+
+    def test_second_user_keeps_viewer_role(self):
+        """Tenant already has one user → second SSO user stays VIEWER."""
+        db = self._make_db(existing_user=None, tenant_user_count=1)
+        self._call(db, role="VIEWER")
+        created_user = db.add.call_args[0][0]
+        assert created_user.role == "VIEWER"
+
+    def test_second_user_idp_mapped_admin_kept(self):
+        """Tenant already has users but IdP explicitly maps this user to ADMIN → ADMIN."""
+        db = self._make_db(existing_user=None, tenant_user_count=2)
+        self._call(db, role="ADMIN")
+        created_user = db.add.call_args[0][0]
+        assert created_user.role == "ADMIN"
+
+    def test_existing_user_role_not_changed(self):
+        """User already in DB (returning login) → no DB write, role untouched."""
+        existing = make_user(email="user@example.com", role="VIEWER")
+        db = self._make_db(existing_user=existing, tenant_user_count=1)
+        result = self._call(db, role="VIEWER")
+        db.add.assert_not_called()
+        assert result.role == "VIEWER"
+
+    def test_first_user_correct_tenant_id_set(self):
+        """First user created with the correct tenantId."""
+        db = self._make_db(existing_user=None, tenant_user_count=0)
+        self._call(db, tenant_id="tenant-abc", role="VIEWER")
+        created_user = db.add.call_args[0][0]
+        assert created_user.tenantId == "tenant-abc"
+
+
 class TestBuildRequestDataScheme:
     """
     SEC-04 / Okta QA fix: _build_request_data must trust X-Forwarded-Proto so

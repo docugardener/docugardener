@@ -28,6 +28,7 @@ import os
 import secrets
 import time
 import urllib.parse
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Form, HTTPException, Query, Request
@@ -100,7 +101,7 @@ def _get_saml_auth(tenant: Tenant, request_data: dict) -> Any:
         "security": {
             "authnRequestsSigned": False,
             "wantAssertionsSigned": True,
-            "wantMessagesSigned": True,
+            "wantMessagesSigned": False,  # Assertion signing is sufficient; not all IdPs sign the response envelope
             "wantNameId": True,
             "wantAttributeStatement": False,
             "allowRepeatAttributeName": True,
@@ -270,25 +271,33 @@ def _get_or_create_user(email: str, tenant_id: str, role: str) -> User:
     try:
         user = db.query(User).filter(User.email == email).first()
         if user is None:
-            import cuid  # type: ignore[import-untyped]  # fallback to uuid if not available
-
             try:
+                import cuid  # type: ignore[import-untyped]
+
                 new_id = cuid.cuid()
             except Exception:
                 import uuid
 
                 new_id = str(uuid.uuid4())
+            # First user in a tenant becomes ADMIN (unless IdP explicitly mapped a role)
+            existing_count = db.query(User).filter(User.tenantId == tenant_id).count()
+            effective_role = "ADMIN" if existing_count == 0 else role
+            now = datetime.utcnow()
             user = User(
                 id=new_id,
                 email=email,
                 name=email.split("@")[0],
-                role=role,
+                role=effective_role,
                 tenantId=tenant_id,
+                createdAt=now,
+                updatedAt=now,
             )
             db.add(user)
             db.commit()
             db.refresh(user)
-            logger.info("saml.jit_provisioned", email=email, tenant_id=tenant_id, role=role)
+            logger.info(
+                "saml.jit_provisioned", email=email, tenant_id=tenant_id, role=effective_role
+            )
         elif user.tenantId != tenant_id:
             # User exists but belongs to a different tenant — deny
             raise HTTPException(
@@ -441,7 +450,9 @@ async def saml_callback(
     logger.info("saml.authenticated", email=email, tenant_id=tenant_id, role=role)
 
     # Redirect to Next.js SAML completion page which calls NextAuth with the exchange token
-    web_url = os.environ.get("NEXTAUTH_URL", "http://localhost:3000")
+    # Use APP_URL (always the public base URL) then fall back to NEXTAUTH_URL.
+    # NEXTAUTH_URL is only set on the web container — FastAPI uses APP_URL.
+    web_url = os.environ.get("APP_URL") or os.environ.get("NEXTAUTH_URL", "http://localhost:3000")
     callback_url = f"{web_url}/auth/saml-complete?token={token}&tenant_id={tenant_id}"
     return RedirectResponse(url=callback_url, status_code=302)
 
@@ -480,5 +491,7 @@ async def saml_logout(request: Request, tenant_id: str = Query(...)):
     except Exception as exc:
         logger.error("saml.logout_error", error=str(exc))
         # Fall back to local logout on error
-        web_url = os.environ.get("NEXTAUTH_URL", "http://localhost:3000")
+        web_url = os.environ.get("APP_URL") or os.environ.get(
+            "NEXTAUTH_URL", "http://localhost:3000"
+        )
         return RedirectResponse(url=f"{web_url}/api/auth/signout", status_code=302)

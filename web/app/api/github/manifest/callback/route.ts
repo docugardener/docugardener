@@ -74,10 +74,10 @@ export async function POST(req: NextRequest) {
             },
         })
 
-        // 4. Link User to Tenant (CRITICAL FIX)
+        // 4. Link User to Tenant and promote to ADMIN (first user = initiator = admin)
         await prisma.user.update({
             where: { email: session.user.email },
-            data: { tenantId: tenant.id }
+            data: { tenantId: tenant.id, role: "ADMIN" }
         })
 
         // 5. Redirect to GitHub App Installation page
