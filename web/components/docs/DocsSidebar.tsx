@@ -37,6 +37,7 @@ const NAV = [
       { label: "Environment Variables", href: "/docs/self-hosting/environment" },
       { label: "Docker Compose", href: "/docs/self-hosting/docker" },
       { label: "Kubernetes / Helm", href: "/docs/self-hosting/kubernetes" },
+      { label: "SSO / SAML 2.0", href: "/docs/self-hosting/sso" },
       { label: "Upgrading", href: "/docs/self-hosting/upgrades" },
     ],
   },

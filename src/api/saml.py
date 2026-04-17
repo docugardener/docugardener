@@ -179,6 +179,83 @@ def _consume_exchange_token(token: str) -> dict | None:
     return json.loads(data)
 
 
+# Entra ID (Azure AD) sends email under full claim URIs rather than short names.
+# This ordered list is checked when NameID format is not emailAddress.
+_ENTRA_EMAIL_ATTRS: list[str] = [
+    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
+    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn",
+    "http://schemas.microsoft.com/identity/claims/objectidentifier",  # never an email — skip via is_email check
+    "mail",
+    "email",
+]
+
+_EMAIL_NAMEID_FORMAT = "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+_PERSISTENT_NAMEID_FORMAT = "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
+_UNSPECIFIED_NAMEID_FORMAT = "urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified"
+
+
+def _looks_like_email(value: str) -> bool:
+    return "@" in value and "." in value.split("@")[-1]
+
+
+def _extract_email_from_assertion(auth: Any, tenant_email_attr: str | None) -> str:
+    """
+    Resolve the authenticated user's email from a SAML assertion.
+
+    Resolution order:
+    1. If NameID format is emailAddress → use NameID directly.
+    2. If NameID format is persistent or unspecified (Entra default) →
+       walk _ENTRA_EMAIL_ATTRS + tenant-configured attribute for an email-shaped value.
+    3. Fall through to NameID value if it happens to look like an email.
+    4. Raise HTTPException(422) with a human-readable message.
+    """
+    nameid: str = auth.get_nameid() or ""
+    nameid_format: str = auth.get_nameid_format() or ""
+    attrs: dict = auth.get_attributes()
+
+    # Path 1: standard emailAddress NameID
+    if nameid_format == _EMAIL_NAMEID_FORMAT:
+        if nameid:
+            return nameid
+
+    # Path 2: persistent / unspecified NameID → search attributes
+    if nameid_format in (_PERSISTENT_NAMEID_FORMAT, _UNSPECIFIED_NAMEID_FORMAT, ""):
+        # Build candidate attribute names: Entra URIs first, then tenant override, then short names
+        candidates = list(_ENTRA_EMAIL_ATTRS)
+        if tenant_email_attr and tenant_email_attr not in candidates:
+            candidates.insert(0, tenant_email_attr)
+
+        for attr_name in candidates:
+            values = attrs.get(attr_name) or []
+            candidate = values[0] if values else ""
+            if candidate and _looks_like_email(candidate):
+                logger.info(
+                    "saml.email_resolved_from_attribute",
+                    attr=attr_name,
+                    nameid_format=nameid_format,
+                )
+                return candidate
+
+    # Path 3: NameID itself looks like an email (non-standard but some IdPs do this)
+    if nameid and _looks_like_email(nameid):
+        return nameid
+
+    # Path 4: configured attribute fallback (matches legacy behaviour)
+    if tenant_email_attr:
+        values = attrs.get(tenant_email_attr) or []
+        if values and values[0]:
+            return values[0]
+
+    raise HTTPException(
+        status_code=422,
+        detail=(
+            "Cannot resolve email from assertion. "
+            "Configure your IdP to send emailAddress NameID or an email attribute. "
+            f"NameID format received: {nameid_format or '(none)'}"
+        ),
+    )
+
+
 def _get_tenant_by_id(tenant_id: str) -> Tenant | None:
     db = SessionLocal()
     try:
@@ -334,16 +411,11 @@ async def saml_callback(
         if now > not_on_or_after + MAX_ASSERTION_AGE_SECONDS:
             raise HTTPException(status_code=401, detail="SAML assertion has expired")
 
-    # ── Extract user attributes ───────────────────────────────────────────────
-    attrs = auth.get_attributes()
-    email_attr = tenant.samlAttrEmail or "email"
-    email_values = attrs.get(email_attr) or []
-    email = email_values[0] if email_values else auth.get_nameid()
-
-    if not email:
-        raise HTTPException(status_code=422, detail="No email in SAML assertion")
+    # ── Extract user email (handles Entra persistent NameID + attribute fallback) ─
+    email = _extract_email_from_assertion(auth, tenant.samlAttrEmail)
 
     # ── Role resolution ───────────────────────────────────────────────────────
+    attrs = auth.get_attributes()
     role = "VIEWER"
     if tenant.samlAttrRole and tenant.samlRoleMapAdmin:
         role_values = attrs.get(tenant.samlAttrRole) or []

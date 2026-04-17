@@ -82,17 +82,26 @@ export function SsoConfigForm({ spEntityId, spAcsUrl, initialConfig }: SsoConfig
 
     return (
         <div className="space-y-8">
-            {/* PH15-03a: Early Access banner */}
-            <div className="flex items-start gap-2 rounded-md border border-blue-800 bg-blue-950/30 p-3 text-sm text-blue-300">
-                <InfoIcon className="h-4 w-4 mt-0.5 shrink-0" />
-                <span>
-                    <strong>Early Access</strong> — SSO/SAML works with Okta and standard SAML 2.0
-                    identity providers. For assisted setup or to report issues, contact{" "}
-                    <a href="mailto:support@docugardener.dev" className="underline">
-                        support@docugardener.dev
-                    </a>
-                    .
-                </span>
+            {/* TODO(Q2-A): remove when PH15-03 Stage 1+2 complete (Okta smoke-test + Entra validated) */}
+            <div className="flex items-start gap-3 p-4 rounded-lg border border-amber-500/30 bg-amber-500/5 mb-6">
+                <InfoIcon className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                    <p className="font-semibold text-amber-600 dark:text-amber-400 mb-1">Early Access — SAML/SSO</p>
+                    <p className="text-muted-foreground text-xs leading-relaxed">
+                        SAML 2.0 SSO has been validated with Okta. Entra ID (Azure AD) and other IdPs are in active
+                        testing — persistent NameID is handled automatically via attribute fallback.
+                        If you encounter issues,{" "}
+                        <a
+                            href="https://github.com/docugardener/docugardener/issues"
+                            className="underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            open an issue
+                        </a>{" "}
+                        with your IdP name and error.
+                    </p>
+                </div>
             </div>
             {/* Enable toggle */}
             <div className="flex items-center justify-between">

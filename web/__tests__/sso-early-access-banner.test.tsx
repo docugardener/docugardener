@@ -42,17 +42,18 @@ describe("SPEC-SSO-EA-01: SsoConfigForm Early Access banner", () => {
         expect(screen.getByText(/early access/i)).toBeInTheDocument()
     })
 
-    it("renders SSO/SAML description text", async () => {
+    it("renders SSO/SAML description text mentioning Okta and Entra", async () => {
         const { SsoConfigForm } = await import("@/components/settings/SsoConfigForm")
         render(<SsoConfigForm {...SSO_PROPS} />)
-        expect(screen.getByText(/SSO\/SAML works with Okta/i)).toBeInTheDocument()
+        expect(screen.getByText(/validated with Okta/i)).toBeInTheDocument()
+        expect(screen.getAllByText(/Entra ID/i).length).toBeGreaterThan(0)
     })
 
-    it("renders support email link", async () => {
+    it("renders GitHub issues link", async () => {
         const { SsoConfigForm } = await import("@/components/settings/SsoConfigForm")
         render(<SsoConfigForm {...SSO_PROPS} />)
-        const link = screen.getByRole("link", { name: /support@docugardener\.dev/i })
-        expect(link).toHaveAttribute("href", "mailto:support@docugardener.dev")
+        const link = screen.getByRole("link", { name: /open an issue/i })
+        expect(link).toHaveAttribute("href", "https://github.com/docugardener/docugardener/issues")
     })
 })
 
@@ -83,7 +84,7 @@ describe("SPEC-SSO-EA-02: ScimConfigSection Early Access banner", () => {
                 scimBaseUrl="https://docugardener.dev/scim/v2"
             />
         )
-        expect(screen.getByText(/SCIM provisioning works with Okta/i)).toBeInTheDocument()
+        expect(screen.getByText(/SCIM provisioning has been validated with Okta/i)).toBeInTheDocument()
     })
 })
 

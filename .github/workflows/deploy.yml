@@ -72,8 +72,9 @@ jobs:
 
             echo "==> Pulling latest code..."
             git config --global --add safe.directory /opt/docugardener || true
-            # Ensure all .git/objects are owned by deploy (first deploys may have root-owned files)
-            sudo /bin/chown -R deploy:deploy /opt/docugardener/.git/ || true
+            # Docker builds run as root and can leave root-owned files in the working tree.
+            # chown the entire repo dir (not just .git/) so git reset can unlink any file.
+            sudo /bin/chown -R deploy:deploy /opt/docugardener/ || true
             cd /opt/docugardener
             git fetch origin main
             git reset --hard origin/main
