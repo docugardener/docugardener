@@ -252,9 +252,13 @@ if wants e2e; then
     -e E2E_REPO_ID="${E2E_REPO_ID}" \
     -e SQL_DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/docugardener-web" \
     -e GH_TOKEN="${GH_TOKEN:-}" \
+    -e GIT_AUTHOR_NAME="DocuGardener E2E" \
+    -e GIT_AUTHOR_EMAIL="e2e@docugardener.dev" \
+    -e GIT_COMMITTER_NAME="DocuGardener E2E" \
+    -e GIT_COMMITTER_EMAIL="e2e@docugardener.dev" \
     -e PYTHONPATH=/app \
     docugardener \
-    bash -c 'pip install -q "pytest>=7.4.0" "pytest-asyncio>=0.23.0" "requests>=2.31.0" "sqlalchemy>=2.0.0" "psycopg2-binary>=2.9.0" "python-dateutil>=2.8.0" && python -m pytest tests/e2e/ -m e2e -v -s --tb=short' 2>&1 \
+    bash -c 'git config --global user.name "DocuGardener E2E" && git config --global user.email "e2e@docugardener.dev" && pip install -q "pytest>=7.4.0" "pytest-asyncio>=0.23.0" "requests>=2.31.0" "sqlalchemy>=2.0.0" "psycopg2-binary>=2.9.0" "python-dateutil>=2.8.0" && python -m pytest tests/e2e/ -m e2e -v -s --tb=short' 2>&1 \
   | tee /tmp/dg-test-e2e.log
   E2E_EXIT=${PIPESTATUS[0]}
   set -e

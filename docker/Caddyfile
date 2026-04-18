@@ -13,6 +13,10 @@
 #   /scim/v2*        →  FastAPI (docugardener:8000)  — SCIM 2.0 user provisioning (Okta)
 #   /check*          →  FastAPI (docugardener:8000)  — VS Code extension drift check
 #   /plugin-key*     →  FastAPI (docugardener:8000)  — VS Code extension API key management
+#   /repos/*         →  FastAPI (docugardener:8000)  — repo contents + rules compiler endpoints
+#   /billing/*       →  FastAPI (docugardener:8000)  — billing profile + quota endpoints
+#   /inbox/*         →  FastAPI (docugardener:8000)  — analysis inbox (job triage) endpoints
+#   /prompts/*       →  FastAPI (docugardener:8000)  — prompt config endpoints
 #   *                →  Next.js (web:3001)            — web app + its own /api/*
 # =============================================================================
 
@@ -72,6 +76,26 @@
     }
 
     handle /plugin-key* {
+        reverse_proxy docugardener:8000
+    }
+
+    # ── FastAPI: repo contents + rules compiler (/repos/*) ───────────────────
+    handle /repos/* {
+        reverse_proxy docugardener:8000
+    }
+
+    # ── FastAPI: billing profile + quota (/billing/*) ────────────────────────
+    handle /billing/* {
+        reverse_proxy docugardener:8000
+    }
+
+    # ── FastAPI: analysis inbox (/inbox/*) ───────────────────────────────────
+    handle /inbox/* {
+        reverse_proxy docugardener:8000
+    }
+
+    # ── FastAPI: prompt config (/prompts/*) ──────────────────────────────────
+    handle /prompts/* {
         reverse_proxy docugardener:8000
     }
 
