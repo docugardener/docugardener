@@ -64,13 +64,21 @@ def _check_service(url: str, name: str, timeout: int = 5) -> str | None:
 
 
 def _check_smee() -> bool:
-    """Return True if a smee or smee-client process is running."""
-    result = subprocess.run(
-        ["pgrep", "-f", "smee"],
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0
+    """Return True if a smee or smee-client process is running.
+
+    When running inside a Docker container pgrep may not be available;
+    in that case assume smee is not present (webhook delivery goes
+    directly to the production URL anyway).
+    """
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "smee"],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
 
 
 def _check_gh_auth() -> bool:
