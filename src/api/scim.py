@@ -112,7 +112,6 @@ def _resolve_tenant(authorization: str | None) -> Tenant:
 
 def _user_to_scim(user: User, base_url: str = "") -> dict:
     """Convert a User SQLAlchemy model to a SCIM User dict."""
-    roles = [{"value": user.role, "primary": True}] if user.role else []
     emails = [{"value": user.email, "primary": True, "type": "work"}] if user.email else []
     name_parts = (user.name or "").split(" ", 1)
     scim = ScimUser(
@@ -127,7 +126,8 @@ def _user_to_scim(user: User, base_url: str = "") -> dict:
         ),
         emails=[ScimEmail(value=e["value"], primary=e["primary"], type=e["type"]) for e in emails],
         active=bool(user.scimActive),
-        roles=[ScimRole(value=r["value"], primary=r["primary"]) for r in roles],
+        # roles omitted — Okta test app throws InvalidValueType when reading custom roles back.
+        # DocuGardener manages roles internally; they are not round-tripped via SCIM.
         meta=ScimMeta(
             resourceType="User",
             created=user.createdAt.isoformat()
