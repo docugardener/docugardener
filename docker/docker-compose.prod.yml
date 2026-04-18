@@ -75,6 +75,7 @@ services:
       - BUNDLED_GEMINI_MODEL=${BUNDLED_GEMINI_MODEL:-gemini-2.0-flash}
       - OWNER_EMAIL=${OWNER_EMAIL}
       - OWNER_ACCESS_TOKEN=${OWNER_ACCESS_TOKEN}
+      - AUDIT_EXPORT_SIGNING_KEY=${AUDIT_EXPORT_SIGNING_KEY}
     depends_on:
       postgres:
         condition: service_healthy

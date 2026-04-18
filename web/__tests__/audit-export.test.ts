@@ -196,3 +196,100 @@ describe("GET /api/audit/export — date filters", () => {
         )
     })
 })
+
+// ── F. EPIC-06-GAP: HMAC export signing ───────────────────────────────────────
+
+describe("GET /api/audit/export — HMAC signing (EPIC-06-GAP)", () => {
+    const SIGNING_KEY = "test-signing-key-32chars-padded!!"
+
+    beforeEach(() => {
+        vi.resetModules()
+        mockFindMany.mockReset()
+        delete process.env.AUDIT_EXPORT_SIGNING_KEY
+    })
+
+    afterEach(() => {
+        delete process.env.AUDIT_EXPORT_SIGNING_KEY
+    })
+
+    it("CSV: no signature header when AUDIT_EXPORT_SIGNING_KEY not set", async () => {
+        mockGetServerSession.mockResolvedValue(makeSession("ADMIN"))
+        mockFindMany.mockResolvedValue([BASE_LOG])
+        const { GET } = await import("@/app/api/audit/export/route")
+        const res = await GET(new Request("http://localhost/api/audit/export?format=csv"))
+        expect(res.headers.get("x-audit-export-signature")).toBeNull()
+    })
+
+    it("JSON: no signature header or field when AUDIT_EXPORT_SIGNING_KEY not set", async () => {
+        mockGetServerSession.mockResolvedValue(makeSession("ADMIN"))
+        mockFindMany.mockResolvedValue([BASE_LOG])
+        const { GET } = await import("@/app/api/audit/export/route")
+        const res = await GET(new Request("http://localhost/api/audit/export?format=json"))
+        expect(res.headers.get("x-audit-export-signature")).toBeNull()
+        const data = await res.json()
+        expect(data).not.toHaveProperty("exportSignature")
+    })
+
+    it("CSV: X-Audit-Export-Signature header present when key configured", async () => {
+        process.env.AUDIT_EXPORT_SIGNING_KEY = SIGNING_KEY
+        mockGetServerSession.mockResolvedValue(makeSession("ADMIN"))
+        mockFindMany.mockResolvedValue([BASE_LOG])
+        const { GET } = await import("@/app/api/audit/export/route")
+        const res = await GET(new Request("http://localhost/api/audit/export?format=csv"))
+        const sig = res.headers.get("x-audit-export-signature")
+        expect(sig).not.toBeNull()
+        expect(sig).toMatch(/^sha256=[a-f0-9]{64}$/)
+    })
+
+    it("JSON: X-Audit-Export-Signature header present when key configured", async () => {
+        process.env.AUDIT_EXPORT_SIGNING_KEY = SIGNING_KEY
+        mockGetServerSession.mockResolvedValue(makeSession("ADMIN"))
+        mockFindMany.mockResolvedValue([BASE_LOG])
+        const { GET } = await import("@/app/api/audit/export/route")
+        const res = await GET(new Request("http://localhost/api/audit/export?format=json"))
+        const sig = res.headers.get("x-audit-export-signature")
+        expect(sig).not.toBeNull()
+        expect(sig).toMatch(/^sha256=[a-f0-9]{64}$/)
+    })
+
+    it("JSON: exportSignature field in envelope when key configured", async () => {
+        process.env.AUDIT_EXPORT_SIGNING_KEY = SIGNING_KEY
+        mockGetServerSession.mockResolvedValue(makeSession("ADMIN"))
+        mockFindMany.mockResolvedValue([BASE_LOG])
+        const { GET } = await import("@/app/api/audit/export/route")
+        const res = await GET(new Request("http://localhost/api/audit/export?format=json"))
+        const data = await res.json()
+        expect(data).toHaveProperty("exportSignature")
+        expect(data.exportSignature).toMatch(/^sha256=[a-f0-9]{64}$/)
+    })
+
+    it("JSON: header signature matches exportSignature field", async () => {
+        process.env.AUDIT_EXPORT_SIGNING_KEY = SIGNING_KEY
+        mockGetServerSession.mockResolvedValue(makeSession("ADMIN"))
+        mockFindMany.mockResolvedValue([BASE_LOG])
+        const { GET } = await import("@/app/api/audit/export/route")
+        const res = await GET(new Request("http://localhost/api/audit/export?format=json"))
+        const headerSig = res.headers.get("x-audit-export-signature")
+        const data = await res.json()
+        expect(headerSig).toBe(data.exportSignature)
+    })
+
+    it("CSV: different keys produce different signatures", async () => {
+        process.env.AUDIT_EXPORT_SIGNING_KEY = SIGNING_KEY
+        mockGetServerSession.mockResolvedValue(makeSession("ADMIN"))
+        mockFindMany.mockResolvedValue([BASE_LOG])
+        const { GET } = await import("@/app/api/audit/export/route")
+        const res1 = await GET(new Request("http://localhost/api/audit/export?format=csv"))
+        const sig1 = res1.headers.get("x-audit-export-signature")
+
+        vi.resetModules()
+        process.env.AUDIT_EXPORT_SIGNING_KEY = "different-key-32chars-padded!!!!"
+        mockGetServerSession.mockResolvedValue(makeSession("ADMIN"))
+        mockFindMany.mockResolvedValue([BASE_LOG])
+        const { GET: GET2 } = await import("@/app/api/audit/export/route")
+        const res2 = await GET2(new Request("http://localhost/api/audit/export?format=csv"))
+        const sig2 = res2.headers.get("x-audit-export-signature")
+
+        expect(sig1).not.toBe(sig2)
+    })
+})

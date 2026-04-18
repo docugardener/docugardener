@@ -19,12 +19,26 @@ export const dynamic = "force-dynamic"
  * Row enrichment (TEAM+): each row additionally includes job_id, pr_number, pr_url.
  *
  * Limits: max 10,000 rows per export. Use `from`/`to` to slice large tenants.
+ *
+ * EPIC-06-GAP: File-level HMAC-SHA256 signing.
+ * When AUDIT_EXPORT_SIGNING_KEY is set, the response includes:
+ *   X-Audit-Export-Signature: sha256=<hex>   (all formats)
+ *   exportSignature field in the JSON envelope
+ * Verifiers: echo -n "<body>" | openssl dgst -sha256 -hmac "$AUDIT_EXPORT_SIGNING_KEY"
  */
+import { createHmac } from "crypto"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { canAccessTenant } from "@/lib/features"
+
+/** Compute HMAC-SHA256 of body using AUDIT_EXPORT_SIGNING_KEY. Returns null if key not configured. */
+function signExportBody(body: string): string | null {
+    const key = process.env.AUDIT_EXPORT_SIGNING_KEY
+    if (!key) return null
+    return "sha256=" + createHmac("sha256", key).update(body).digest("hex")
+}
 
 const ALLOWED_ROLES = ["ADMIN", "AUDITOR"]
 const MAX_ROWS = 10_000
@@ -206,19 +220,34 @@ export async function GET(req: Request) {
     const csvColumns = ENRICHED_CSV_COLUMNS
 
     if (format === "json") {
-        const body = JSON.stringify({ exportedAt: new Date().toISOString(), tenantId, count: enrichedLogs.length, logs: enrichedLogs }, null, 2)
-        return new NextResponse(body, {
-            status: 200,
-            headers: { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="${filename}"` },
-        })
+        // Build envelope without signature first, then sign, then inject field.
+        const envelope: Record<string, unknown> = {
+            exportedAt: new Date().toISOString(),
+            tenantId,
+            count: enrichedLogs.length,
+            logs: enrichedLogs,
+        }
+        const unsignedBody = JSON.stringify(envelope, null, 2)
+        const sig = signExportBody(unsignedBody)
+        if (sig) envelope.exportSignature = sig
+        const body = sig ? JSON.stringify(envelope, null, 2) : unsignedBody
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+            "Content-Disposition": `attachment; filename="${filename}"`,
+        }
+        if (sig) headers["X-Audit-Export-Signature"] = sig
+        return new NextResponse(body, { status: 200, headers })
     }
 
     const header = csvColumns.join(",")
     const rows = enrichedLogs.map(log => toCSVRow(log as any, csvColumns))
     const csv = [header, ...rows].join("\n")
+    const csvSig = signExportBody(csv)
+    const csvHeaders: Record<string, string> = {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+    }
+    if (csvSig) csvHeaders["X-Audit-Export-Signature"] = csvSig
 
-    return new NextResponse(csv, {
-        status: 200,
-        headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${filename}"` },
-    })
+    return new NextResponse(csv, { status: 200, headers: csvHeaders })
 }
