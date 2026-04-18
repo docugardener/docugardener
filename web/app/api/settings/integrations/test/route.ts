@@ -9,6 +9,7 @@ import { decrypt } from "@/lib/encryption"
 
 const VALID_TYPES = ["slack", "jira", "linear"] as const
 type IntegrationType = typeof VALID_TYPES[number]
+type PingResult = { ok: boolean; error?: string }
 
 /**
  * POST /api/settings/integrations/test?type=slack|jira|linear
@@ -16,6 +17,10 @@ type IntegrationType = typeof VALID_TYPES[number]
  * Sends a test ping to the named integration.
  * Always returns 200 — errors are surfaced in the body as { ok: false, error: string }
  * so the caller never sees a 5xx for a connectivity failure.
+ *
+ * INT-01-05: After each test, the result is persisted to
+ * workflowConfig.integrationStatus[type] so the status dots in the UI
+ * reflect the outcome of the last test, not just the last live dispatch.
  */
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions)
@@ -48,26 +53,47 @@ export async function POST(req: Request) {
 
     const wc = (tenant?.workflowConfig as any) || {}
 
+    let result: PingResult
     try {
-        if (type === "slack") {
-            return await pingSlack(wc)
-        }
-        if (type === "jira") {
-            return await pingJira(wc)
-        }
-        if (type === "linear") {
-            return await pingLinear(wc)
-        }
+        if (type === "slack")  result = await pingSlack(wc)
+        else if (type === "jira")   result = await pingJira(wc)
+        else if (type === "linear") result = await pingLinear(wc)
+        else return NextResponse.json({ ok: false, error: "Unknown type" })
     } catch (err: any) {
-        return NextResponse.json({ ok: false, error: err?.message ?? "Unknown error" })
+        result = { ok: false, error: err?.message ?? "Unknown error" }
     }
 
-    return NextResponse.json({ ok: false, error: "Unknown type" })
+    // INT-01-05: persist result to integrationStatus so status dots update immediately
+    await persistTestResult(tenantId, type, wc, result)
+
+    return NextResponse.json(result)
 }
 
-async function pingSlack(wc: any): Promise<NextResponse> {
+/** Write test result back to workflowConfig.integrationStatus[type]. Non-fatal. */
+async function persistTestResult(
+    tenantId: string,
+    type: IntegrationType,
+    wc: any,
+    result: PingResult,
+): Promise<void> {
+    const now = new Date().toISOString()
+    const entry = result.ok
+        ? { status: "ok", lastAttemptAt: now, lastError: null }
+        : { status: "error", lastAttemptAt: now, lastError: result.error ?? "Unknown error" }
+    try {
+        const updatedIs = { ...(wc.integrationStatus || {}), [type]: entry }
+        await prisma.tenant.update({
+            where: { id: tenantId },
+            data: { workflowConfig: { ...wc, integrationStatus: updatedIs } },
+        })
+    } catch {
+        // Non-fatal — don't let DB write failure break the test response
+    }
+}
+
+async function pingSlack(wc: any): Promise<PingResult> {
     if (!wc.slack?.webhookUrl) {
-        return NextResponse.json({ ok: false, error: "Slack not configured" })
+        return { ok: false, error: "Slack not configured" }
     }
     try {
         const url = decrypt(wc.slack.webhookUrl)
@@ -76,16 +102,16 @@ async function pingSlack(wc: any): Promise<NextResponse> {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: "✅ DocuGardener integration test — everything looks good!" }),
         })
-        if (resp.ok) return NextResponse.json({ ok: true })
-        return NextResponse.json({ ok: false, error: `Slack returned HTTP ${resp.status}` })
+        if (resp.ok) return { ok: true }
+        return { ok: false, error: `Slack returned HTTP ${resp.status}` }
     } catch (err: any) {
-        return NextResponse.json({ ok: false, error: err?.message ?? "Connection failed" })
+        return { ok: false, error: err?.message ?? "Connection failed" }
     }
 }
 
-async function pingJira(wc: any): Promise<NextResponse> {
+async function pingJira(wc: any): Promise<PingResult> {
     if (!wc.jira?.host || !wc.jira?.email || !wc.jira?.apiToken) {
-        return NextResponse.json({ ok: false, error: "Jira not configured" })
+        return { ok: false, error: "Jira not configured" }
     }
     try {
         const token = decrypt(wc.jira.apiToken)
@@ -93,16 +119,16 @@ async function pingJira(wc: any): Promise<NextResponse> {
         const resp = await fetch(`${wc.jira.host}/rest/api/2/myself`, {
             headers: { Authorization: `Basic ${credentials}`, Accept: "application/json" },
         })
-        if (resp.ok) return NextResponse.json({ ok: true })
-        return NextResponse.json({ ok: false, error: `Jira returned HTTP ${resp.status}` })
+        if (resp.ok) return { ok: true }
+        return { ok: false, error: `Jira returned HTTP ${resp.status}` }
     } catch (err: any) {
-        return NextResponse.json({ ok: false, error: err?.message ?? "Connection failed" })
+        return { ok: false, error: err?.message ?? "Connection failed" }
     }
 }
 
-async function pingLinear(wc: any): Promise<NextResponse> {
+async function pingLinear(wc: any): Promise<PingResult> {
     if (!wc.linear?.apiToken) {
-        return NextResponse.json({ ok: false, error: "Linear not configured" })
+        return { ok: false, error: "Linear not configured" }
     }
     try {
         const token = decrypt(wc.linear.apiToken)
@@ -113,11 +139,11 @@ async function pingLinear(wc: any): Promise<NextResponse> {
         })
         if (resp.ok) {
             const data = await resp.json()
-            if (data?.data?.viewer?.id) return NextResponse.json({ ok: true })
-            return NextResponse.json({ ok: false, error: "Linear authentication failed" })
+            if (data?.data?.viewer?.id) return { ok: true }
+            return { ok: false, error: "Linear authentication failed" }
         }
-        return NextResponse.json({ ok: false, error: `Linear returned HTTP ${resp.status}` })
+        return { ok: false, error: `Linear returned HTTP ${resp.status}` }
     } catch (err: any) {
-        return NextResponse.json({ ok: false, error: err?.message ?? "Connection failed" })
+        return { ok: false, error: err?.message ?? "Connection failed" }
     }
 }

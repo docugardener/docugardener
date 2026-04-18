@@ -19,9 +19,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 const mockFindUnique = vi.fn()
+const mockUpdate = vi.fn().mockResolvedValue({})
 vi.mock("@/lib/prisma", () => ({
     prisma: {
-        tenant: { findUnique: (...args: any[]) => mockFindUnique(...args) },
+        tenant: {
+            findUnique: (...args: any[]) => mockFindUnique(...args),
+            update: (...args: any[]) => mockUpdate(...args),
+        },
     },
 }))
 
@@ -243,5 +247,118 @@ describe("POST /api/settings/integrations/test", () => {
         expect(res.status).toBe(200)
         const body = await res.json()
         expect(body.ok).toBe(true)
+    })
+})
+
+// ── INT-01-05: status write-back after test ───────────────────────────────────
+
+describe("POST /api/settings/integrations/test — status write-back (INT-01-05)", () => {
+    beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); mockUpdate.mockResolvedValue({}) })
+
+    it("writes status:ok to integrationStatus after successful Slack ping", async () => {
+        mockGetServerSession.mockResolvedValue(session())
+        mockFindUnique.mockResolvedValue({
+            id: "t-1", plan: "PRO", trialExpiresAt: null,
+            workflowConfig: {
+                slack: { webhookUrl: "enc_https://hooks.slack.com/test" },
+                grantedFeatures: ["slack_integration"],
+            }
+        })
+        mockFetch.mockResolvedValue({ ok: true, status: 200 })
+
+        const { POST } = await import("@/app/api/settings/integrations/test/route")
+        await POST(new Request("http://localhost/api/settings/integrations/test?type=slack", { method: "POST" }))
+
+        expect(mockUpdate).toHaveBeenCalledOnce()
+        const updateArg = mockUpdate.mock.calls[0][0]
+        const written = updateArg.data.workflowConfig.integrationStatus.slack
+        expect(written.status).toBe("ok")
+        expect(written.lastError).toBeNull()
+        expect(written.lastAttemptAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    })
+
+    it("writes status:error + lastError after failed Jira ping", async () => {
+        mockGetServerSession.mockResolvedValue(session())
+        mockFindUnique.mockResolvedValue({
+            id: "t-1", plan: "PRO", trialExpiresAt: null,
+            workflowConfig: {
+                jira: { host: "https://jira.example.com", email: "dev@example.com", apiToken: "enc_bad_token" },
+                grantedFeatures: ["integrations_jira"],
+            }
+        })
+        mockFetch.mockResolvedValue({ ok: false, status: 401 })
+
+        const { POST } = await import("@/app/api/settings/integrations/test/route")
+        await POST(new Request("http://localhost/api/settings/integrations/test?type=jira", { method: "POST" }))
+
+        const updateArg = mockUpdate.mock.calls[0][0]
+        const written = updateArg.data.workflowConfig.integrationStatus.jira
+        expect(written.status).toBe("error")
+        expect(written.lastError).toMatch(/401/)
+        expect(written.lastAttemptAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    })
+
+    it("writes status:error when ping throws (network failure)", async () => {
+        mockGetServerSession.mockResolvedValue(session())
+        mockFindUnique.mockResolvedValue({
+            id: "t-1", plan: "PRO", trialExpiresAt: null,
+            workflowConfig: {
+                linear: { apiToken: "enc_lin_api_xxx", teamId: "team-1" },
+                grantedFeatures: ["integrations_linear"],
+            }
+        })
+        mockFetch.mockRejectedValue(new Error("ECONNREFUSED"))
+
+        const { POST } = await import("@/app/api/settings/integrations/test/route")
+        await POST(new Request("http://localhost/api/settings/integrations/test?type=linear", { method: "POST" }))
+
+        const updateArg = mockUpdate.mock.calls[0][0]
+        const written = updateArg.data.workflowConfig.integrationStatus.linear
+        expect(written.status).toBe("error")
+        expect(written.lastError).toContain("ECONNREFUSED")
+    })
+
+    it("preserves existing integrationStatus for other integrations on write", async () => {
+        mockGetServerSession.mockResolvedValue(session())
+        mockFindUnique.mockResolvedValue({
+            id: "t-1", plan: "PRO", trialExpiresAt: null,
+            workflowConfig: {
+                slack: { webhookUrl: "enc_https://hooks.slack.com/test" },
+                grantedFeatures: ["slack_integration"],
+                integrationStatus: {
+                    jira: { status: "ok", lastAttemptAt: "2026-01-01T00:00:00Z", lastError: null },
+                },
+            }
+        })
+        mockFetch.mockResolvedValue({ ok: true, status: 200 })
+
+        const { POST } = await import("@/app/api/settings/integrations/test/route")
+        await POST(new Request("http://localhost/api/settings/integrations/test?type=slack", { method: "POST" }))
+
+        const updateArg = mockUpdate.mock.calls[0][0]
+        const written = updateArg.data.workflowConfig.integrationStatus
+        // Slack updated, Jira preserved
+        expect(written.slack.status).toBe("ok")
+        expect(written.jira.status).toBe("ok")
+        expect(written.jira.lastAttemptAt).toBe("2026-01-01T00:00:00Z")
+    })
+
+    it("still returns ok:true response even if DB write fails", async () => {
+        mockGetServerSession.mockResolvedValue(session())
+        mockFindUnique.mockResolvedValue({
+            id: "t-1", plan: "PRO", trialExpiresAt: null,
+            workflowConfig: {
+                slack: { webhookUrl: "enc_https://hooks.slack.com/test" },
+                grantedFeatures: ["slack_integration"],
+            }
+        })
+        mockFetch.mockResolvedValue({ ok: true, status: 200 })
+        mockUpdate.mockRejectedValue(new Error("DB connection lost"))
+
+        const { POST } = await import("@/app/api/settings/integrations/test/route")
+        const res = await POST(new Request("http://localhost/api/settings/integrations/test?type=slack", { method: "POST" }))
+        expect(res.status).toBe(200)
+        const body = await res.json()
+        expect(body.ok).toBe(true)  // DB failure is non-fatal
     })
 })
