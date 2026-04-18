@@ -2,12 +2,22 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Analytics } from "@/lib/posthog"
 
 export default function CheckoutSuccessPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+
+    // Fire subscription_started once on mount — this page is only reached after
+    // a successful Stripe Checkout session, so it's the canonical conversion point.
+    useEffect(() => {
+        const sessionId = searchParams.get("session_id")
+        Analytics.subscriptionStarted({ stripe_session_id: sessionId ?? undefined })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     // Redirect to billing after a short delay so the user sees the confirmation
     useEffect(() => {

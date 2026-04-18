@@ -3,7 +3,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
 interface MarketingHeaderProps {
-  activePage?: "features" | "faq" | "pricing" | "docs" | null
+  activePage?: "features" | "faq" | "pricing" | "docs" | "trust" | null
 }
 
 export function MarketingHeader({ activePage }: MarketingHeaderProps) {
@@ -24,6 +24,7 @@ export function MarketingHeader({ activePage }: MarketingHeaderProps) {
         <Link href="/pricing" className={linkClass("pricing")}>Pricing</Link>
         <Link href="/faq" className={linkClass("faq")}>FAQ</Link>
         <Link href="/docs" className={linkClass("docs")}>Docs</Link>
+        <Link href="/trust" className={linkClass("trust")}>Trust</Link>
         <Link href="/api/auth/signin">
           <Button variant="ghost">Sign In</Button>
         </Link>

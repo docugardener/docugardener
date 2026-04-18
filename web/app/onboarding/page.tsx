@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress"
 import { Check, ArrowRight, Plug, Upload, ChevronDown } from "lucide-react"
+import { Analytics } from "@/lib/posthog"
 
 export default function Onboarding() {
     const formRef = useRef<HTMLFormElement>(null)
@@ -71,6 +72,7 @@ export default function Onboarding() {
     }
 
     const handleManualConnect = async () => {
+        Analytics.installStarted({ method: "manual" })
         setLoading(true)
         setError("")
         try {
@@ -151,7 +153,13 @@ export default function Onboarding() {
                         </div>
                     </CardContent>
                     <CardFooter>
-                        <form ref={formRef} action="https://github.com/settings/apps/new" method="post" className="w-full">
+                        <form
+                            ref={formRef}
+                            action="https://github.com/settings/apps/new"
+                            method="post"
+                            className="w-full"
+                            onSubmit={() => Analytics.installStarted({ method: "auto" })}
+                        >
                             <input type="hidden" name="manifest" value={JSON.stringify(manifest)} />
                             <Button type="submit" size="lg" className="w-full group">
                                 Create &amp; Install GitHub App

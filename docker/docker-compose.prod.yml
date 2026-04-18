@@ -76,6 +76,8 @@ services:
       - OWNER_EMAIL=${OWNER_EMAIL}
       - OWNER_ACCESS_TOKEN=${OWNER_ACCESS_TOKEN}
       - AUDIT_EXPORT_SIGNING_KEY=${AUDIT_EXPORT_SIGNING_KEY}
+      - NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY:-}
+      - NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
     depends_on:
       postgres:
         condition: service_healthy

@@ -66,6 +66,20 @@ export default function PrivacyPage() {
             We will not use your repository content or documentation to train our own AI models.
             Customer content remains your intellectual property.
           </p>
+          <p>
+            Your code, PR content, and documentation are never used to train any AI model —
+            whether hosted by DocuGardener or configured by your organisation in BYOK mode.
+          </p>
+          <p>
+            Analysis is ephemeral: code is processed in RAM and wiped immediately after each
+            analysis job completes. No source code is written to long-term storage.
+          </p>
+          <p>
+            See{" "}
+            <a href="/trust" className="text-green-600 hover:underline">/trust</a>{" "}
+            for model-specific training data transparency, including links to each LLM
+            provider's own published model cards.
+          </p>
         </Section>
 
         <Section title="4. AI model routing and BYOK">

@@ -3,6 +3,7 @@
 import { WaitlistForm } from "@/components/billing/WaitlistForm"
 
 import { useState, useEffect } from "react"
+import { Analytics } from "@/lib/posthog"
 import { useSession } from "next-auth/react"
 import { CreditCard, Zap, BarChart3, TrendingUp, AlertTriangle, Rocket, Crown } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -141,6 +142,7 @@ export default function BillingPage() {
   }
 
   const handleUpgrade = async (plan: "pro" | "team") => {
+    Analytics.upgradeClicked({ from_page: "/dashboard/billing", plan })
     setCheckoutLoading(true)
     setStripeError(null)
     try {

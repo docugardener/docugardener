@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 "use client"
 
+import { useEffect } from "react"
 import Link from "next/link"
 import { Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Analytics } from "@/lib/posthog"
 
 interface UpgradeContextCardProps {
   title: string
@@ -24,6 +26,11 @@ export function UpgradeContextCard({
 }: UpgradeContextCardProps) {
   const planLabel = requiredPlan === "PRO" ? "Pro" : "Team"
   const defaultCta = `Upgrade to ${planLabel}`
+
+  // Fire upgrade_prompt_shown once when this card mounts (non-fatal analytics)
+  useEffect(() => {
+    Analytics.upgradePromptShown({ feature: title, required_plan: requiredPlan })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
@@ -59,7 +66,12 @@ export function UpgradeContextCard({
 
       <div className="pl-7">
         <Button asChild size="sm" className="h-7 text-xs">
-          <Link href="/dashboard/billing">{ctaLabel ?? defaultCta} →</Link>
+          <Link
+            href="/dashboard/billing"
+            onClick={() => Analytics.upgradeClicked({ from_feature: title, required_plan: requiredPlan })}
+          >
+            {ctaLabel ?? defaultCta} →
+          </Link>
         </Button>
         <p className="text-[11px] text-muted-foreground mt-1.5">
           Available on the{" "}

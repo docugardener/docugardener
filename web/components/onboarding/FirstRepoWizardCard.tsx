@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { X, CheckCircle2, ArrowRight, Bell, GitPullRequest, ExternalLink } from "lucide-react";
+import { Analytics } from "@/lib/posthog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -105,6 +106,7 @@ export function FirstRepoWizardCard({
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+                      onClick={() => Analytics.firstAnalysisTriggered({ repo: repoName })}
                     >
                       Open a test PR on GitHub
                       <ExternalLink className="h-3 w-3" />

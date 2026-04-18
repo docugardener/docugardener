@@ -8,6 +8,7 @@ import { Suspense } from "react"
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress"
 import { Button } from "@/components/ui/button"
 import { Loader2, AlertTriangle } from "lucide-react"
+import { Analytics } from "@/lib/posthog"
 
 interface Repo {
   id: string
@@ -68,6 +69,8 @@ function ReposInner() {
         }
         if (syncBody.warnings?.length) {
           setWarnings(syncBody.warnings)
+          // Repo limit hit — user saw plan-gating during repo sync
+          Analytics.repoLimitHit({ warning_count: syncBody.warnings.length })
         }
 
         // Fetch the list to display

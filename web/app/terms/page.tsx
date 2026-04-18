@@ -176,6 +176,50 @@ export default function TermsPage() {
           </p>
         </Section>
 
+        <Section title="15a. AI Act Compliance (EU Customers)">
+          <p>
+            DocuGardener is classified as a{" "}
+            <strong className="text-gray-800">
+              General Purpose AI (GPAI) system
+            </strong>{" "}
+            under Regulation (EU) 2024/1689 (the EU AI Act). It does not fall into any
+            high-risk category listed in Annex III of that Regulation.
+          </p>
+          <p>
+            <strong className="text-gray-800">Article 12 — Transparency commitments:</strong>{" "}
+            DocuGardener publishes model cards for each supported LLM provider, discloses
+            intended use and known limitations, and maintains a public Trust &amp; Compliance
+            page at{" "}
+            <a href="https://docugardener.dev/trust" className="text-green-600 hover:underline">
+              docugardener.dev/trust
+            </a>
+            .
+          </p>
+          <p>
+            <strong className="text-gray-800">Sub-processor disclosure:</strong> A current
+            sub-processor register, including data locations and transfer mechanisms, is
+            published at{" "}
+            <a href="/trust#sub-processors" className="text-green-600 hover:underline">
+              /trust#sub-processors
+            </a>
+            .
+          </p>
+          <p>
+            <strong className="text-gray-800">Human oversight (Article 14):</strong> All
+            AI-generated documentation suggestions require explicit human review and approval
+            via GitHub Pull Request before taking effect. DocuGardener never modifies
+            production documentation autonomously. Full details are published at{" "}
+            <a href="/trust/human-oversight" className="text-green-600 hover:underline">
+              /trust/human-oversight
+            </a>
+            .
+          </p>
+          <p className="text-xs text-gray-400">
+            This section was added on 2026-04-18 in response to EU AI Act obligations
+            effective August 2, 2026.
+          </p>
+        </Section>
+
         <Section title="16. Contact">
           <p>
             Legal notices:{" "}

@@ -9,6 +9,7 @@ import { GettingStartedBanner } from "@/components/onboarding/GettingStartedBann
 import { DiscoverMoreChecklist } from "@/components/onboarding/DiscoverMoreChecklist";
 import { useHotkeys } from "@/hooks/use-hotkeys";
 import { toast } from "sonner";
+import { Analytics } from "@/lib/posthog";
 
 interface InboxPageClientProps {
     tenantId: string;
@@ -95,6 +96,13 @@ export function InboxPageClient({ tenantId, role }: InboxPageClientProps) {
     useEffect(() => {
         fetchAlerts();
     }, [fetchAlerts]);
+
+    // Fire first_drift_detected once the inbox has at least one item
+    useEffect(() => {
+        if (alerts.length > 0) {
+            Analytics.firstDriftDetected({ alert_count: alerts.length });
+        }
+    }, [alerts.length]);
 
     // Background poll every 30 s — picks up external resolutions (fix PR merged, new webhooks)
     useEffect(() => {

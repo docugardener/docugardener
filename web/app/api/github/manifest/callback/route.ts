@@ -6,6 +6,27 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { encrypt } from "@/lib/encryption"
 
+/**
+ * Server-side PostHog capture — used in routes where posthog-js is unavailable.
+ * Non-fatal: all errors are silently swallowed so analytics never break installs.
+ */
+async function serverCapture(
+    event: string,
+    distinctId: string,
+    properties?: Record<string, unknown>,
+): Promise<void> {
+    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY
+    if (!key) return
+    await fetch(
+        `${process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com"}/capture/`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ api_key: key, event, distinct_id: distinctId, properties }),
+        },
+    ).catch(() => {}) // non-fatal
+}
+
 // Use NEXTAUTH_URL as the base for all redirects so that reverse-proxy
 // deployments (where req.url contains the internal container hostname)
 // always redirect to the real external domain.
@@ -80,7 +101,13 @@ export async function POST(req: NextRequest) {
             data: { tenantId: tenant.id, role: "ADMIN" }
         })
 
-        // 5. Redirect to GitHub App Installation page
+        // 5a. Analytics — fire install_completed (non-fatal, server-side)
+        await serverCapture("install_completed", tenant.id, {
+            github_org: data.owner.login,
+            app_slug: data.slug,
+        })
+
+        // 5b. Redirect to GitHub App Installation page
         const installationUrl = `https://github.com/apps/${data.slug}/installations/new`
         return NextResponse.redirect(new URL(installationUrl))
 
