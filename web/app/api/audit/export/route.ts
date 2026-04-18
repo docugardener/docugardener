@@ -243,11 +243,14 @@ export async function GET(req: Request) {
     const rows = enrichedLogs.map(log => toCSVRow(log as any, csvColumns))
     const csv = [header, ...rows].join("\n")
     const csvSig = signExportBody(csv)
+    // Embed signature as a trailing comment line so it survives CDN/proxy header stripping.
+    // Verifier must strip this line before recomputing the HMAC.
+    const csvBody = csvSig ? `${csv}\n# x-audit-export-signature: ${csvSig}` : csv
     const csvHeaders: Record<string, string> = {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="${filename}"`,
     }
     if (csvSig) csvHeaders["X-Audit-Export-Signature"] = csvSig
 
-    return new NextResponse(csv, { status: 200, headers: csvHeaders })
+    return new NextResponse(csvBody, { status: 200, headers: csvHeaders })
 }

@@ -212,12 +212,14 @@ describe("GET /api/audit/export — HMAC signing (EPIC-06-GAP)", () => {
         delete process.env.AUDIT_EXPORT_SIGNING_KEY
     })
 
-    it("CSV: no signature header when AUDIT_EXPORT_SIGNING_KEY not set", async () => {
+    it("CSV: no signature header or comment when AUDIT_EXPORT_SIGNING_KEY not set", async () => {
         mockGetServerSession.mockResolvedValue(makeSession("ADMIN"))
         mockFindMany.mockResolvedValue([BASE_LOG])
         const { GET } = await import("@/app/api/audit/export/route")
         const res = await GET(new Request("http://localhost/api/audit/export?format=csv"))
         expect(res.headers.get("x-audit-export-signature")).toBeNull()
+        const text = await res.text()
+        expect(text).not.toContain("# x-audit-export-signature")
     })
 
     it("JSON: no signature header or field when AUDIT_EXPORT_SIGNING_KEY not set", async () => {
@@ -239,6 +241,30 @@ describe("GET /api/audit/export — HMAC signing (EPIC-06-GAP)", () => {
         const sig = res.headers.get("x-audit-export-signature")
         expect(sig).not.toBeNull()
         expect(sig).toMatch(/^sha256=[a-f0-9]{64}$/)
+    })
+
+    it("CSV: embedded signature comment line present in file body", async () => {
+        process.env.AUDIT_EXPORT_SIGNING_KEY = SIGNING_KEY
+        mockGetServerSession.mockResolvedValue(makeSession("ADMIN"))
+        mockFindMany.mockResolvedValue([BASE_LOG])
+        const { GET } = await import("@/app/api/audit/export/route")
+        const res = await GET(new Request("http://localhost/api/audit/export?format=csv"))
+        const text = await res.text()
+        const lastLine = text.split("\n").at(-1) ?? ""
+        expect(lastLine).toMatch(/^# x-audit-export-signature: sha256=[a-f0-9]{64}$/)
+    })
+
+    it("CSV: embedded comment signature matches header signature", async () => {
+        process.env.AUDIT_EXPORT_SIGNING_KEY = SIGNING_KEY
+        mockGetServerSession.mockResolvedValue(makeSession("ADMIN"))
+        mockFindMany.mockResolvedValue([BASE_LOG])
+        const { GET } = await import("@/app/api/audit/export/route")
+        const res = await GET(new Request("http://localhost/api/audit/export?format=csv"))
+        const headerSig = res.headers.get("x-audit-export-signature")
+        const text = await res.text()
+        const lastLine = text.split("\n").at(-1) ?? ""
+        const embeddedSig = lastLine.replace("# x-audit-export-signature: ", "")
+        expect(embeddedSig).toBe(headerSig)
     })
 
     it("JSON: X-Audit-Export-Signature header present when key configured", async () => {
