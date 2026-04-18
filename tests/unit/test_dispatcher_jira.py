@@ -197,3 +197,47 @@ class TestPostJiraLifecycleComment:
 
         url = mock_client.post.call_args[0][0]
         assert "//" not in url.replace("https://", ""), f"Double slash in URL: {url}"
+
+
+def _make_drift_record(**kwargs):
+    """Minimal mock drift record for dispatch_drift_alert."""
+    from unittest.mock import MagicMock
+    record = MagicMock()
+    record.owner = kwargs.get("owner", "org")
+    record.repo = kwargs.get("repo", "repo")
+    record.pr_number = kwargs.get("pr_number", 1)
+    record.pr_url = kwargs.get("pr_url", "https://github.com/org/repo/pull/1")
+    record.drift_score = kwargs.get("drift_score", 80)
+    record.severity = kwargs.get("severity", "high")
+    record.summary = kwargs.get("summary", "Drift detected")
+    record.entities_changed = kwargs.get("entities_changed", [])
+    return record
+
+
+class TestJiraDispatchPartialConfig:
+    """INT-01-02: dispatch_drift_alert writes error status when Jira config is incomplete."""
+
+    async def _dispatch(self, jira_config: dict) -> dict:
+        config = {"jira": jira_config, "grantedFeatures": ["integrations_jira"]}
+        dispatcher = NotificationDispatcher(config, tenant_plan="PRO")
+        with patch("src.notifications.dispatcher.httpx.AsyncClient") as mock_cls:
+            results = await dispatcher.dispatch_drift_alert(
+                _make_drift_record(), jira_ticket_key="BUG-1"
+            )
+        mock_cls.assert_not_called()
+        return results
+
+    @pytest.mark.asyncio
+    async def test_missing_one_field_writes_error_status(self):
+        """Missing apiToken → integrationStatus.jira.status == 'error', no HTTP call."""
+        results = await self._dispatch({"host": _JIRA_HOST, "email": _JIRA_EMAIL})
+        assert results.get("jira", {}).get("status") == "error"
+        assert "apiToken" in results["jira"]["lastError"]
+
+    @pytest.mark.asyncio
+    async def test_missing_two_fields_lists_both_in_error(self):
+        """Missing email + apiToken → lastError names both missing fields."""
+        results = await self._dispatch({"host": _JIRA_HOST})
+        assert results.get("jira", {}).get("status") == "error"
+        error = results["jira"]["lastError"]
+        assert "email" in error and "apiToken" in error

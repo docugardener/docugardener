@@ -86,44 +86,43 @@ class TestCreateLinearIssue:
         assert issue_id == "issue-uuid-1"
 
     @pytest.mark.asyncio
-    async def test_auto_resolves_team_when_no_team_id(self):
-        """When team_id is None, an extra GraphQL call fetches teams and uses first."""
-        dispatcher = NotificationDispatcher({}, tenant_plan="PRO")
-        teams_resp = _http_response(_teams_response("team-auto"))
-        issue_resp = _http_response(_issue_created_response())
+    async def test_missing_team_id_writes_integration_status(self):
+        """INT-01-03: empty teamId writes error to integrationStatus, makes no HTTP call."""
+        config = {
+            "linear": {"apiToken": "enc_token", "teamId": ""},
+            "grantedFeatures": ["integrations_linear"],
+        }
+        dispatcher = NotificationDispatcher(config, tenant_plan="PRO")
+        drift_record = _drift_record()
 
-        with patch("httpx.AsyncClient") as MockClient:
-            post_mock = AsyncMock(side_effect=[teams_resp, issue_resp])
+        with patch("src.notifications.dispatcher.httpx.AsyncClient") as MockClient:
+            post_mock = AsyncMock()
             MockClient.return_value.__aenter__.return_value.post = post_mock
-            issue_id = await dispatcher._create_linear_issue(
-                api_token="lin_api_test",
-                team_id=None,
-                title="Docs drift",
-                description="Summary",
-                severity="medium",
-            )
+            with patch("src.notifications.dispatcher.decrypt", return_value="lin_api_test"):
+                results = await dispatcher.dispatch_drift_alert(drift_record)
 
-        assert issue_id == "issue-uuid-1"
-        assert post_mock.call_count == 2
+        assert results.get("linear", {}).get("status") == "error"
+        assert "Team ID required" in results.get("linear", {}).get("lastError", "")
+        post_mock.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_no_teams_returns_none(self):
-        """When Linear has no teams, returns None without creating issue."""
-        dispatcher = NotificationDispatcher({}, tenant_plan="PRO")
-        empty_teams = _http_response({"data": {"teams": {"nodes": []}}})
+    async def test_none_team_id_writes_integration_status(self):
+        """INT-01-03: missing teamId key also writes error, makes no HTTP call."""
+        config = {
+            "linear": {"apiToken": "enc_token"},
+            "grantedFeatures": ["integrations_linear"],
+        }
+        dispatcher = NotificationDispatcher(config, tenant_plan="PRO")
+        drift_record = _drift_record()
 
-        with patch("httpx.AsyncClient") as MockClient:
-            MockClient.return_value.__aenter__.return_value.post = AsyncMock(
-                return_value=empty_teams
-            )
-            result = await dispatcher._create_linear_issue(
-                api_token="lin_api_test",
-                team_id=None,
-                title="Drift",
-                description="Desc",
-            )
+        with patch("src.notifications.dispatcher.httpx.AsyncClient") as MockClient:
+            post_mock = AsyncMock()
+            MockClient.return_value.__aenter__.return_value.post = post_mock
+            with patch("src.notifications.dispatcher.decrypt", return_value="lin_api_test"):
+                results = await dispatcher.dispatch_drift_alert(drift_record)
 
-        assert result is None
+        assert results.get("linear", {}).get("status") == "error"
+        post_mock.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_priority_mapping_critical(self):

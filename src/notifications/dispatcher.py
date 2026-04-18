@@ -90,13 +90,13 @@ class NotificationDispatcher:
         # ── Jira (PRO+) — comment on existing linked ticket ───────────────
         if self._has_feature("integrations_jira"):
             if jira_ticket_key:
-                jira_config = self.config.get("jira")
-                if (
-                    jira_config
-                    and jira_config.get("host")
-                    and jira_config.get("email")
-                    and jira_config.get("apiToken")
-                ):
+                jira_config = self.config.get("jira") or {}
+                missing = [f for f in ("host", "email", "apiToken") if not jira_config.get(f)]
+                if missing:
+                    error_msg = f"Jira config incomplete — missing: {', '.join(missing)}"
+                    logger.warning("jira_config_incomplete", missing=missing)
+                    results["jira"] = {"status": "error", "lastError": error_msg, "lastAttemptAt": now_iso}
+                else:
                     try:
                         comment = (
                             f"⚠️ *DocuGardener — Documentation Drift Detected*\n\n"
@@ -125,33 +125,39 @@ class NotificationDispatcher:
         if self._has_feature("integrations_linear"):
             linear_config = self.config.get("linear")
             if linear_config and linear_config.get("apiToken"):
-                try:
-                    _linear_issue_id = await self._create_linear_issue(
-                        api_token=decrypt(linear_config["apiToken"]),
-                        team_id=linear_config.get("teamId"),
-                        title=f"Docs drift detected: {owner}/{repo} PR #{pr_number}",
-                        description=(
-                            f"**Documentation drift detected** in [{owner}/{repo} PR #{pr_number}]({pr_url})\n\n"
-                            f"**Drift Score:** {drift_score}/100  \n"
-                            f"**Severity:** {severity.upper()}  \n\n"
-                            f"**Summary:** {summary}\n\n"
-                            f"Review and resolve in the [DocuGardener Inbox]."
-                        ),
-                        severity=severity,
-                    )
-                    if _linear_issue_id:
-                        try:
-                            drift_record.linear_issue_id = _linear_issue_id
-                        except Exception:
-                            pass
-                    results["linear"] = {"status": "ok", "lastAttemptAt": now_iso}
-                except Exception as e:
-                    logger.error("Failed to create Linear issue", error=str(e))
-                    results["linear"] = {
-                        "status": "error",
-                        "lastError": str(e)[:300],
-                        "lastAttemptAt": now_iso,
-                    }
+                # INT-01-03: teamId is required — no silent auto-pick
+                if not linear_config.get("teamId"):
+                    error_msg = "Team ID required — set it in Settings → Integrations → Linear"
+                    logger.warning("linear_team_id_missing")
+                    results["linear"] = {"status": "error", "lastError": error_msg, "lastAttemptAt": now_iso}
+                else:
+                    try:
+                        _linear_issue_id = await self._create_linear_issue(
+                            api_token=decrypt(linear_config["apiToken"]),
+                            team_id=linear_config["teamId"],
+                            title=f"Docs drift detected: {owner}/{repo} PR #{pr_number}",
+                            description=(
+                                f"**Documentation drift detected** in [{owner}/{repo} PR #{pr_number}]({pr_url})\n\n"
+                                f"**Drift Score:** {drift_score}/100  \n"
+                                f"**Severity:** {severity.upper()}  \n\n"
+                                f"**Summary:** {summary}\n\n"
+                                f"Review and resolve in the [DocuGardener Inbox]."
+                            ),
+                            severity=severity,
+                        )
+                        if _linear_issue_id:
+                            try:
+                                drift_record.linear_issue_id = _linear_issue_id
+                            except Exception:
+                                pass
+                        results["linear"] = {"status": "ok", "lastAttemptAt": now_iso}
+                    except Exception as e:
+                        logger.error("Failed to create Linear issue", error=str(e))
+                        results["linear"] = {
+                            "status": "error",
+                            "lastError": str(e)[:300],
+                            "lastAttemptAt": now_iso,
+                        }
 
         # ── GitHub Issues (all plans) — create issue ───────────────────────
         gh_issues_config = self.config.get("githubIssues")
@@ -286,11 +292,14 @@ class NotificationDispatcher:
         """
         Post a comment on an existing Jira ticket.
         No-op if Jira is not configured in workflowConfig.
+        Retries once (5s delay) on transient 5xx errors or timeouts.
 
         Args:
             ticket_key: Jira issue key, e.g. "BUG-123".
             comment_body: Plain text / Jira wiki markup comment body.
         """
+        import asyncio
+
         jira_config = self.config.get("jira")
         if not jira_config or not all(k in jira_config for k in ["host", "email", "apiToken"]):
             logger.debug("Jira not configured — skipping lifecycle comment", ticket=ticket_key)
@@ -299,16 +308,28 @@ class NotificationDispatcher:
         host = jira_config["host"]
         email = jira_config["email"]
         api_token = decrypt(jira_config["apiToken"])
-
         url = f"{host.rstrip('/')}/rest/api/2/issue/{ticket_key}/comment"
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                url,
-                json={"body": comment_body},
-                auth=(email, api_token),
-                timeout=10.0,
-            )
-            if response.status_code not in (200, 201):
+
+        for attempt in range(2):  # INT-01-02: max 1 retry on transient errors
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        url,
+                        json={"body": comment_body},
+                        auth=(email, api_token),
+                        timeout=10.0,
+                    )
+                if response.status_code in (200, 201):
+                    logger.info("Jira comment posted", ticket=ticket_key)
+                    return
+                if response.status_code >= 500 and attempt == 0:
+                    logger.warning(
+                        "Jira comment transient error, retrying",
+                        ticket=ticket_key,
+                        status=response.status_code,
+                    )
+                    await asyncio.sleep(5)
+                    continue
                 logger.error(
                     "Failed to post Jira comment",
                     ticket=ticket_key,
@@ -316,35 +337,29 @@ class NotificationDispatcher:
                     body=response.text,
                 )
                 response.raise_for_status()
-            logger.info("Jira comment posted", ticket=ticket_key)
+                return
+            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                if attempt == 0:
+                    logger.warning("Jira comment network error, retrying", ticket=ticket_key, error=str(exc))
+                    await asyncio.sleep(5)
+                    continue
+                raise
 
     async def _create_linear_issue(
         self,
         api_token: str,
-        team_id: str | None,
+        team_id: str,
         title: str,
         description: str,
         severity: str = "medium",
     ) -> str | None:
-        """Create a Linear issue and return its ID."""
+        """Create a Linear issue and return its ID.
+
+        INT-01-03: team_id is required. The caller must validate before calling this.
+        Auto-team-resolution removed — it caused silent misdirected issues on multi-team workspaces.
+        """
         priority_map = {"critical": 1, "high": 2, "medium": 3, "low": 4}
         priority = priority_map.get(severity.lower(), 3)
-
-        # Resolve team ID if not provided — use the first team on the account
-        if not team_id:
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    "https://api.linear.app/graphql",
-                    json={"query": "{ teams { nodes { id name } } }"},
-                    headers={"Authorization": api_token, "Content-Type": "application/json"},
-                    timeout=10.0,
-                )
-                resp.raise_for_status()
-                teams = resp.json().get("data", {}).get("teams", {}).get("nodes", [])
-                if not teams:
-                    logger.warning("Linear: no teams found, cannot create issue")
-                    return None
-                team_id = teams[0]["id"]
 
         mutation = """
         mutation CreateIssue($title: String!, $description: String!, $teamId: String!, $priority: Int!) {

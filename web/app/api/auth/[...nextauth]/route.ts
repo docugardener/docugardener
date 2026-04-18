@@ -174,7 +174,11 @@ export const authOptions: AuthOptions = {
          * addresses may sign in. Unset = open access (dev / local).
          * Set this on the VPS to restrict the SaaS instance to invited users.
          */
-        async signIn({ user }) {
+        async signIn({ user, account }) {
+            // BUG-SSO-04: saml-sso provider is pre-validated by the IdP via SAML assertion.
+            // ALLOWED_EMAILS is a bootstrap guard for direct sign-ins only — skip it for SSO.
+            if (account?.provider === "saml-sso") return true
+
             const allowed = process.env.ALLOWED_EMAILS
             if (!allowed) return true  // no restriction configured
             const list = allowed.split(",").map(e => e.trim().toLowerCase())

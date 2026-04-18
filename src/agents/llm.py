@@ -748,7 +748,8 @@ class AnthropicClient(LLMClient):
             "messages": [{"role": "user", "content": prompt}],
         }
         if system_prompt:
-            payload["system"] = system_prompt
+            # EPIC-04-01: wrap as list with cache_control for Anthropic prompt caching (40-70% cost reduction)
+            payload["system"] = [{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
         if config.stop_sequences:
             payload["stop_sequences"] = config.stop_sequences
         # Anthropic supports temperature; top_p is also supported but rarely needed

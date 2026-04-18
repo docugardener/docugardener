@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { X, CheckCircle2, ArrowRight, Bell, GitPullRequest } from "lucide-react";
+import { X, CheckCircle2, ArrowRight, Bell, GitPullRequest, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,18 +28,21 @@ const STEPS = [
     label: "Repository connected",
     done: true,
     href: null,
+    external: false,
   },
   {
     icon: GitPullRequest,
     label: "Open a pull request to trigger your first analysis",
     done: false,
-    href: null,
+    href: null, // rendered as button below — needs repoName interpolation
+    external: false,
   },
   {
     icon: Bell,
     label: "Configure notifications so the team gets alerted",
     done: false,
     href: "/dashboard/settings?tab=notifications",
+    external: false,
   },
 ] as const;
 
@@ -84,6 +87,7 @@ export function FirstRepoWizardCard({
         <ol className="space-y-2">
           {STEPS.map((step, i) => {
             const Icon = step.icon;
+            const isPrStep = i === 1;
             return (
               <li key={i} className="flex items-start gap-2 text-sm">
                 <Icon
@@ -93,7 +97,20 @@ export function FirstRepoWizardCard({
                       : "text-muted-foreground"
                   }`}
                 />
-                {step.href ? (
+                {isPrStep ? (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-muted-foreground">{step.label}</span>
+                    <a
+                      href={`https://github.com/${repoName}/compare`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+                    >
+                      Open a test PR on GitHub
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                ) : step.href ? (
                   <Link
                     href={step.href}
                     className="underline underline-offset-2 hover:text-foreground text-muted-foreground"

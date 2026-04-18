@@ -162,7 +162,11 @@ class TestAnthropicClientGenerate:
         await client.generate("User prompt", system_prompt="You are a helpful assistant.")
 
         call_kwargs = mock_sdk.messages.create.call_args[1]
-        assert call_kwargs.get("system") == "You are a helpful assistant."
+        # EPIC-04-01: system prompt is now a list with cache_control for prompt caching
+        system = call_kwargs.get("system")
+        assert isinstance(system, list) and len(system) == 1
+        assert system[0]["text"] == "You are a helpful assistant."
+        assert system[0]["cache_control"] == {"type": "ephemeral"}
 
     @pytest.mark.asyncio
     async def test_generate_finish_reason_maps_end_turn(self):
