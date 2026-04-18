@@ -17,7 +17,7 @@ from sqlalchemy import Connection, text
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-TEST_REPO = os.getenv("E2E_TEST_REPO", "alexeykopachev/docugardener-test")
+TEST_REPO = os.getenv("E2E_TEST_REPO", "docugardener/docugardener-test")
 TENANT_ID = os.getenv("E2E_TENANT_ID", "cmmjpxq3x0005bul35iu3viuv")
 REPO_ID = os.getenv("E2E_REPO_ID", "cmn68ihbe000bcm4yd55l2um7")
 API_BASE = os.getenv("E2E_API_BASE", "http://localhost:8000")  # FastAPI backend

@@ -2,7 +2,10 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Include OpenSSL 3 binaries so `prisma generate` works on Debian 12 / Ubuntu 22+
+  // (default binary targets OpenSSL 1.1 which is absent from modern Linux)
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

@@ -138,6 +138,42 @@ stripe-forward:
 stripe-trigger-checkout:
 	stripe trigger checkout.session.completed
 
+# ── VPS test suites ───────────────────────────────────────────────────────────
+# Run any combination of test suites against the live VPS.
+# Prerequisites: run `make setup-vps-e2e` once, then `gh auth login`.
+#
+# All suites:       make test-vps
+# Python only:      make test-vps-python
+# Web only:         make test-vps-web
+# E2E only:         make test-vps-e2e
+# Playwright only:  make test-vps-playwright
+
+.PHONY: setup-vps-e2e test-vps test-vps-python test-vps-web test-vps-e2e test-vps-playwright
+
+## One-time VPS test environment setup (installs gh, .venv-e2e, Playwright browsers)
+setup-vps-e2e:
+	bash scripts/setup-vps-e2e.sh
+
+## Run all test suites against the live VPS
+test-vps:
+	bash scripts/run-tests-vps.sh all
+
+## Run Python unit + integration tests (inside Docker, no external services needed)
+test-vps-python:
+	bash scripts/run-tests-vps.sh python
+
+## Run Vitest component tests + TypeScript check
+test-vps-web:
+	bash scripts/run-tests-vps.sh web
+
+## Run Python e2e tests against https://docugardener.dev
+test-vps-e2e:
+	bash scripts/run-tests-vps.sh e2e
+
+## Run Playwright browser tests against https://docugardener.dev
+test-vps-playwright:
+	bash scripts/run-tests-vps.sh playwright
+
 # ── Logs ─────────────────────────────────────────────────────────────────────
 
 .PHONY: logs-worker logs-api logs-smee

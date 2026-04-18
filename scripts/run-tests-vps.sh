@@ -1,0 +1,304 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# =============================================================================
+# DocuGardener — VPS Test Runner
+#
+# Runs all test suites against the live VPS environment.
+#
+# Usage (from /opt/docugardener on the VPS):
+#   bash scripts/run-tests-vps.sh [suite ...]
+#
+#   Suites: python  web  e2e  playwright  all (default: all)
+#
+# Examples:
+#   bash scripts/run-tests-vps.sh              # run everything
+#   bash scripts/run-tests-vps.sh python web   # only Python + Vitest
+#   bash scripts/run-tests-vps.sh e2e          # only Python e2e
+#
+# Prerequisites — run scripts/setup-vps-e2e.sh once first.
+#
+# What each suite does:
+#   python      Unit + integration tests inside the app Docker image.
+#               No external services required (SQLite in-memory, all mocked).
+#   web         Vitest component tests + TypeScript type-check.
+#               Requires Node.js 20+ on the VPS host.
+#   e2e         Python e2e tests against https://docugardener.dev.
+#               Requires: gh CLI authed, full Docker stack running,
+#               PostgreSQL reachable on localhost:5433.
+#   playwright  Playwright browser tests against https://docugardener.dev.
+#               Requires: Node.js 20+, Playwright chromium installed,
+#               DATABASE_URL pointing to the live Postgres DB.
+#               WARNING: seeds test users into the production database.
+# =============================================================================
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${ROOT}"
+
+# ── Colour helpers ─────────────────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
+pass() { echo -e "${GREEN}  ✓ $*${NC}"; }
+fail() { echo -e "${RED}  ✗ $*${NC}"; }
+warn() { echo -e "${YELLOW}  ⚠ $*${NC}"; }
+header() { echo -e "\n${BOLD}── $* ────────────────────────────────────────────${NC}"; }
+
+# ── Load .env ─────────────────────────────────────────────────────────────────
+if [ -f "${ROOT}/.env" ]; then
+  set -a; source "${ROOT}/.env"; set +a
+else
+  warn ".env not found at ${ROOT}/.env — some env vars may be missing"
+fi
+
+# ── VPS-specific defaults ─────────────────────────────────────────────────────
+# Postgres is exposed on host port 5433 (docker-compose.yml ports: 5433:5432).
+# Used by Playwright suite (which runs on the host, not inside Docker).
+# The Python e2e suite runs inside the Docker network and uses postgres:5432 directly.
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
+VPS_DB_URL="postgresql://postgres:${POSTGRES_PASSWORD}@localhost:5433/docugardener-web"
+
+E2E_API_BASE="${E2E_API_BASE:-https://docugardener.dev}"
+E2E_WEB_BASE="${E2E_WEB_BASE:-https://docugardener.dev}"
+E2E_TENANT_ID="${E2E_TENANT_ID:-cmmjpxq3x0005bul35iu3viuv}"
+E2E_REPO_ID="${E2E_REPO_ID:-cmn68ihbe000bcm4yd55l2um7}"
+
+PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-https://docugardener.dev}"
+
+# Docker Compose file and project
+DC_FILE="${ROOT}/docker/docker-compose.yml"
+DC="docker compose --env-file ${ROOT}/.env -f ${DC_FILE}"
+
+# ── Suite selection ───────────────────────────────────────────────────────────
+SUITES_TO_RUN=("$@")
+if [ ${#SUITES_TO_RUN[@]} -eq 0 ]; then
+  SUITES_TO_RUN=(python web e2e playwright)
+fi
+
+# Normalise "all" → all suites
+for i in "${!SUITES_TO_RUN[@]}"; do
+  if [ "${SUITES_TO_RUN[$i]}" = "all" ]; then
+    SUITES_TO_RUN=(python web e2e playwright)
+    break
+  fi
+done
+
+# ── Result tracking ───────────────────────────────────────────────────────────
+declare -a PASSED=()
+declare -a FAILED=()
+declare -a SKIPPED=()
+
+suite_result() {
+  local suite="$1" code="$2"
+  if [ "${code}" -eq 0 ]; then
+    PASSED+=("${suite}")
+    pass "${suite}"
+  else
+    FAILED+=("${suite}")
+    fail "${suite} (exit ${code})"
+  fi
+}
+
+wants() {
+  local suite="$1"
+  for s in "${SUITES_TO_RUN[@]}"; do
+    [ "${s}" = "${suite}" ] && return 0
+  done
+  return 1
+}
+
+# ── Pre-flight ────────────────────────────────────────────────────────────────
+header "Pre-flight"
+
+# docker compose build must have been run
+if ! ${DC} images docugardener 2>/dev/null | grep -q "docugardener"; then
+  warn "docugardener image not found — run 'docker compose build docugardener' first"
+fi
+pass "Docker compose config found"
+
+# FastAPI health (needed for e2e)
+if wants e2e || wants playwright; then
+  if curl -sf "${E2E_API_BASE}/health" > /dev/null 2>&1; then
+    pass "FastAPI at ${E2E_API_BASE}"
+  else
+    warn "FastAPI not reachable at ${E2E_API_BASE} — e2e tests will fail"
+  fi
+fi
+
+# gh CLI (needed for e2e)
+if wants e2e; then
+  if gh auth status > /dev/null 2>&1; then
+    pass "gh CLI authenticated"
+  else
+    warn "gh CLI not authenticated — Python e2e tests will fail (run: gh auth login)"
+  fi
+fi
+
+# Node.js version (needed for web + playwright)
+if wants web || wants playwright; then
+  NODE_VER=$(node --version 2>/dev/null || echo "missing")
+  NODE_MAJOR=$(echo "${NODE_VER}" | sed 's/v//' | cut -d. -f1)
+  if [ "${NODE_VER}" = "missing" ] || [ "${NODE_MAJOR:-0}" -lt 20 ]; then
+    warn "Node.js 20+ required for web/playwright suites (found: ${NODE_VER})"
+    wants web && SKIPPED+=("web")
+    wants playwright && SKIPPED+=("playwright")
+  else
+    pass "Node.js ${NODE_VER}"
+  fi
+fi
+
+# ── Suite: python ─────────────────────────────────────────────────────────────
+if wants python; then
+  header "Suite: python (unit + integration)"
+  echo "  Using docker compose run (production image excludes tests/ — mounting from host)"
+
+  # --no-deps: unit+integration tests are fully mocked — no postgres/redis/weaviate needed.
+  # --user root: production venv is root-owned; test deps are installed ephemerally.
+  # Extra mounts: tests that read config/script/doc files need project dirs accessible.
+  set +e
+  ${DC} run --rm --no-deps --user root \
+    -v "${ROOT}/tests:/app/tests:ro" \
+    -v "${ROOT}/pyproject.toml:/app/pyproject.toml:ro" \
+    -v "${ROOT}/docker:/app/docker:ro" \
+    -v "${ROOT}/scripts:/app/scripts:ro" \
+    -v "${ROOT}/docs:/app/docs:ro" \
+    -v "${ROOT}/helm:/app/helm:ro" \
+    -v "${ROOT}/.github:/app/.github:ro" \
+    -v "${ROOT}/DEPLOYMENT.md:/app/DEPLOYMENT.md:ro" \
+    -v "${ROOT}/README.md:/app/README.md:ro" \
+    -e PYTHONPATH=/app \
+    -e APP_ENV=development \
+    -e DEBUG=true \
+    -e LOG_LEVEL=WARNING \
+    docugardener \
+    bash -c 'pip install -q "pytest>=7.4.0" "pytest-asyncio>=0.23.0" "pytest-cov>=4.1.0" "httpx>=0.26.0" && python -m pytest tests/unit/ tests/integration/ -q --tb=short' 2>&1 \
+    | tee /tmp/dg-test-python.log
+  PYTHON_EXIT=${PIPESTATUS[0]}
+  set -e
+
+  # Summarise known-flaky tests so the user knows
+  FAIL_COUNT=$(grep -c "^FAILED" /tmp/dg-test-python.log 2>/dev/null || echo 0)
+  if [ "${PYTHON_EXIT}" -ne 0 ] && [ "${FAIL_COUNT}" -le 10 ]; then
+    warn "${FAIL_COUNT} known-flaky tests may fail due to VPS env (see /tmp/dg-test-python.log)"
+    warn "If all failures are in test_webhook_security.py, they are pre-existing — not regressions"
+  fi
+
+  suite_result "python" "${PYTHON_EXIT}"
+fi
+
+# ── Suite: web ────────────────────────────────────────────────────────────────
+if wants web && ! [[ " ${SKIPPED[*]} " =~ " web " ]]; then
+  header "Suite: web (Vitest + TypeScript)"
+
+  echo "  Running inside node:20-slim container (openssl installed for Prisma binary detection)"
+  echo "  node_modules cached at ${ROOT}/web/node_modules"
+
+  # apt-get install openssl: enables Prisma to detect OpenSSL 3.x and pick the correct binary.
+  # npm ci: installs/updates node_modules into the mounted web/ dir (cached between runs).
+  # prisma generate: regenerates the query engine for linux/debian-openssl-3.0.x.
+  set +e
+  docker run --rm \
+    -v "${ROOT}/web:/app" \
+    -w /app \
+    node:20-slim \
+    sh -c '
+      apt-get update -qq && apt-get install -y -qq openssl > /dev/null 2>&1
+      npm ci --silent
+      npx prisma generate --silent
+      npx vitest run --reporter=verbose
+    ' 2>&1 | tee /tmp/dg-test-vitest.log
+  VITEST_EXIT=${PIPESTATUS[0]}
+  set -e
+
+  echo "  Running TypeScript check..."
+  set +e
+  docker run --rm \
+    -v "${ROOT}/web:/app" \
+    -w /app \
+    node:20-slim \
+    sh -c 'npx tsc --noEmit' 2>&1 | tee /tmp/dg-test-tsc.log
+  TSC_EXIT=${PIPESTATUS[0]}
+  set -e
+
+  if [ "${VITEST_EXIT}" -eq 0 ] && [ "${TSC_EXIT}" -eq 0 ]; then
+    suite_result "web" 0
+  else
+    [ "${VITEST_EXIT}" -ne 0 ] && fail "Vitest failed (exit ${VITEST_EXIT})"
+    [ "${TSC_EXIT}" -ne 0 ]    && fail "TypeScript check failed (exit ${TSC_EXIT})"
+    suite_result "web" 1
+  fi
+fi
+
+# ── Suite: e2e ────────────────────────────────────────────────────────────────
+if wants e2e; then
+  header "Suite: e2e (Python e2e against ${E2E_API_BASE})"
+  echo "  TENANT_ID: ${E2E_TENANT_ID}"
+  echo "  REPO_ID  : ${E2E_REPO_ID}"
+  echo "  DB (internal): postgresql://postgres:***@postgres:5432/docugardener-web"
+
+  # Run inside the Docker compose network so the 'postgres' hostname resolves.
+  # Production image excludes tests/ — mount from host (read-only).
+  # /usr/bin/gh is mounted so e2e tests that create/close GitHub PRs can use it.
+  # GH_TOKEN is forwarded so gh CLI authenticates without interactive login.
+  set +e
+  ${DC} run --rm --no-deps --user root \
+    -v "${ROOT}/tests:/app/tests:ro" \
+    -v "${ROOT}/pyproject.toml:/app/pyproject.toml:ro" \
+    -v /usr/bin/gh:/usr/bin/gh:ro \
+    -e E2E_ENABLED=1 \
+    -e E2E_API_BASE="${E2E_API_BASE}" \
+    -e E2E_WEB_BASE="${E2E_WEB_BASE}" \
+    -e E2E_TENANT_ID="${E2E_TENANT_ID}" \
+    -e E2E_REPO_ID="${E2E_REPO_ID}" \
+    -e SQL_DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/docugardener-web" \
+    -e GH_TOKEN="${GH_TOKEN:-}" \
+    -e PYTHONPATH=/app \
+    docugardener \
+    bash -c 'pip install -q "pytest>=7.4.0" "pytest-asyncio>=0.23.0" "requests>=2.31.0" "sqlalchemy>=2.0.0" "psycopg2-binary>=2.9.0" "python-dateutil>=2.8.0" && python -m pytest tests/e2e/ -m e2e -v -s --tb=short' 2>&1 \
+  | tee /tmp/dg-test-e2e.log
+  E2E_EXIT=${PIPESTATUS[0]}
+  set -e
+
+  suite_result "e2e" "${E2E_EXIT}"
+fi
+
+# ── Suite: playwright ─────────────────────────────────────────────────────────
+if wants playwright && ! [[ " ${SKIPPED[*]} " =~ " playwright " ]]; then
+  header "Suite: playwright (browser tests against ${PLAYWRIGHT_BASE_URL})"
+  warn "This suite seeds test users into the live database — data is cleaned up after"
+  echo "  Base URL: ${PLAYWRIGHT_BASE_URL}"
+
+  WEB_DIR="${ROOT}/web"
+  cd "${WEB_DIR}"
+
+  set +e
+  PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
+  DATABASE_URL="${VPS_DB_URL}" \
+  CI=true \
+  npx playwright test --project=chromium 2>&1 \
+  | tee /tmp/dg-test-playwright.log
+  PW_EXIT=${PIPESTATUS[0]}
+  set -e
+
+  cd "${ROOT}"
+  suite_result "playwright" "${PW_EXIT}"
+fi
+
+# ── Summary ───────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}═══════════════════════════════════════════════════${NC}"
+echo -e "${BOLD}  Test Results${NC}"
+echo -e "${BOLD}═══════════════════════════════════════════════════${NC}"
+
+for s in "${PASSED[@]+"${PASSED[@]}"}";  do echo -e "  ${GREEN}PASS${NC}  ${s}"; done
+for s in "${FAILED[@]+"${FAILED[@]}"}";  do echo -e "  ${RED}FAIL${NC}  ${s}"; done
+for s in "${SKIPPED[@]+"${SKIPPED[@]}"}"; do echo -e "  ${YELLOW}SKIP${NC}  ${s}"; done
+
+echo ""
+if [ ${#FAILED[@]} -eq 0 ]; then
+  echo -e "${GREEN}${BOLD}  All suites passed.${NC}"
+  exit 0
+else
+  echo -e "${RED}${BOLD}  ${#FAILED[@]} suite(s) failed. Check logs in /tmp/dg-test-*.log${NC}"
+  exit 1
+fi
