@@ -40,8 +40,15 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         # Exact-match public paths (no auth required at all)
-        public_paths = ["/health", "/ready", "/docs", "/openapi.json", "/redoc",
-                        "/diagnostics", "/diagnostics/db"]
+        public_paths = [
+            "/health",
+            "/ready",
+            "/docs",
+            "/openapi.json",
+            "/redoc",
+            "/diagnostics",
+            "/diagnostics/db",
+        ]
 
         # Prefix-match paths that authenticate via their own mechanism and
         # resolve tenant server-side — X-Tenant-ID header is not sent for these.

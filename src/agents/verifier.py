@@ -50,6 +50,8 @@ _PROVIDER_COSTS: dict[str, dict[str, float]] = {
     "gemini": {"input": 0.10, "output": 0.40},
     "openai": {"input": 2.50, "output": 10.00},  # gpt-4o tier (approximate)
     "ollama": {"input": 0.00, "output": 0.00},
+    # EPIC-04-02: Anthropic Claude Sonnet 4.6 pricing ($3/$15 per 1M; cache reads = 10% of input)
+    "anthropic": {"input": 3.00, "output": 15.00, "cache_read": 0.30},
 }
 
 # Legacy names kept for backward compatibility
@@ -273,7 +275,12 @@ class VerificationAgent:
         self.max_retries = max_retries
         self.tone = tone
         self.scoring_model = "basic"  # Default; overridden below from tenant config if available
-        self._session_tokens: dict[str, int] = {"prompt_tokens": 0, "completion_tokens": 0}
+        self._session_tokens: dict[str, int] = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "cache_read_tokens": 0,  # EPIC-04-02: Anthropic cache read tokens
+            "cache_creation_tokens": 0,  # EPIC-04-02: Anthropic cache write tokens
+        }
         self._session_provider: str = llm_provider.value if llm_provider else "gemini"
         self._session_model: str = llm_kwargs.get(
             "model", settings.bundled_gemini_model or "gemini-2.0-flash"
@@ -312,20 +319,42 @@ class VerificationAgent:
         if usage:
             self._session_tokens["prompt_tokens"] += usage.get("prompt_tokens", 0)
             self._session_tokens["completion_tokens"] += usage.get("completion_tokens", 0)
+            # EPIC-04-02: accumulate Anthropic prompt-cache token counts (setdefault guards
+            # against pre-existing VerificationAgent instances without these keys)
+            self._session_tokens["cache_read_tokens"] = self._session_tokens.get(
+                "cache_read_tokens", 0
+            ) + usage.get("cache_read_tokens", 0)
+            self._session_tokens["cache_creation_tokens"] = self._session_tokens.get(
+                "cache_creation_tokens", 0
+            ) + usage.get("cache_creation_tokens", 0)
 
     @property
     def session_llm_usage(self) -> dict:
         pt = self._session_tokens["prompt_tokens"]
         ct = self._session_tokens["completion_tokens"]
+        crt = self._session_tokens.get("cache_read_tokens", 0)
+        cct = self._session_tokens.get("cache_creation_tokens", 0)
         # LLM-05: use per-provider cost table; unknown providers default to 0
         rates = _PROVIDER_COSTS.get(self._session_provider, {"input": 0.0, "output": 0.0})
-        cost = (pt / 1_000_000) * rates["input"] + (ct / 1_000_000) * rates["output"]
+        # EPIC-04-02: cache reads billed at cache_read rate (10% of input for Anthropic)
+        cache_read_rate = rates.get("cache_read", rates["input"])
+        cost = (
+            (pt / 1_000_000) * rates["input"]
+            + (ct / 1_000_000) * rates["output"]
+            + (crt / 1_000_000) * cache_read_rate
+        )
+        # cache_hit_rate = reads / (reads + creations); 0 if no cache activity
+        total_cache = crt + cct
+        cache_hit_rate = round(crt / total_cache, 4) if total_cache > 0 else 0.0
         return {
             "provider": self._session_provider,
             "model": self._session_model,
             "prompt_tokens": pt,
             "completion_tokens": ct,
             "total_tokens": pt + ct,
+            "cache_read_tokens": crt,
+            "cache_creation_tokens": cct,
+            "cache_hit_rate": cache_hit_rate,
             "estimated_cost_usd": round(cost, 6),
         }
 

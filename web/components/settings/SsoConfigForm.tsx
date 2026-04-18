@@ -28,6 +28,7 @@ interface SsoConfigFormProps {
         samlAttrEmail: string
         samlAttrRole: string
         samlRoleMapAdmin: string
+        samlDefaultRole: string
         sessionIdleTimeoutMinutes: number | null
     }
 }
@@ -41,6 +42,7 @@ export function SsoConfigForm({ spEntityId, spAcsUrl, initialConfig }: SsoConfig
     const [attrEmail, setAttrEmail] = useState(initialConfig.samlAttrEmail ?? "email")
     const [attrRole, setAttrRole] = useState(initialConfig.samlAttrRole ?? "")
     const [roleMapAdmin, setRoleMapAdmin] = useState(initialConfig.samlRoleMapAdmin ?? "")
+    const [defaultRole, setDefaultRole] = useState(initialConfig.samlDefaultRole ?? "VIEWER")
     const [idleTimeout, setIdleTimeout] = useState<string>(
         initialConfig.sessionIdleTimeoutMinutes != null
             ? String(initialConfig.sessionIdleTimeoutMinutes)
@@ -63,6 +65,7 @@ export function SsoConfigForm({ spEntityId, spAcsUrl, initialConfig }: SsoConfig
                     samlAttrEmail: attrEmail,
                     samlAttrRole: attrRole || undefined,
                     samlRoleMapAdmin: roleMapAdmin || undefined,
+                    samlDefaultRole: defaultRole,
                     sessionIdleTimeoutMinutes: idleTimeout ? parseInt(idleTimeout, 10) : null,
                 }),
             })
@@ -241,9 +244,30 @@ export function SsoConfigForm({ spEntityId, spAcsUrl, initialConfig }: SsoConfig
                             placeholder="docugardener-admin"
                         />
                         <p className="text-xs text-muted-foreground">
-                            Users with this group value get ADMIN role; all others get VIEWER.
+                            Users with this group value get ADMIN role.
                         </p>
                     </div>
+                </div>
+                {/* BUG-SSO-05: default role for non-admin SSO users */}
+                <div className="space-y-2">
+                    <Label htmlFor="sso-default-role" className="text-sm">
+                        Default role
+                        <span className="text-muted-foreground font-normal"> (for non-admin IdP users)</span>
+                    </Label>
+                    <select
+                        id="sso-default-role"
+                        value={defaultRole}
+                        onChange={(e) => setDefaultRole(e.target.value)}
+                        data-testid="sso-default-role-select"
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                        <option value="VIEWER">Viewer (read-only)</option>
+                        <option value="AUDITOR">Auditor (read + export audit log)</option>
+                        <option value="BILLING_ADMIN">Billing Admin (manage billing only)</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                        Role assigned to SSO users who don&apos;t match the admin group. ADMIN cannot be set as default.
+                    </p>
                 </div>
             </div>
 

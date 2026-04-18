@@ -52,6 +52,7 @@ export async function GET(req: Request) {
         samlAttrEmail: tenant.samlAttrEmail ?? "email",
         samlAttrRole: tenant.samlAttrRole ?? "",
         samlRoleMapAdmin: tenant.samlRoleMapAdmin ?? "",
+        samlDefaultRole: tenant.samlDefaultRole ?? "VIEWER",
         sessionIdleTimeoutMinutes: tenant.sessionIdleTimeoutMinutes ?? null,
     })
 }
@@ -79,8 +80,15 @@ export async function POST(req: Request) {
         samlAttrEmail,
         samlAttrRole,
         samlRoleMapAdmin,
+        samlDefaultRole,
         sessionIdleTimeoutMinutes,
     } = body
+
+    // BUG-SSO-05: validate samlDefaultRole — only non-ADMIN roles allowed as default
+    const ALLOWED_DEFAULT_ROLES = ["VIEWER", "AUDITOR", "BILLING_ADMIN"]
+    const resolvedDefaultRole = samlDefaultRole && ALLOWED_DEFAULT_ROLES.includes(samlDefaultRole)
+        ? samlDefaultRole
+        : null  // null → backend falls back to "VIEWER"
 
     // Build update object — only include certificate if provided (non-empty string)
     const data: Record<string, any> = {
@@ -91,6 +99,7 @@ export async function POST(req: Request) {
         samlAttrEmail: samlAttrEmail ?? null,
         samlAttrRole: samlAttrRole ?? null,
         samlRoleMapAdmin: samlRoleMapAdmin ?? null,
+        samlDefaultRole: resolvedDefaultRole,
         sessionIdleTimeoutMinutes: typeof sessionIdleTimeoutMinutes === "number"
             ? Math.max(1, Math.min(sessionIdleTimeoutMinutes, 10080)) // clamp: 1 min – 7 days
             : null,

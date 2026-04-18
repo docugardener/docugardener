@@ -49,6 +49,7 @@ export default async function SettingsPage() {
         samlAttrEmail: tenant.samlAttrEmail ?? "email",
         samlAttrRole: tenant.samlAttrRole ?? "",
         samlRoleMapAdmin: tenant.samlRoleMapAdmin ?? "",
+        samlDefaultRole: tenant.samlDefaultRole ?? "VIEWER",
         sessionIdleTimeoutMinutes: tenant.sessionIdleTimeoutMinutes ?? null,
     }
     // AGV-01: load repos + their RulesArtifacts for the Agent Governance tab

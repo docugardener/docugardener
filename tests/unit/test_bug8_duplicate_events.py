@@ -68,9 +68,7 @@ class TestCreateJobInitialResult:
     def test_initial_result_is_stored(self, jm, sqlite_factory):
         """BUG-8: create_job seeds head_sha in result so the idempotency guard can find it."""
         repo_id = jm.get_or_create_repo("t-001", "gh-bug8a", "org/repo-bug8a")
-        job_id = jm.create_job(
-            "t-001", repo_id, 10, initial_result={"head_sha": "deadbeef1234"}
-        )
+        job_id = jm.create_job("t-001", repo_id, 10, initial_result={"head_sha": "deadbeef1234"})
         db = sqlite_factory()
         job = db.query(Job).filter_by(id=job_id).first()
         assert job.result == {"head_sha": "deadbeef1234"}
@@ -102,6 +100,7 @@ def _make_queued_job_mock(pr_number: int, head_sha: str, tenant_id: str = "t-001
 
 def _make_tenant_mock(tenant_id: str = "t-001", installation_id: str = "42") -> MagicMock:
     from src.storage.sql_models import Tenant
+
     t = MagicMock(spec=Tenant)
     t.id = tenant_id
     t.installationId = installation_id

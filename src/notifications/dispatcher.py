@@ -95,7 +95,11 @@ class NotificationDispatcher:
                 if missing:
                     error_msg = f"Jira config incomplete — missing: {', '.join(missing)}"
                     logger.warning("jira_config_incomplete", missing=missing)
-                    results["jira"] = {"status": "error", "lastError": error_msg, "lastAttemptAt": now_iso}
+                    results["jira"] = {
+                        "status": "error",
+                        "lastError": error_msg,
+                        "lastAttemptAt": now_iso,
+                    }
                 else:
                     try:
                         comment = (
@@ -129,7 +133,11 @@ class NotificationDispatcher:
                 if not linear_config.get("teamId"):
                     error_msg = "Team ID required — set it in Settings → Integrations → Linear"
                     logger.warning("linear_team_id_missing")
-                    results["linear"] = {"status": "error", "lastError": error_msg, "lastAttemptAt": now_iso}
+                    results["linear"] = {
+                        "status": "error",
+                        "lastError": error_msg,
+                        "lastAttemptAt": now_iso,
+                    }
                 else:
                     try:
                         _linear_issue_id = await self._create_linear_issue(
@@ -340,7 +348,9 @@ class NotificationDispatcher:
                 return
             except (httpx.TimeoutException, httpx.ConnectError) as exc:
                 if attempt == 0:
-                    logger.warning("Jira comment network error, retrying", ticket=ticket_key, error=str(exc))
+                    logger.warning(
+                        "Jira comment network error, retrying", ticket=ticket_key, error=str(exc)
+                    )
                     await asyncio.sleep(5)
                     continue
                 raise

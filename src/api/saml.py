@@ -424,8 +424,9 @@ async def saml_callback(
     email = _extract_email_from_assertion(auth, tenant.samlAttrEmail)
 
     # ── Role resolution ───────────────────────────────────────────────────────
+    # BUG-SSO-05: use tenant.samlDefaultRole if set; fall back to "VIEWER"
     attrs = auth.get_attributes()
-    role = "VIEWER"
+    role = getattr(tenant, "samlDefaultRole", None) or "VIEWER"
     if tenant.samlAttrRole and tenant.samlRoleMapAdmin:
         role_values = attrs.get(tenant.samlAttrRole) or []
         if tenant.samlRoleMapAdmin in role_values:

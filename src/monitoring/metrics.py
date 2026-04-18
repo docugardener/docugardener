@@ -109,6 +109,19 @@ HALLUCINATIONS_DETECTED = Counter(
     "Total hallucinations detected by verifier",
 )
 
+# EPIC-04-02: Anthropic prompt-cache token counters (for Grafana cache hit rate panel)
+LLM_CACHE_READ_TOKENS = Counter(
+    "docugardener_llm_cache_read_tokens_total",
+    "Anthropic prompt-cache read tokens (tokens served from cache)",
+    ["provider", "model"],
+)
+
+LLM_CACHE_CREATION_TOKENS = Counter(
+    "docugardener_llm_cache_creation_tokens_total",
+    "Anthropic prompt-cache creation tokens (tokens written to cache)",
+    ["provider", "model"],
+)
+
 # Vector DB metrics
 VECTORDB_OPERATIONS = Counter(
     "docugardener_vectordb_operations_total",
@@ -198,6 +211,8 @@ def record_llm_request(
     purpose: str,
     latency_seconds: float,
     error_type: str = "",
+    cache_read_tokens: int = 0,
+    cache_creation_tokens: int = 0,
 ) -> None:
     """Record an LLM API request."""
     LLM_REQUESTS.labels(provider=provider, model=model, purpose=purpose).inc()
@@ -205,6 +220,12 @@ def record_llm_request(
 
     if error_type:
         LLM_ERRORS.labels(provider=provider, error_type=error_type).inc()
+
+    # EPIC-04-02: track Anthropic prompt-cache token counts for Grafana cache hit rate panel
+    if cache_read_tokens:
+        LLM_CACHE_READ_TOKENS.labels(provider=provider, model=model).inc(cache_read_tokens)
+    if cache_creation_tokens:
+        LLM_CACHE_CREATION_TOKENS.labels(provider=provider, model=model).inc(cache_creation_tokens)
 
 
 def record_vectordb_operation(

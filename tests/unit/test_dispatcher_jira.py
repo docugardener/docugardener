@@ -202,6 +202,7 @@ class TestPostJiraLifecycleComment:
 def _make_drift_record(**kwargs):
     """Minimal mock drift record for dispatch_drift_alert."""
     from unittest.mock import MagicMock
+
     record = MagicMock()
     record.owner = kwargs.get("owner", "org")
     record.repo = kwargs.get("repo", "repo")

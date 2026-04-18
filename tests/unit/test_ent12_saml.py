@@ -49,6 +49,7 @@ def make_tenant(
     t.samlAttrEmail = attr_email
     t.samlAttrRole = attr_role
     t.samlRoleMapAdmin = role_map_admin
+    t.samlDefaultRole = None  # BUG-SSO-05: default is None → falls back to "VIEWER" in saml.py
     return t
 
 

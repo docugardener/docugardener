@@ -28,6 +28,7 @@ const SSO_PROPS = {
         samlAttrEmail: "email",
         samlAttrRole: "",
         samlRoleMapAdmin: "",
+        samlDefaultRole: "VIEWER",
         sessionIdleTimeoutMinutes: null,
     },
 }

@@ -48,7 +48,6 @@ from src.api.scim_models import (
     ScimMeta,
     ScimName,
     ScimPatchOp,
-    ScimRole,
     ScimUser,
 )
 from src.core.logging import get_logger

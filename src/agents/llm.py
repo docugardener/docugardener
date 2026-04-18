@@ -749,7 +749,9 @@ class AnthropicClient(LLMClient):
         }
         if system_prompt:
             # EPIC-04-01: wrap as list with cache_control for Anthropic prompt caching (40-70% cost reduction)
-            payload["system"] = [{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
+            payload["system"] = [
+                {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}
+            ]
         if config.stop_sequences:
             payload["stop_sequences"] = config.stop_sequences
         # Anthropic supports temperature; top_p is also supported but rarely needed
@@ -763,9 +765,12 @@ class AnthropicClient(LLMClient):
             if raw.stop_reason in ("end_turn", "stop_sequence")
             else raw.stop_reason or "stop"
         )
+        # EPIC-04-02: capture prompt-cache token counts for cost tracking
         usage = {
             "prompt_tokens": raw.usage.input_tokens,
             "completion_tokens": raw.usage.output_tokens,
+            "cache_read_tokens": getattr(raw.usage, "cache_read_input_tokens", None) or 0,
+            "cache_creation_tokens": getattr(raw.usage, "cache_creation_input_tokens", None) or 0,
         }
 
         logger.debug("Anthropic generation complete", model=self.model_name, prompt_len=len(prompt))
@@ -811,9 +816,12 @@ class AnthropicClient(LLMClient):
             if raw.stop_reason in ("end_turn", "stop_sequence")
             else raw.stop_reason or "stop"
         )
+        # EPIC-04-02: capture prompt-cache token counts for cost tracking
         usage = {
             "prompt_tokens": raw.usage.input_tokens,
             "completion_tokens": raw.usage.output_tokens,
+            "cache_read_tokens": getattr(raw.usage, "cache_read_input_tokens", None) or 0,
+            "cache_creation_tokens": getattr(raw.usage, "cache_creation_input_tokens", None) or 0,
         }
 
         return LLMResponse(

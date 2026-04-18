@@ -94,6 +94,8 @@ class Tenant(Base):
     samlAttrEmail = Column(String, nullable=True)
     samlAttrRole = Column(String, nullable=True)
     samlRoleMapAdmin = Column(String, nullable=True)
+    # BUG-SSO-05: default role for SSO users not in the admin group
+    samlDefaultRole = Column(String, nullable=True)  # "VIEWER" | "AUDITOR" | "BILLING_ADMIN"
     sessionsRevokedAt = Column(DateTime, nullable=True)
     # SCIM 2.0 (ENT-12 follow-on)
     scimEnabled = Column(Boolean, default=False, nullable=False)
