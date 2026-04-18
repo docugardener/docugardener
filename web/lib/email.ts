@@ -1,16 +1,86 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+/**
+ * Email transport — nodemailer (SMTP) primary, Resend fallback.
+ *
+ * Transport priority:
+ *   1. SMTP_HOST set   → nodemailer (Google Workspace in production)
+ *   2. RESEND_API_KEY  → Resend     (local sandbox / legacy)
+ *   3. Neither         → warn + no-op (never throws)
+ *
+ * Callers are responsible for catching errors when they want non-fatal
+ * behaviour (e.g. invite email failing should not block user creation).
+ */
+import nodemailer from "nodemailer"
 import { Resend } from "resend"
-
-// Lazy — only instantiated when an API key is present, so dev environments
-// without RESEND_API_KEY set don't crash at module load time.
-function getResend(): Resend {
-    const key = process.env.RESEND_API_KEY
-    if (!key) throw new Error("RESEND_API_KEY not set")
-    return new Resend(key)
-}
 
 const FROM = process.env.EMAIL_FROM ?? "DocuGardener <noreply@docugardener.dev>"
 const APP_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3001"
+
+// ── Transport layer ───────────────────────────────────────────────────────────
+
+type Transport = "smtp" | "resend" | "none"
+
+function detectTransport(): Transport {
+    if (process.env.SMTP_HOST) return "smtp"
+    if (process.env.RESEND_API_KEY) return "resend"
+    return "none"
+}
+
+async function sendViaSMTP(
+    to: string,
+    subject: string,
+    html: string,
+    text: string,
+): Promise<void> {
+    const port = parseInt(process.env.SMTP_PORT ?? "587", 10)
+    const secure =
+        process.env.SMTP_SECURE === "true" || port === 465
+
+    const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port,
+        secure,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+    })
+
+    await transporter.sendMail({ from: FROM, to, subject, html, text })
+}
+
+async function sendViaResend(
+    to: string,
+    subject: string,
+    html: string,
+    text: string,
+): Promise<void> {
+    const resend = new Resend(process.env.RESEND_API_KEY!)
+    await resend.emails.send({ from: FROM, to, subject, html, text })
+}
+
+async function sendEmail(
+    to: string,
+    subject: string,
+    html: string,
+    text: string,
+): Promise<void> {
+    const transport = detectTransport()
+
+    if (transport === "smtp") {
+        return sendViaSMTP(to, subject, html, text)
+    }
+
+    if (transport === "resend") {
+        return sendViaResend(to, subject, html, text)
+    }
+
+    // Neither configured — log and no-op. Never throw so callers don't crash.
+    console.warn("[email] No transport configured — set SMTP_HOST (prod) or RESEND_API_KEY (dev)")
+    console.info("[email] Would have sent to:", to, "| subject:", subject)
+}
+
+// ── HTML templates ────────────────────────────────────────────────────────────
 
 function magicLinkHtml(url: string): string {
     return `<!DOCTYPE html>
@@ -49,44 +119,34 @@ function inviteHtml(url: string, inviterEmail: string | null | undefined): strin
 </html>`
 }
 
+// ── Public API ────────────────────────────────────────────────────────────────
+
 /**
- * Send a standalone magic link (e.g. from the login page).
- * url is the full NextAuth magic link URL.
+ * Send a magic-link sign-in email (NextAuth EmailProvider hook).
+ * url is the full NextAuth callback URL including the token.
  */
 export async function sendMagicLink(to: string, url: string): Promise<void> {
-    if (!process.env.RESEND_API_KEY) {
-        console.warn("[email] RESEND_API_KEY not set — skipping magic link email")
-        console.info("[email] Magic link URL:", url)
-        return
-    }
-    await getResend().emails.send({
-        from: FROM,
+    await sendEmail(
         to,
-        subject: "Sign in to DocuGardener",
-        html: magicLinkHtml(url),
-        text: `Sign in to DocuGardener:\n\n${url}\n\nThis link expires in 10 minutes.`,
-    })
+        "Sign in to DocuGardener",
+        magicLinkHtml(url),
+        `Sign in to DocuGardener:\n\n${url}\n\nThis link expires in 10 minutes.`,
+    )
 }
 
 /**
- * Send an invitation email that doubles as a magic link.
+ * Send a team invitation email that doubles as a magic link.
  * Called by POST /api/users after creating the user record.
  */
 export async function sendInviteEmail(
     to: string,
     magicUrl: string,
-    inviterEmail?: string | null
+    inviterEmail?: string | null,
 ): Promise<void> {
-    if (!process.env.RESEND_API_KEY) {
-        console.warn("[email] RESEND_API_KEY not set — skipping invite email")
-        console.info("[email] Invite magic link URL:", magicUrl)
-        return
-    }
-    await getResend().emails.send({
-        from: FROM,
+    await sendEmail(
         to,
-        subject: "You've been invited to DocuGardener",
-        html: inviteHtml(magicUrl, inviterEmail),
-        text: `You've been invited to DocuGardener${inviterEmail ? ` by ${inviterEmail}` : ""}.\n\nAccept invitation:\n\n${magicUrl}\n\nThis link expires in 10 minutes.`,
-    })
+        "You've been invited to DocuGardener",
+        inviteHtml(magicUrl, inviterEmail),
+        `You've been invited to DocuGardener${inviterEmail ? ` by ${inviterEmail}` : ""}.\n\nAccept invitation:\n\n${magicUrl}\n\nThis link expires in 10 minutes.`,
+    )
 }
