@@ -99,6 +99,14 @@
         reverse_proxy docugardener:8000
     }
 
+    # ── FastAPI: feedback signal (/api/feedback — HMAC-verified, no session) ──
+    # Must come before the Next.js catch-all so it isn't swallowed by Next.js.
+    # FastAPI returns 200 on success and 4xx on tampered tokens; Next.js always
+    # redirects (307) for both cases, breaking the test and real integrations.
+    handle /api/feedback* {
+        reverse_proxy docugardener:8000
+    }
+
     # ── Next.js: everything else (web app + /api/* NextAuth routes) ───────────
     handle {
         reverse_proxy web:3001

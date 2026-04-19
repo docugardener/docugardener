@@ -61,7 +61,7 @@ VPS_DB_URL="postgresql://postgres:${POSTGRES_PASSWORD}@localhost:5433/docugarden
 E2E_API_BASE="${E2E_API_BASE:-https://docugardener.dev}"
 E2E_WEB_BASE="${E2E_WEB_BASE:-https://docugardener.dev}"
 E2E_TENANT_ID="${E2E_TENANT_ID:-cmmjpxq3x0005bul35iu3viuv}"
-E2E_REPO_ID="${E2E_REPO_ID:-cmn68ihbe000bcm4yd55l2um7}"
+E2E_REPO_ID="${E2E_REPO_ID:-repo-9615a1707d}"
 
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-https://docugardener.dev}"
 
