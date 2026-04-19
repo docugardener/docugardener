@@ -377,9 +377,7 @@ class PRAnalyzer:
                                     ):
                                         from src.storage.indexer import _repo_sub_namespace
 
-                                        sub_ns = _repo_sub_namespace(
-                                            tenant_id, f"{owner}/{repo}"
-                                        )
+                                        sub_ns = _repo_sub_namespace(tenant_id, f"{owner}/{repo}")
                                         await indexer.index_repository(
                                             repo_path, owner, repo, namespace=sub_ns
                                         )
@@ -512,9 +510,7 @@ class PRAnalyzer:
             return []  # FREE and PRO: disabled
 
         capped_siblings = sibling_repos[:max_siblings]
-        sibling_namespaces = [
-            _repo_sub_namespace(tenant_id, r) for r in capped_siblings
-        ]
+        sibling_namespaces = [_repo_sub_namespace(tenant_id, r) for r in capped_siblings]
 
         t_start = time.monotonic()
         try:
@@ -533,12 +529,14 @@ class PRAnalyzer:
                     for r in results:
                         if r.id not in seen_ids:
                             seen_ids.add(r.id)
-                            all_chunks.append({
-                                "repo": r.metadata.get("repo", ""),
-                                "file": r.metadata.get("file_path", ""),
-                                "content": r.content or "",
-                                "source_namespace": r.metadata.get("source_namespace", ""),
-                            })
+                            all_chunks.append(
+                                {
+                                    "repo": r.metadata.get("repo", ""),
+                                    "file": r.metadata.get("file_path", ""),
+                                    "content": r.content or "",
+                                    "source_namespace": r.metadata.get("source_namespace", ""),
+                                }
+                            )
 
             if not all_chunks:
                 record_cross_repo("empty", 0, time.monotonic() - t_start)
@@ -553,9 +551,7 @@ class PRAnalyzer:
             )
 
             # Enrich findings with source_namespace for display
-            ns_by_repo_file = {
-                (c["repo"], c["file"]): c["source_namespace"] for c in all_chunks
-            }
+            ns_by_repo_file = {(c["repo"], c["file"]): c["source_namespace"] for c in all_chunks}
             for f in findings:
                 f.setdefault(
                     "source_namespace",

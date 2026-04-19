@@ -911,9 +911,7 @@ class VerificationAgent:
             return []
 
         # Build the valid (repo, file) pairs from the input for injection defence.
-        valid_pairs: set[tuple[str, str]] = {
-            (c["repo"], c["file"]) for c in sibling_chunks
-        }
+        valid_pairs: set[tuple[str, str]] = {(c["repo"], c["file"]) for c in sibling_chunks}
 
         chunks_text = "\n\n".join(
             f"[Chunk {i + 1}]\nrepo: {c['repo']}\nfile: {c['file']}\n{c['content']}"

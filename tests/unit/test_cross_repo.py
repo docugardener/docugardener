@@ -19,14 +19,14 @@ Total: 41 tests — all pure unit (no Weaviate, no LLM, no DB).
 """
 
 import json
-from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers shared across layers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _make_search_result(doc_id: str, score: float, file_path: str, ns: str) -> MagicMock:
     r = MagicMock()
@@ -73,21 +73,25 @@ def _chunk(repo: str, file: str, content: str = "some content") -> dict:
 # Layer 1: _repo_sub_namespace()
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestRepoSubNamespace:
     def test_basic_format(self):
         from src.storage.indexer import _repo_sub_namespace
+
         result = _repo_sub_namespace("cuid123", "myorg/sdk-js")
         assert result == "cuid123__myorg__sdk_js"
 
     def test_special_chars_normalised(self):
         """Slashes → __, hyphens → underscores."""
         from src.storage.indexer import _repo_sub_namespace
+
         result = _repo_sub_namespace("t-id", "acme-corp/my-docs-portal")
         assert result == "t-id__acme_corp__my_docs_portal"
 
     def test_tenant_prefix_always_present(self):
         """Sub-namespace always starts with the tenant_id — cross-tenant impossible."""
         from src.storage.indexer import _repo_sub_namespace
+
         ns = _repo_sub_namespace("tenant-abc", "org/repo")
         assert ns.startswith("tenant-abc__")
 
@@ -96,17 +100,18 @@ class TestRepoSubNamespace:
 # Layer 2: WeaviateDB.search_multi_namespace()
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestSearchMultiNamespace:
     def _make_db(self):
         with patch("src.storage.weaviate_db.WeaviateDB.__init__", return_value=None):
             from src.storage.weaviate_db import WeaviateDB
+
             db = WeaviateDB.__new__(WeaviateDB)
             db._initialized = True
             return db
 
     @pytest.mark.asyncio
     async def test_merges_and_sorts_by_score_desc(self):
-        from src.storage.weaviate_db import WeaviateDB
         db = self._make_db()
 
         r1 = _make_search_result("doc-a", 0.9, "README.md", "ns1")
@@ -127,7 +132,6 @@ class TestSearchMultiNamespace:
 
     @pytest.mark.asyncio
     async def test_source_namespace_injected_into_metadata(self):
-        from src.storage.weaviate_db import WeaviateDB
         db = self._make_db()
 
         r1 = _make_search_result("doc-a", 0.9, "file.md", "ns1")
@@ -140,7 +144,6 @@ class TestSearchMultiNamespace:
     @pytest.mark.asyncio
     async def test_one_namespace_failure_skipped_others_returned(self):
         """A single namespace exception must NOT propagate — others still return."""
-        from src.storage.weaviate_db import WeaviateDB
         db = self._make_db()
 
         r1 = _make_search_result("doc-ok", 0.8, "file.md", "ns2")
@@ -153,7 +156,6 @@ class TestSearchMultiNamespace:
     @pytest.mark.asyncio
     async def test_all_namespaces_fail_returns_empty(self):
         """All namespaces failing → empty list, no exception."""
-        from src.storage.weaviate_db import WeaviateDB
         db = self._make_db()
         db.search = AsyncMock(side_effect=RuntimeError("weaviate down"))
 
@@ -162,7 +164,6 @@ class TestSearchMultiNamespace:
 
     @pytest.mark.asyncio
     async def test_empty_namespaces_list_returns_empty(self):
-        from src.storage.weaviate_db import WeaviateDB
         db = self._make_db()
         db.search = AsyncMock(return_value=[])
 
@@ -174,6 +175,7 @@ class TestSearchMultiNamespace:
 # ─────────────────────────────────────────────────────────────────────────────
 # Layer 3: DocumentIndexer.find_cross_repo_docs()
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestFindCrossRepoDocs:
     @pytest.mark.asyncio
@@ -188,8 +190,10 @@ class TestFindCrossRepoDocs:
         entity.name = "get_users"
         entity.file_path = "src/routes/users.py"
 
-        with patch("src.storage.indexer.generate_embedding") as mock_emb, \
-             patch("src.storage.indexer.format_entity_for_embedding", return_value="get_users"):
+        with (
+            patch("src.storage.indexer.generate_embedding") as mock_emb,
+            patch("src.storage.indexer.format_entity_for_embedding", return_value="get_users"),
+        ):
             mock_emb.return_value = MagicMock(tolist=lambda: [0.1, 0.2])
             await indexer.find_cross_repo_docs(
                 entity=entity,
@@ -211,8 +215,10 @@ class TestFindCrossRepoDocs:
         mock_db.search_multi_namespace = AsyncMock(return_value=[])
         indexer = DocumentIndexer(mock_db)
 
-        with patch("src.storage.indexer.generate_embedding") as mock_emb, \
-             patch("src.storage.indexer.format_entity_for_embedding", return_value="x"):
+        with (
+            patch("src.storage.indexer.generate_embedding") as mock_emb,
+            patch("src.storage.indexer.format_entity_for_embedding", return_value="x"),
+        ):
             mock_emb.return_value = MagicMock(tolist=lambda: [0.0])
             await indexer.find_cross_repo_docs(
                 entity=MagicMock(), sibling_namespaces=["ns1"], top_k_per_ns=5
@@ -226,12 +232,16 @@ class TestFindCrossRepoDocs:
 # Layer 4: _build_cross_repo_diff_summary()
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestBuildCrossRepoDiffSummary:
     def test_rename_includes_old_and_new_names(self):
         from src.pipeline.analyzer import _build_cross_repo_diff_summary
+
         ch = _make_entity_change(
-            old_name="get_users", new_name="get_accounts",
-            old_sig="def get_users() -> list", new_sig="def get_accounts() -> list"
+            old_name="get_users",
+            new_name="get_accounts",
+            old_sig="def get_users() -> list",
+            new_sig="def get_accounts() -> list",
         )
         summary = _build_cross_repo_diff_summary([ch])
         assert "get_users" in summary
@@ -239,6 +249,7 @@ class TestBuildCrossRepoDiffSummary:
 
     def test_signature_change_includes_both_sigs(self):
         from src.pipeline.analyzer import _build_cross_repo_diff_summary
+
         ch = _make_entity_change(
             old_sig="def process(id: int)", new_sig="def process(id: int, dry_run: bool = False)"
         )
@@ -249,9 +260,9 @@ class TestBuildCrossRepoDiffSummary:
     def test_only_top_3_changes_included(self):
         """More than 3 changes — only first 3 appear in summary."""
         from src.pipeline.analyzer import _build_cross_repo_diff_summary
+
         changes = [
-            _make_entity_change(name=f"func_{i}", file_path=f"src/file_{i}.py")
-            for i in range(6)
+            _make_entity_change(name=f"func_{i}", file_path=f"src/file_{i}.py") for i in range(6)
         ]
         summary = _build_cross_repo_diff_summary(changes)
         assert "func_0" in summary
@@ -263,10 +274,12 @@ class TestBuildCrossRepoDiffSummary:
 # Layer 5: VerificationAgent.analyze_cross_repo_impact()
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _make_verifier():
     """Return a VerificationAgent with a mocked generator (no real LLM calls)."""
     with patch("src.agents.verifier.VerificationAgent.__init__", return_value=None):
         from src.agents.verifier import VerificationAgent
+
         agent = VerificationAgent.__new__(VerificationAgent)
         agent.generator = AsyncMock()
         agent._accumulate_usage = MagicMock()
@@ -290,10 +303,26 @@ class TestAnalyzeCrossRepoImpact:
     @pytest.mark.asyncio
     async def test_returns_findings_above_min_confidence(self):
         agent = _make_verifier()
-        agent.generator.generate = AsyncMock(return_value=_llm_response([
-            {"file": "README.md", "repo": "demo-sdk", "confidence": 90, "reason": "get_users renamed", "line_hint": 5},
-            {"file": "quickstart.md", "repo": "demo-docs", "confidence": 45, "reason": "low conf", "line_hint": None},
-        ]))
+        agent.generator.generate = AsyncMock(
+            return_value=_llm_response(
+                [
+                    {
+                        "file": "README.md",
+                        "repo": "demo-sdk",
+                        "confidence": 90,
+                        "reason": "get_users renamed",
+                        "line_hint": 5,
+                    },
+                    {
+                        "file": "quickstart.md",
+                        "repo": "demo-docs",
+                        "confidence": 45,
+                        "reason": "low conf",
+                        "line_hint": None,
+                    },
+                ]
+            )
+        )
 
         findings = await agent.analyze_cross_repo_impact(
             diff_summary="rename", sibling_chunks=VALID_CHUNKS, min_confidence=60
@@ -316,12 +345,48 @@ class TestAnalyzeCrossRepoImpact:
         """LLM emits 6 items — lowest-confidence ones are dropped, not random 5."""
         agent = _make_verifier()
         raw = [
-            {"file": "README.md", "repo": "demo-sdk", "confidence": 55, "reason": "r", "line_hint": None},
-            {"file": "quickstart.md", "repo": "demo-docs", "confidence": 95, "reason": "r", "line_hint": None},
-            {"file": "README.md", "repo": "demo-sdk", "confidence": 80, "reason": "r", "line_hint": 10},
-            {"file": "quickstart.md", "repo": "demo-docs", "confidence": 70, "reason": "r", "line_hint": 2},
-            {"file": "README.md", "repo": "demo-sdk", "confidence": 60, "reason": "r", "line_hint": None},
-            {"file": "quickstart.md", "repo": "demo-docs", "confidence": 98, "reason": "r", "line_hint": None},
+            {
+                "file": "README.md",
+                "repo": "demo-sdk",
+                "confidence": 55,
+                "reason": "r",
+                "line_hint": None,
+            },
+            {
+                "file": "quickstart.md",
+                "repo": "demo-docs",
+                "confidence": 95,
+                "reason": "r",
+                "line_hint": None,
+            },
+            {
+                "file": "README.md",
+                "repo": "demo-sdk",
+                "confidence": 80,
+                "reason": "r",
+                "line_hint": 10,
+            },
+            {
+                "file": "quickstart.md",
+                "repo": "demo-docs",
+                "confidence": 70,
+                "reason": "r",
+                "line_hint": 2,
+            },
+            {
+                "file": "README.md",
+                "repo": "demo-sdk",
+                "confidence": 60,
+                "reason": "r",
+                "line_hint": None,
+            },
+            {
+                "file": "quickstart.md",
+                "repo": "demo-docs",
+                "confidence": 98,
+                "reason": "r",
+                "line_hint": None,
+            },
         ]
         agent.generator.generate = AsyncMock(return_value=_llm_response(raw))
 
@@ -337,10 +402,26 @@ class TestAnalyzeCrossRepoImpact:
     async def test_hallucinated_file_is_discarded(self):
         """Finding references a (repo, file) not in the input chunks → silently dropped."""
         agent = _make_verifier()
-        agent.generator.generate = AsyncMock(return_value=_llm_response([
-            {"file": "README.md", "repo": "demo-sdk", "confidence": 90, "reason": "ok", "line_hint": None},
-            {"file": "INJECTED.md", "repo": "evil-repo", "confidence": 99, "reason": "injected", "line_hint": None},
-        ]))
+        agent.generator.generate = AsyncMock(
+            return_value=_llm_response(
+                [
+                    {
+                        "file": "README.md",
+                        "repo": "demo-sdk",
+                        "confidence": 90,
+                        "reason": "ok",
+                        "line_hint": None,
+                    },
+                    {
+                        "file": "INJECTED.md",
+                        "repo": "evil-repo",
+                        "confidence": 99,
+                        "reason": "injected",
+                        "line_hint": None,
+                    },
+                ]
+            )
+        )
 
         findings = await agent.analyze_cross_repo_impact(
             diff_summary="x", sibling_chunks=VALID_CHUNKS, min_confidence=50
@@ -352,9 +433,19 @@ class TestAnalyzeCrossRepoImpact:
     @pytest.mark.asyncio
     async def test_all_hallucinated_returns_empty(self):
         agent = _make_verifier()
-        agent.generator.generate = AsyncMock(return_value=_llm_response([
-            {"file": "FAKE.md", "repo": "not-a-sibling", "confidence": 95, "reason": "x", "line_hint": None},
-        ]))
+        agent.generator.generate = AsyncMock(
+            return_value=_llm_response(
+                [
+                    {
+                        "file": "FAKE.md",
+                        "repo": "not-a-sibling",
+                        "confidence": 95,
+                        "reason": "x",
+                        "line_hint": None,
+                    },
+                ]
+            )
+        )
 
         findings = await agent.analyze_cross_repo_impact(
             diff_summary="x", sibling_chunks=VALID_CHUNKS, min_confidence=50
@@ -365,10 +456,26 @@ class TestAnalyzeCrossRepoImpact:
     async def test_mixed_valid_and_hallucinated(self):
         """Valid findings kept; hallucinated ones dropped. Sorting still applies."""
         agent = _make_verifier()
-        agent.generator.generate = AsyncMock(return_value=_llm_response([
-            {"file": "README.md", "repo": "demo-sdk", "confidence": 70, "reason": "real", "line_hint": None},
-            {"file": "GHOST.md", "repo": "demo-sdk", "confidence": 99, "reason": "ghost", "line_hint": None},
-        ]))
+        agent.generator.generate = AsyncMock(
+            return_value=_llm_response(
+                [
+                    {
+                        "file": "README.md",
+                        "repo": "demo-sdk",
+                        "confidence": 70,
+                        "reason": "real",
+                        "line_hint": None,
+                    },
+                    {
+                        "file": "GHOST.md",
+                        "repo": "demo-sdk",
+                        "confidence": 99,
+                        "reason": "ghost",
+                        "line_hint": None,
+                    },
+                ]
+            )
+        )
 
         findings = await agent.analyze_cross_repo_impact(
             diff_summary="x", sibling_chunks=VALID_CHUNKS, min_confidence=50
@@ -407,9 +514,7 @@ class TestAnalyzeCrossRepoImpact:
         agent = _make_verifier()
         agent.generator.generate = AsyncMock()
 
-        findings = await agent.analyze_cross_repo_impact(
-            diff_summary="x", sibling_chunks=[]
-        )
+        findings = await agent.analyze_cross_repo_impact(diff_summary="x", sibling_chunks=[])
         assert findings == []
         agent.generator.generate.assert_not_called()
 
@@ -418,35 +523,50 @@ class TestAnalyzeCrossRepoImpact:
 # Layer 6: _format_cross_repo_section_md()
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestFormatCrossRepoSectionMd:
     def test_renders_markdown_table_with_display_repo(self):
         from src.pipeline.reporter import _format_cross_repo_section_md
+
         findings = [
-            {"repo": "tid__myorg__sdk_js", "file": "README.md",
-             "confidence": 90, "reason": "get_users renamed", "line_hint": 5},
+            {
+                "repo": "tid__myorg__sdk_js",
+                "file": "README.md",
+                "confidence": 90,
+                "reason": "get_users renamed",
+                "line_hint": 5,
+            },
         ]
         md = _format_cross_repo_section_md(findings)
         assert "### 🔗 Cross-Repo Impact Detected" in md
-        assert "myorg/sdk-js" in md       # tenant prefix stripped, human-readable
-        assert "README.md:5" in md        # line hint appended
+        assert "myorg/sdk-js" in md  # tenant prefix stripped, human-readable
+        assert "README.md:5" in md  # line hint appended
         assert "90%" in md
 
     def test_empty_findings_returns_empty_string(self):
         from src.pipeline.reporter import _format_cross_repo_section_md
+
         assert _format_cross_repo_section_md([]) == ""
 
     def test_no_none_detected_noise_when_empty(self):
         """Section must be entirely absent, not show 'None detected'."""
         from src.pipeline.reporter import _format_cross_repo_section_md
+
         result = _format_cross_repo_section_md([])
         assert "None" not in result
         assert "detected" not in result.lower()
 
     def test_file_without_line_hint_has_no_colon_suffix(self):
         from src.pipeline.reporter import _format_cross_repo_section_md
+
         findings = [
-            {"repo": "tid__org__repo", "file": "guide.md",
-             "confidence": 80, "reason": "impact", "line_hint": None},
+            {
+                "repo": "tid__org__repo",
+                "file": "guide.md",
+                "confidence": 80,
+                "reason": "impact",
+                "line_hint": None,
+            },
         ]
         md = _format_cross_repo_section_md(findings)
         assert "guide.md:" not in md
@@ -457,13 +577,21 @@ class TestFormatCrossRepoSectionMd:
 # Layer 7: _find_cross_repo_context() plan-tier gate
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestFindCrossRepoContextPlanGate:
     """Plan-tier limits enforced inside _find_cross_repo_context."""
 
-    def _run(self, plan: str, siblings: list[str], expected_max_siblings: int,
-             expected_top_k: int, expected_min_conf: int):
+    def _run(
+        self,
+        plan: str,
+        siblings: list[str],
+        expected_max_siblings: int,
+        expected_top_k: int,
+        expected_min_conf: int,
+    ):
         """Run _find_cross_repo_context with mocked internals, assert call args."""
         import asyncio
+
         from src.pipeline.analyzer import PRAnalyzer
 
         analyzer = PRAnalyzer.__new__(PRAnalyzer)
@@ -473,13 +601,16 @@ class TestFindCrossRepoContextPlanGate:
             {"repo": "s", "file": "f.md", "confidence": 90, "reason": "r", "line_hint": None}
         ]
 
-        with patch("src.pipeline.analyzer.get_db_manager") as mock_ctx, \
-             patch("src.pipeline.analyzer.DocumentIndexer") as MockIndexer, \
-             patch("src.pipeline.analyzer._repo_sub_namespace",
-                   side_effect=lambda tid, repo: f"{tid}__{repo}"), \
-             patch("src.pipeline.analyzer.VerificationAgent") as MockVerifier, \
-             patch("src.pipeline.analyzer.record_cross_repo"):
-
+        with (
+            patch("src.pipeline.analyzer.get_db_manager") as mock_ctx,
+            patch("src.pipeline.analyzer.DocumentIndexer") as MockIndexer,
+            patch(
+                "src.pipeline.analyzer._repo_sub_namespace",
+                side_effect=lambda tid, repo: f"{tid}__{repo}",
+            ),
+            patch("src.pipeline.analyzer.VerificationAgent") as MockVerifier,
+            patch("src.pipeline.analyzer.record_cross_repo"),
+        ):
             mock_indexer_inst = AsyncMock()
             mock_indexer_inst.find_cross_repo_docs = AsyncMock(return_value=[])
             MockIndexer.return_value = mock_indexer_inst
@@ -514,17 +645,28 @@ class TestFindCrossRepoContextPlanGate:
 
     def test_team_limits(self):
         """TEAM: max 3 siblings, top_k=3."""
-        self._run("TEAM", ["o/r1", "o/r2", "o/r3", "o/r4"],
-                  expected_max_siblings=3, expected_top_k=3, expected_min_conf=60)
+        self._run(
+            "TEAM",
+            ["o/r1", "o/r2", "o/r3", "o/r4"],
+            expected_max_siblings=3,
+            expected_top_k=3,
+            expected_min_conf=60,
+        )
 
     def test_enterprise_limits(self):
         """ENTERPRISE: max 10 siblings, top_k=5."""
-        self._run("ENTERPRISE", [f"o/r{i}" for i in range(12)],
-                  expected_max_siblings=10, expected_top_k=5, expected_min_conf=50)
+        self._run(
+            "ENTERPRISE",
+            [f"o/r{i}" for i in range(12)],
+            expected_max_siblings=10,
+            expected_top_k=5,
+            expected_min_conf=50,
+        )
 
     @pytest.mark.asyncio
     async def test_free_plan_returns_empty_immediately(self):
         from src.pipeline.analyzer import PRAnalyzer
+
         analyzer = PRAnalyzer.__new__(PRAnalyzer)
         analyzer.verifier = None
 
@@ -542,6 +684,7 @@ class TestFindCrossRepoContextPlanGate:
     async def test_pro_plan_returns_empty_immediately(self):
         """PRO is also cross-repo disabled (same as FREE)."""
         from src.pipeline.analyzer import PRAnalyzer
+
         analyzer = PRAnalyzer.__new__(PRAnalyzer)
         analyzer.verifier = None
 
@@ -559,6 +702,7 @@ class TestFindCrossRepoContextPlanGate:
     async def test_empty_siblings_returns_empty_immediately(self):
         """Empty siblings list → skip plan check entirely."""
         from src.pipeline.analyzer import PRAnalyzer
+
         analyzer = PRAnalyzer.__new__(PRAnalyzer)
         analyzer.verifier = None
 
@@ -577,6 +721,7 @@ class TestFindCrossRepoContextPlanGate:
 # Layer 8: Dual-index (BUG-5 block in analyze_pr)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestDualIndex:
     """
     When cross-repo is enabled, index_repository must be called twice —
@@ -593,10 +738,13 @@ class TestDualIndex:
     async def test_dual_index_calls_both_namespaces_when_cross_repo_on(self):
         mock_indexer = self._make_indexer_mock()
 
-        with patch("src.pipeline.analyzer.settings") as mock_settings, \
-             patch("src.pipeline.analyzer._repo_sub_namespace",
-                   return_value="tid__org__api") as mock_sub_ns, \
-             patch("src.pipeline.analyzer.DocumentIndexer", return_value=mock_indexer):
+        with (
+            patch("src.pipeline.analyzer.settings") as mock_settings,
+            patch(
+                "src.pipeline.analyzer._repo_sub_namespace", return_value="tid__org__api"
+            ) as mock_sub_ns,
+            patch("src.pipeline.analyzer.DocumentIndexer", return_value=mock_indexer),
+        ):
             mock_settings.cross_repo_beta = True
 
             # Simulate the dual-index block directly
@@ -606,12 +754,13 @@ class TestDualIndex:
             workflow_config = {"cross_repo_siblings": ["org/sdk"]}
 
             # Reproduce the exact dual-index logic from spec section 4b
-            import asyncio
             async def _dual_index():
                 await mock_indexer.index_repository("path", owner, repo, namespace=tenant_id)
-                if (mock_settings.cross_repo_beta
-                        and workflow_config
-                        and workflow_config.get("cross_repo_siblings")):
+                if (
+                    mock_settings.cross_repo_beta
+                    and workflow_config
+                    and workflow_config.get("cross_repo_siblings")
+                ):
                     sub_ns = mock_sub_ns(tenant_id, f"{owner}/{repo}")
                     await mock_indexer.index_repository("path", owner, repo, namespace=sub_ns)
 
@@ -634,9 +783,11 @@ class TestDualIndex:
                 tenant_id, owner, repo = "tid", "org", "api"
                 workflow_config = {}
                 await mock_indexer.index_repository("path", owner, repo, namespace=tenant_id)
-                if (mock_settings.cross_repo_beta
-                        and workflow_config
-                        and workflow_config.get("cross_repo_siblings")):
+                if (
+                    mock_settings.cross_repo_beta
+                    and workflow_config
+                    and workflow_config.get("cross_repo_siblings")
+                ):
                     await mock_indexer.index_repository("path", owner, repo, namespace="sub")
 
             await _single_index()
@@ -656,8 +807,10 @@ class TestDualIndex:
         mock_db.search = AsyncMock(return_value=[])
         indexer = DocumentIndexer(mock_db)
 
-        with patch("src.storage.indexer.generate_embedding") as mock_emb, \
-             patch("src.storage.indexer.format_entity_for_embedding", return_value="q"):
+        with (
+            patch("src.storage.indexer.generate_embedding") as mock_emb,
+            patch("src.storage.indexer.format_entity_for_embedding", return_value="q"),
+        ):
             mock_emb.return_value = MagicMock(tolist=lambda: [0.1])
             await indexer.find_related_docs(entity=MagicMock(), namespace="tenant-abc")
 
@@ -670,9 +823,11 @@ class TestDualIndex:
 # Layer 9: Prometheus metrics
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestCrossRepoMetrics:
     def test_record_cross_repo_ok_increments_counter(self):
         from src.monitoring.metrics import CROSS_REPO_CALLS, record_cross_repo
+
         before = CROSS_REPO_CALLS.labels(result="ok")._value.get()
         record_cross_repo("ok", findings_count=3, latency_seconds=1.2)
         after = CROSS_REPO_CALLS.labels(result="ok")._value.get()
@@ -680,6 +835,7 @@ class TestCrossRepoMetrics:
 
     def test_record_cross_repo_error_increments_error_counter(self):
         from src.monitoring.metrics import CROSS_REPO_CALLS, record_cross_repo
+
         before = CROSS_REPO_CALLS.labels(result="error")._value.get()
         record_cross_repo("error", findings_count=0, latency_seconds=0.1)
         after = CROSS_REPO_CALLS.labels(result="error")._value.get()
@@ -689,6 +845,7 @@ class TestCrossRepoMetrics:
 # ─────────────────────────────────────────────────────────────────────────────
 # Layer 10: analyze_pr() wiring
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestAnalyzePrWiring:
     """
@@ -715,22 +872,31 @@ class TestAnalyzePrWiring:
     async def test_findings_attached_to_result_when_enabled(self):
         from src.pipeline.analyzer import PRAnalysisResult
 
-        findings = [{"repo": "demo-sdk", "file": "README.md", "confidence": 90,
-                     "reason": "renamed", "line_hint": None}]
-        result = PRAnalysisResult(pr_number=1, repo_full_name="org/api",
-                                  cross_repo_findings=findings)
+        findings = [
+            {
+                "repo": "demo-sdk",
+                "file": "README.md",
+                "confidence": 90,
+                "reason": "renamed",
+                "line_hint": None,
+            }
+        ]
+        result = PRAnalysisResult(
+            pr_number=1, repo_full_name="org/api", cross_repo_findings=findings
+        )
         assert result.cross_repo_findings == findings
 
     @pytest.mark.asyncio
     async def test_cross_repo_findings_empty_by_default(self):
         from src.pipeline.analyzer import PRAnalysisResult
+
         result = PRAnalysisResult(pr_number=1, repo_full_name="org/api")
         assert result.cross_repo_findings == []
 
     @pytest.mark.asyncio
     async def test_cross_repo_failure_does_not_propagate(self):
         """Exception in _find_cross_repo_context → result.cross_repo_findings == []."""
-        from src.pipeline.analyzer import PRAnalyzer, PRAnalysisResult
+        from src.pipeline.analyzer import PRAnalysisResult, PRAnalyzer
 
         analyzer = PRAnalyzer.__new__(PRAnalyzer)
         analyzer._find_cross_repo_context = AsyncMock(side_effect=RuntimeError("network"))
@@ -748,12 +914,19 @@ class TestAnalyzePrWiring:
     def test_cross_repo_findings_serialisable_to_json(self):
         """cross_repo_findings must round-trip through JSON (job.result storage)."""
         from src.pipeline.analyzer import PRAnalysisResult
+
         findings = [
-            {"repo": "t__org__sdk", "file": "README.md",
-             "confidence": 90, "reason": "renamed", "line_hint": 5}
+            {
+                "repo": "t__org__sdk",
+                "file": "README.md",
+                "confidence": 90,
+                "reason": "renamed",
+                "line_hint": 5,
+            }
         ]
-        result = PRAnalysisResult(pr_number=1, repo_full_name="org/api",
-                                  cross_repo_findings=findings)
+        result = PRAnalysisResult(
+            pr_number=1, repo_full_name="org/api", cross_repo_findings=findings
+        )
         serialised = json.dumps({"cross_repo_findings": result.cross_repo_findings})
         recovered = json.loads(serialised)
         assert recovered["cross_repo_findings"][0]["confidence"] == 90
@@ -762,6 +935,7 @@ class TestAnalyzePrWiring:
 # ─────────────────────────────────────────────────────────────────────────────
 # Layer 11: format_drift_report() injection
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestFormatDriftReportInjection:
     def _make_result(self, cross_repo_findings: list) -> MagicMock:
@@ -786,15 +960,22 @@ class TestFormatDriftReportInjection:
 
     def test_cross_repo_section_present_when_findings_exist(self):
         from src.pipeline.reporter import format_drift_report
+
         findings = [
-            {"repo": "tid__org__sdk", "file": "README.md",
-             "confidence": 90, "reason": "get_users renamed", "line_hint": None}
+            {
+                "repo": "tid__org__sdk",
+                "file": "README.md",
+                "confidence": 90,
+                "reason": "get_users renamed",
+                "line_hint": None,
+            }
         ]
         md = format_drift_report(self._make_result(findings))
         assert "### 🔗 Cross-Repo Impact Detected" in md
 
     def test_cross_repo_section_absent_when_no_findings(self):
         from src.pipeline.reporter import format_drift_report
+
         md = format_drift_report(self._make_result([]))
         assert "Cross-Repo" not in md
         assert "🔗" not in md

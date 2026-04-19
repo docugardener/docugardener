@@ -414,7 +414,6 @@ class DocumentIndexer:
         Returns:
             Merged, score-sorted results with source_namespace in metadata.
         """
-        from src.storage.weaviate_db import WeaviateDB
 
         if not sibling_namespaces:
             return []

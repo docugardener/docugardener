@@ -44,7 +44,7 @@ _TENANT_ID = f"crossrepo-itest-{uuid.uuid4().hex[:8]}"
 # Format: {tenant_id}__{owner}__{repo}  (slashes → __, hyphens → _)
 _NS_SDK = f"{_TENANT_ID}__testorg__sdk_js"
 _NS_DOCS = f"{_TENANT_ID}__testorg__docs_portal"
-_NS_HR = f"{_TENANT_ID}__testorg__hr_tool"   # noise namespace — must produce 0 findings
+_NS_HR = f"{_TENANT_ID}__testorg__hr_tool"  # noise namespace — must produce 0 findings
 
 # Sibling namespaces exposed to the cross-repo fan-out query.
 # The HR namespace is intentionally included to validate domain isolation.
@@ -115,6 +115,7 @@ _QUERY_VECTOR: list[float] = (_RNG.standard_normal(1536) / 10.0).tolist()
 
 # ── Helper: build a DocumentRecord from a chunk ───────────────────────────────
 
+
 def _make_document_record(chunk: dict[str, Any]):
     """Convert a seed chunk to a DocumentRecord for upsert."""
     from src.storage.vectordb import DocumentRecord
@@ -139,6 +140,7 @@ def _make_document_record(chunk: dict[str, Any]):
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="module")
 def event_loop():
@@ -190,6 +192,7 @@ async def seeded_weaviate(weaviate_db):
 
 
 # ── Integration test ──────────────────────────────────────────────────────────
+
 
 @_SKIP_UNLESS_ENABLED
 class TestCrossRepoIntegration:
@@ -250,12 +253,9 @@ class TestCrossRepoIntegration:
             top_k_per_ns=3,
         )
         hr_in_results = [
-            r for r in signal_only_results
-            if r.metadata.get("source_namespace") == _NS_HR
+            r for r in signal_only_results if r.metadata.get("source_namespace") == _NS_HR
         ]
-        assert hr_in_results == [], (
-            f"HR namespace leaked into signal-only results: {hr_in_results}"
-        )
+        assert hr_in_results == [], f"HR namespace leaked into signal-only results: {hr_in_results}"
 
         # Verification 2: Namespace isolation is enforced — querying only HR
         # returns results tagged with HR namespace (proves the HR shard exists
@@ -291,8 +291,7 @@ class TestCrossRepoIntegration:
 
         # Build a ground-truth set from the seeded corpus.
         valid_pairs: set[tuple[str, str]] = {
-            (chunk["file"], chunk["namespace"])
-            for chunk in (_SIGNAL_CHUNKS + _HR_CHUNKS)
+            (chunk["file"], chunk["namespace"]) for chunk in (_SIGNAL_CHUNKS + _HR_CHUNKS)
         }
 
         for r in results:
@@ -362,18 +361,10 @@ class TestCrossRepoIntegration:
         )
 
         # We should still get SDK results — the ghost namespace is skipped silently.
-        sdk_results = [
-            r for r in results
-            if r.metadata.get("source_namespace") == _NS_SDK
-        ]
+        sdk_results = [r for r in results if r.metadata.get("source_namespace") == _NS_SDK]
         # Ghost namespace must not appear in output.
-        ghost_results = [
-            r for r in results
-            if r.metadata.get("source_namespace") == ghost_ns
-        ]
-        assert ghost_results == [], (
-            f"Ghost namespace leaked into results: {ghost_results}"
-        )
+        ghost_results = [r for r in results if r.metadata.get("source_namespace") == ghost_ns]
+        assert ghost_results == [], f"Ghost namespace leaked into results: {ghost_results}"
         # SDK results are expected (may be empty if Weaviate returns empty for unseen vector,
         # but the call must not raise).
         assert isinstance(results, list), "search_multi_namespace must return a list"
