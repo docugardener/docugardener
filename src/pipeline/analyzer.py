@@ -30,8 +30,9 @@ from src.analysis.scorer import DriftScorer
 from src.core.config import settings
 from src.core.logging import get_logger
 from src.github.clone import ephemeral_clone
+from src.monitoring.metrics import record_cross_repo
 from src.storage.factory import get_db_manager
-from src.storage.indexer import DocumentIndexer
+from src.storage.indexer import DocumentIndexer, _repo_sub_namespace
 
 logger = get_logger(__name__)
 
@@ -83,6 +84,8 @@ class PRAnalysisResult:
     error: str | None = None
     policy_violations: list = field(default_factory=list)  # list[PolicyViolation]
     policy_blocks_merge: bool = False
+    # EPIC-11: cross-repo impact findings (empty when disabled or no findings)
+    cross_repo_findings: list[dict] = field(default_factory=list)
 
     @property
     def success(self) -> bool:
@@ -104,6 +107,39 @@ class PRAnalysisResult:
         if self.drift_analysis is None:
             return 0
         return self.drift_analysis.drift_score
+
+
+def _build_cross_repo_diff_summary(changes: list[EntityChange]) -> str:
+    """
+    EPIC-11: Build a rich diff summary for the cross-repo LLM prompt.
+
+    Includes old→new symbol names and signatures so the LLM understands
+    what specifically changed, not just that something changed.
+
+    Args:
+        changes: Meaningful entity changes (already filtered by caller).
+
+    Returns:
+        Multi-line string describing the top-3 most impactful changes.
+    """
+    lines = []
+    for ch in changes[:3]:
+        ctx = ch.extra_context if isinstance(ch.extra_context, dict) else {}
+        old_name = ctx.get("old_name") or ch.entity.qualified_name
+        new_name = ctx.get("new_name") or ch.entity.qualified_name
+        old_sig = ctx.get("old_signature", "")
+        new_sig = ctx.get("new_signature", "")
+
+        line = (
+            f"- {ch.change_type.value}: `{old_name}`"
+            + (f" → `{new_name}`" if new_name != old_name else "")
+            + (f"  (was: {old_sig})" if old_sig else "")
+            + (f"  (now: {new_sig})" if new_sig else "")
+            + f"  in {ch.entity.file_path}"
+        )
+        lines.append(line)
+
+    return "\n".join(lines)
 
 
 class PRAnalyzer:
@@ -143,6 +179,8 @@ class PRAnalyzer:
         base_ref: str | None = None,
         llm_config: dict | None = None,
         repo_db_id: str | None = None,
+        workflow_config: dict | None = None,
+        plan: str = "FREE",
     ) -> PRAnalysisResult:
         """
         Analyze a Pull Request for documentation drift.
@@ -158,6 +196,9 @@ class PRAnalyzer:
             tenant_id: Tenant Identifier (for isolation)
             base_ref: Base reference (branch name)
             llm_config: Optional LLM configuration override
+            workflow_config: Tenant workflow configuration (cross_repo_siblings etc.)
+            plan: Tenant plan ("FREE" | "PRO" | "TEAM" | "ENTERPRISE") — controls
+                  cross-repo tier limits. Defaults to "FREE" (cross-repo disabled).
 
         Returns:
             Analysis result
@@ -323,9 +364,27 @@ class PRAnalyzer:
 
                             if _jm.get_repo_last_indexed_at(repo_db_id) is None:
                                 try:
+                                    # Always index into tenant_id — keeps find_related_docs working.
                                     await indexer.index_repository(
                                         repo_path, owner, repo, namespace=tenant_id
                                     )
+                                    # EPIC-11: additionally index into sub-namespace for cross-repo
+                                    # fan-out when the feature is active for this tenant.
+                                    if (
+                                        settings.cross_repo_beta
+                                        and workflow_config
+                                        and workflow_config.get("cross_repo_siblings")
+                                    ):
+                                        from src.storage.indexer import _repo_sub_namespace
+
+                                        sub_ns = _repo_sub_namespace(tenant_id, f"{owner}/{repo}")
+                                        await indexer.index_repository(
+                                            repo_path, owner, repo, namespace=sub_ns
+                                        )
+                                        logger.info(
+                                            "EPIC-11: dual-indexed into sub-namespace",
+                                            sub_ns=sub_ns,
+                                        )
                                     _jm.stamp_repo_indexed(repo_db_id)
                                     logger.info(
                                         "BUG-5: repository indexed into Weaviate",
@@ -338,22 +397,60 @@ class PRAnalyzer:
                                         error=str(_idx_exc),
                                     )
 
-                        for change in meaningful_changes[:5]:  # Limit to top 5
-                            # Find related documentation
-                            related_docs = await indexer.find_related_docs(
-                                entity=change.entity,
-                                namespace=namespace,
+                        # Doc-update loop (existing RAG path — always uses namespace=tenant_id)
+                        async def _doc_update_loop() -> list:
+                            updates = []
+                            for change in meaningful_changes[:5]:  # Limit to top 5
+                                related_docs = await indexer.find_related_docs(
+                                    entity=change.entity,
+                                    namespace=namespace,
+                                )
+                                draft = await self.verifier.generate_documentation(
+                                    change=change,
+                                    related_docs=related_docs,
+                                    repo_path=repo_path,
+                                )
+                                if draft.is_verified:
+                                    updates.append(draft)
+                            return updates
+
+                        # EPIC-11: cross-repo pass (parallel with doc-update loop).
+                        # Gate on the global kill switch here; _find_cross_repo_context
+                        # handles plan-tier limits and empty-sibling short-circuit.
+                        sibling_repos: list[str] = (
+                            (workflow_config or {}).get("cross_repo_siblings", [])
+                            if settings.cross_repo_beta
+                            else []
+                        )
+
+                        async def _cross_repo_pass() -> list[dict]:
+                            return await self._find_cross_repo_context(
+                                meaningful_changes=meaningful_changes,
+                                tenant_id=tenant_id,
+                                sibling_repos=sibling_repos,
+                                plan=plan,
                             )
 
-                            # Generate doc update (EPIC-13: pass repo_path for context enrichment)
-                            draft = await self.verifier.generate_documentation(
-                                change=change,
-                                related_docs=related_docs,
-                                repo_path=repo_path,
-                            )
+                        doc_task = asyncio.create_task(_doc_update_loop())
+                        cross_task = asyncio.create_task(_cross_repo_pass())
+                        gathered = await asyncio.gather(
+                            doc_task, cross_task, return_exceptions=True
+                        )
 
-                            if draft.is_verified:
-                                result.documentation_updates.append(draft)
+                        doc_result = gathered[0]
+                        cross_result = gathered[1]
+
+                        if isinstance(doc_result, Exception):
+                            logger.warning("doc_update_loop failed", error=str(doc_result))
+                        else:
+                            result.documentation_updates = doc_result
+
+                        if isinstance(cross_result, Exception):
+                            logger.warning(
+                                "cross_repo_pass failed (non-fatal)", error=str(cross_result)
+                            )
+                        else:
+                            result.cross_repo_findings = cross_result
 
             # Calculate processing time
             processing_time = datetime.utcnow() - start_time
@@ -373,6 +470,110 @@ class PRAnalyzer:
             result.error = str(e)
 
         return result
+
+    async def _find_cross_repo_context(
+        self,
+        meaningful_changes: list[EntityChange],
+        tenant_id: str,
+        sibling_repos: list[str],
+        plan: str,
+    ) -> list[dict]:
+        """
+        EPIC-11: Orchestrate the cross-repo retrieval + LLM analysis pass.
+
+        Plan-tier limits (enforced here — not in the LLM call):
+          FREE / PRO: disabled (returns [])
+          TEAM:       max 3 siblings, top_k_per_ns=3, min_confidence=60
+          ENTERPRISE: max 10 siblings, top_k_per_ns=5, min_confidence=50
+
+        Args:
+            meaningful_changes: Changes already filtered to relevant ones.
+            tenant_id:          Calling tenant ID (for sub-namespace construction).
+            sibling_repos:      List of "owner/repo" strings from workflowConfig.
+            plan:               Tenant plan string.
+
+        Returns:
+            List of cross-repo finding dicts (empty when disabled or nothing found).
+        """
+        import time
+
+        if not sibling_repos:
+            return []
+
+        # Plan-tier gate
+        plan_upper = (plan or "FREE").upper()
+        if plan_upper == "TEAM":
+            max_siblings, top_k_per_ns, min_confidence = 3, 3, 60
+        elif plan_upper == "ENTERPRISE":
+            max_siblings, top_k_per_ns, min_confidence = 10, 5, 50
+        else:
+            return []  # FREE and PRO: disabled
+
+        capped_siblings = sibling_repos[:max_siblings]
+        sibling_namespaces = [_repo_sub_namespace(tenant_id, r) for r in capped_siblings]
+
+        t_start = time.monotonic()
+        try:
+            async with get_db_manager() as db:
+                indexer = DocumentIndexer(db)
+
+                # Retrieve sibling docs for all meaningful changes
+                all_chunks: list[dict] = []
+                seen_ids: set[str] = set()
+                for change in meaningful_changes[:3]:
+                    results = await indexer.find_cross_repo_docs(
+                        entity=change.entity,
+                        sibling_namespaces=sibling_namespaces,
+                        top_k_per_ns=top_k_per_ns,
+                    )
+                    for r in results:
+                        if r.id not in seen_ids:
+                            seen_ids.add(r.id)
+                            all_chunks.append(
+                                {
+                                    "repo": r.metadata.get("repo", ""),
+                                    "file": r.metadata.get("file_path", ""),
+                                    "content": r.content or "",
+                                    "source_namespace": r.metadata.get("source_namespace", ""),
+                                }
+                            )
+
+            if not all_chunks:
+                record_cross_repo("empty", 0, time.monotonic() - t_start)
+                return []
+
+            diff_summary = _build_cross_repo_diff_summary(meaningful_changes)
+            findings = await self.verifier.analyze_cross_repo_impact(
+                diff_summary=diff_summary,
+                sibling_chunks=all_chunks,
+                min_confidence=min_confidence,
+                max_findings=5,
+            )
+
+            # Enrich findings with source_namespace for display
+            ns_by_repo_file = {(c["repo"], c["file"]): c["source_namespace"] for c in all_chunks}
+            for f in findings:
+                f.setdefault(
+                    "source_namespace",
+                    ns_by_repo_file.get((f.get("repo", ""), f.get("file", "")), ""),
+                )
+
+            latency = time.monotonic() - t_start
+            record_cross_repo(
+                "ok" if findings else "empty",
+                len(findings),
+                latency,
+            )
+            logger.info(
+                "EPIC-11: cross-repo analysis complete",
+                findings=len(findings),
+                latency_ms=int(latency * 1000),
+            )
+            return findings
+
+        except Exception:
+            record_cross_repo("error", 0, time.monotonic() - t_start)
+            raise
 
     async def analyze_local(
         self,

@@ -143,4 +143,5 @@ testpaths = ["tests"]
 addopts = "-v --tb=short"
 markers = [
     "e2e: end-to-end tests that fire real GitHub PRs and require the full dev stack (make dev-up). Run with: E2E_ENABLED=1 pytest tests/e2e/ -m e2e -x -v -s",
+    "integration: integration tests that require live infrastructure (Weaviate). Run with: E2E_ENABLED=1 pytest tests/integration/ -m integration -v",
 ]

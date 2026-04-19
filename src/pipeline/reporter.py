@@ -216,6 +216,13 @@ Please check the logs for more details.
             ]
         )
 
+    # EPIC-11: cross-repo impact section (only when findings exist)
+    cross_repo_section = _format_cross_repo_section_md(
+        getattr(result, "cross_repo_findings", []) or []
+    )
+    if cross_repo_section:
+        lines.append(cross_repo_section)
+
     # Add footer
     lines.extend(
         [
@@ -225,6 +232,68 @@ Please check the logs for more details.
     )
 
     return "\n".join(lines) + feedback_footer
+
+
+def _display_repo(identifier: str) -> str:
+    """
+    EPIC-11: Convert a sub-namespace or repo identifier to a human-readable label.
+
+    Sub-namespace format: {tenant_id}__{owner}__{repo}
+    Display format:       owner/repo  (trailing underscores → hyphens in repo segment)
+
+    If the identifier already looks like "owner/repo", it is returned as-is.
+    Hyphens in repo names were normalised to underscores during sub-namespace
+    derivation — we reverse this for display (best-effort; lossless for typical names).
+    """
+    parts = identifier.split("__")
+    if len(parts) >= 3:
+        # Sub-namespace: strip tenant prefix, restore hyphens in repo segment
+        owner = parts[1]
+        repo_seg = parts[2].replace("_", "-")
+        return f"{owner}/{repo_seg}"
+    if "/" in identifier:
+        # Already a display name like "myorg/sdk-js"
+        return identifier
+    return identifier
+
+
+def _format_cross_repo_section_md(findings: list[dict]) -> str:
+    """
+    EPIC-11: Format cross-repo impact findings as a Markdown section.
+
+    Returns empty string when findings is empty — no "None detected" noise.
+    The section is only appended to the PR comment when there is something to show.
+
+    Args:
+        findings: List of finding dicts from analyze_cross_repo_impact().
+                  Each has: file, repo, line_hint, confidence, reason,
+                  and optionally source_namespace.
+    """
+    if not findings:
+        return ""
+
+    lines = [
+        "",
+        "### 🔗 Cross-Repo Impact Detected",
+        "",
+        "| Repo | File | Confidence | Impact |",
+        "|------|------|-----------|--------|",
+    ]
+    for f in findings:
+        # Prefer source_namespace for display (has tenant prefix to strip);
+        # fall back to repo field which may also be a sub-namespace string.
+        ns = f.get("source_namespace", "") or f.get("repo", "?")
+        repo_display = _display_repo(ns)
+        file_display = f.get("file", "?")
+        line = f.get("line_hint")
+        if line:
+            file_display = f"{file_display}:{line}"
+        confidence = f.get("confidence", 0)
+        reason = f.get("reason", "")
+        lines.append(f"| `{repo_display}` | `{file_display}` | {confidence}% | {reason} |")
+
+    lines.append("")
+    return "\n".join(lines)
 
 
 def format_check_run_output(result: PRAnalysisResult) -> dict[str, Any]:

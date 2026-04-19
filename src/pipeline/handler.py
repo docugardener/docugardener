@@ -89,6 +89,7 @@ async def process_pull_request(
         llm_config = tenant_ctx.llm_config
         notification_config = tenant_ctx.notification_config
         workflow_config = getattr(tenant_ctx, "workflow_config", None)
+        tenant_plan = getattr(tenant_ctx, "plan", "FREE") or "FREE"
         _app_id = int(tenant_ctx.app_id)
         _private_key = tenant_ctx.private_key
     except ValueError as e:
@@ -279,6 +280,8 @@ async def process_pull_request(
             base_ref=base_ref,
             llm_config=llm_config,
             repo_db_id=repo_id,
+            workflow_config=workflow_config,
+            plan=tenant_plan,
         )
         result.policy_violations = _policy_violations
         result.policy_blocks_merge = _policy_blocks_merge

@@ -144,6 +144,13 @@ class Settings(BaseSettings):
     bundled_gemini_model: str = Field(default="gemini-2.0-flash")
     platform_llm_monthly_cap_eur: float = Field(default=10.0)
 
+    # EPIC-11: Cross-repo drift detection (demo scope only).
+    # Scale ceiling validated for ≤30 docs/namespace × ≤3 repos (Spike 1b-v2).
+    # Re-spike required before enabling for tenants with >1k docs/namespace.
+    # Per-tenant opt-in via workflowConfig.cross_repo_siblings — this flag is
+    # the global kill switch; both must be true for cross-repo to activate.
+    cross_repo_beta: bool = Field(default=False, alias="CROSS_REPO_BETA")
+
     # Stripe Billing
     # stripe_secret_key:    sk_test_xxx  (sandbox) / sk_live_xxx  (production)
     # stripe_webhook_secret: whsec_xxx   (from Stripe Dashboard → Webhooks)

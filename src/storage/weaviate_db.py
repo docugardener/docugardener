@@ -6,6 +6,7 @@ Provides integration with Weaviate's open-source vector database,
 supporting self-hosted deployment and multi-tenant collections.
 """
 
+import asyncio
 from typing import Any
 
 import weaviate
@@ -248,6 +249,57 @@ class WeaviateDB(VectorDB):
         )
 
         return search_results
+
+    async def search_multi_namespace(
+        self,
+        query_vector: list[float],
+        namespaces: list[str],
+        top_k_per_ns: int = 3,
+    ) -> list[SearchResult]:
+        """
+        EPIC-11: Fan-out search across multiple Weaviate tenant sub-namespaces.
+
+        Each namespace must be a sub-namespace owned by the calling tenant
+        (format: {tenant_id}__{owner}__{repo}). Callers enforce ownership;
+        this method does not re-validate it.
+
+        Validated by Spike 1 (~10ms for 3 namespaces, latency <2s) and
+        Spike 1b-v2 (HR-domain isolation: 0 false positives, 10/10 runs).
+        Scale ceiling: ≤30 docs/namespace. Re-spike at >1k docs/namespace.
+
+        Args:
+            query_vector:  Embedding for the query.
+            namespaces:    Sub-namespace IDs to search (empty → returns []).
+            top_k_per_ns:  Results per namespace (plan-tier controlled by caller).
+
+        Returns:
+            Merged, score-sorted list with source_namespace injected into metadata.
+            Per-namespace failures are logged and skipped — never propagated.
+        """
+        if not namespaces:
+            return []
+
+        tasks = [
+            self.search(query_vector=query_vector, namespace=ns, top_k=top_k_per_ns)
+            for ns in namespaces
+        ]
+        results_per_ns = await asyncio.gather(*tasks, return_exceptions=True)
+
+        merged: list[SearchResult] = []
+        for ns, result in zip(namespaces, results_per_ns):
+            if isinstance(result, Exception):
+                logger.warning(
+                    "cross_repo: sibling namespace search failed",
+                    namespace=ns,
+                    error=str(result),
+                )
+                continue
+            for r in result:
+                r.metadata["source_namespace"] = ns
+                merged.append(r)
+
+        merged.sort(key=lambda x: x.score, reverse=True)
+        return merged
 
     async def delete(
         self,

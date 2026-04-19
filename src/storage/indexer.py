@@ -10,7 +10,11 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src.analysis.embeddings import generate_batch_embeddings, generate_embedding
+from src.analysis.embeddings import (
+    format_entity_for_embedding,
+    generate_batch_embeddings,
+    generate_embedding,
+)
 from src.analysis.parser import CodeEntity, get_parser
 from src.core.logging import get_logger
 from src.storage.schemas import (
@@ -20,6 +24,22 @@ from src.storage.schemas import (
 from src.storage.vectordb import DocumentRecord, SearchResult, VectorDB, generate_record_id
 
 logger = get_logger(__name__)
+
+
+def _repo_sub_namespace(tenant_id: str, repo_full_name: str) -> str:
+    """
+    EPIC-11: Derive the Weaviate sub-namespace for a specific repo within a tenant.
+
+    Format: {tenant_id}__{owner}__{repo_name}
+    Slashes and hyphens are normalised to underscores.
+
+    Example: _repo_sub_namespace("cuid123", "myorg/sdk-js") → "cuid123__myorg__sdk_js"
+
+    Security: a tenant can only construct sub-namespaces prefixed with their own
+    tenant_id — cross-tenant data access is impossible by construction.
+    """
+    safe = repo_full_name.replace("/", "__").replace("-", "_")
+    return f"{tenant_id}__{safe}"
 
 
 # Supported documentation file extensions
@@ -365,8 +385,6 @@ class DocumentIndexer:
         Returns:
             List of related documentation
         """
-        from src.analysis.embeddings import format_entity_for_embedding
-
         query_text = format_entity_for_embedding(entity)
         query_embedding = generate_embedding(query_text)
 
@@ -378,3 +396,37 @@ class DocumentIndexer:
         )
 
         return results
+
+    async def find_cross_repo_docs(
+        self,
+        entity: CodeEntity,
+        sibling_namespaces: list[str],
+        top_k_per_ns: int = 3,
+    ) -> list[SearchResult]:
+        """
+        EPIC-11: Find documentation in sibling repo sub-namespaces that references entity.
+
+        Args:
+            entity:              Changed code entity (name, type, signature).
+            sibling_namespaces:  Weaviate sub-namespace IDs (pre-validated by caller).
+            top_k_per_ns:        Results per namespace (plan-tier controlled by caller).
+
+        Returns:
+            Merged, score-sorted results with source_namespace in metadata.
+        """
+
+        if not sibling_namespaces:
+            return []
+
+        if not hasattr(self.vector_db, "search_multi_namespace"):
+            logger.warning("cross_repo: find_cross_repo_docs requires WeaviateDB backend")
+            return []
+
+        query_text = format_entity_for_embedding(entity)
+        query_embedding = generate_embedding(query_text)
+
+        return await self.vector_db.search_multi_namespace(
+            query_vector=query_embedding.tolist(),
+            namespaces=sibling_namespaces,
+            top_k_per_ns=top_k_per_ns,
+        )
