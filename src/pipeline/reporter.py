@@ -216,6 +216,13 @@ Please check the logs for more details.
             ]
         )
 
+    # EPIC-11: cross-repo impact section (only when findings exist)
+    cross_repo_section = _format_cross_repo_section_md(
+        getattr(result, "cross_repo_findings", []) or []
+    )
+    if cross_repo_section:
+        lines.append(cross_repo_section)
+
     # Add footer
     lines.extend(
         [
@@ -225,6 +232,62 @@ Please check the logs for more details.
     )
 
     return "\n".join(lines) + feedback_footer
+
+
+def _display_repo(source_namespace: str) -> str:
+    """
+    EPIC-11: Convert a sub-namespace string back to a human-readable repo name.
+
+    Sub-namespace format: {tenant_id}__{owner}__{repo}
+    Display format:       owner/repo  (underscores back to hyphens where plausible)
+
+    We strip the tenant prefix (first segment) and rejoin with slash.
+    Hyphens in repo names were normalised to underscores during sub-namespace
+    derivation — we cannot reverse that losslessly, so we display as-is with
+    underscores. Callers see e.g. "myorg/sdk_js" rather than "myorg/sdk-js".
+    This is acceptable for a demo-scope feature.
+    """
+    parts = source_namespace.split("__")
+    if len(parts) >= 3:
+        return f"{parts[1]}/{parts[2]}"
+    return source_namespace
+
+
+def _format_cross_repo_section_md(findings: list[dict]) -> str:
+    """
+    EPIC-11: Format cross-repo impact findings as a Markdown section.
+
+    Returns empty string when findings is empty — no "None detected" noise.
+    The section is only appended to the PR comment when there is something to show.
+
+    Args:
+        findings: List of finding dicts from analyze_cross_repo_impact().
+                  Each has: file, repo, line_hint, confidence, reason,
+                  and optionally source_namespace.
+    """
+    if not findings:
+        return ""
+
+    lines = [
+        "",
+        "### 🔗 Cross-Repo Impact Detected",
+        "",
+        "| Repo | File | Confidence | Impact |",
+        "|------|------|-----------|--------|",
+    ]
+    for f in findings:
+        ns = f.get("source_namespace", "")
+        repo_display = _display_repo(ns) if ns else f.get("repo", "?")
+        file_display = f.get("file", "?")
+        line = f.get("line_hint")
+        if line:
+            file_display = f"{file_display}:{line}"
+        confidence = f.get("confidence", 0)
+        reason = f.get("reason", "")
+        lines.append(f"| `{repo_display}` | `{file_display}` | {confidence}% | {reason} |")
+
+    lines.append("")
+    return "\n".join(lines)
 
 
 def format_check_run_output(result: PRAnalysisResult) -> dict[str, Any]:
