@@ -48,10 +48,10 @@ QUOTA_DIMENSIONS: list[QuotaDimension] = [
 # Plan quota limits — mirror PLAN_LIMITS in billing.ts / quota.py
 # -1 = unlimited
 PLAN_QUOTAS: dict[str, dict[str, int]] = {
-    "FREE":       {"pr_analyses_monthly": 50,  "repos": 1,    "seats": 1},
-    "PRO":        {"pr_analyses_monthly": 500, "repos": 5,    "seats": 10},
-    "TEAM":       {"pr_analyses_monthly": -1,  "repos": 9999, "seats": 100},
-    "ENTERPRISE": {"pr_analyses_monthly": -1,  "repos": -1,   "seats": -1},
+    "FREE": {"pr_analyses_monthly": 50, "repos": 1, "seats": 1},
+    "PRO": {"pr_analyses_monthly": 500, "repos": 5, "seats": 10},
+    "TEAM": {"pr_analyses_monthly": -1, "repos": 9999, "seats": 100},
+    "ENTERPRISE": {"pr_analyses_monthly": -1, "repos": -1, "seats": -1},
 }
 
 

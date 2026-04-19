@@ -200,7 +200,11 @@ class TestOpenAIClientGenerateStandard:
             MockOpenAI.return_value.chat.completions.create = AsyncMock(return_value=raw)
             result = await client.generate("Do X.")
 
-        assert result.usage == {"prompt_tokens": 200, "completion_tokens": 100, "cache_read_tokens": 0}
+        assert result.usage == {
+            "prompt_tokens": 200,
+            "completion_tokens": 100,
+            "cache_read_tokens": 0,
+        }
 
 
 # ---------------------------------------------------------------------------

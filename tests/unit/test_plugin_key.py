@@ -156,3 +156,58 @@ class TestRotatePluginKey:
 
         assert res.status_code == 200
         assert res.json()["pluginApiKey"] == captured["key"]
+
+
+class TestRevokePluginKey:
+    @pytest.mark.asyncio
+    async def test_pk07_revokes_key(self):
+        """PK-07: DELETE /plugin-key removes pluginApiKey from workflowConfig, returns 204."""
+        tenant = _make_tenant("dg_" + "a" * 48)
+        tenant.workflowConfig = {"pluginApiKey": "dg_" + "a" * 48, "otherSetting": True}
+        app.dependency_overrides[get_db] = _db_with_tenant(tenant)
+        try:
+            with patch("src.api.plugin_key.get_tenant_id", return_value=TENANT_ID):
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as ac:
+                    res = await ac.delete("/plugin-key", headers=_HEADERS)
+        finally:
+            del app.dependency_overrides[get_db]
+
+        assert res.status_code == 204
+        assert res.content == b""
+        assert "pluginApiKey" not in tenant.workflowConfig
+        assert tenant.workflowConfig.get("otherSetting") is True
+
+    @pytest.mark.asyncio
+    async def test_pk08_returns_404_when_no_key_set(self):
+        """PK-08: DELETE /plugin-key returns 404 when no key is currently set."""
+        tenant = _make_tenant(None)
+        app.dependency_overrides[get_db] = _db_with_tenant(tenant)
+        try:
+            with patch("src.api.plugin_key.get_tenant_id", return_value=TENANT_ID):
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as ac:
+                    res = await ac.delete("/plugin-key", headers=_HEADERS)
+        finally:
+            del app.dependency_overrides[get_db]
+
+        assert res.status_code == 404
+        assert res.json()["detail"] == "No plugin API key is set"
+
+    @pytest.mark.asyncio
+    async def test_pk09_returns_404_when_tenant_not_found(self):
+        """PK-09: DELETE /plugin-key returns 404 when tenant does not exist."""
+        app.dependency_overrides[get_db] = _db_no_tenant
+        try:
+            with patch("src.api.plugin_key.get_tenant_id", return_value=TENANT_ID):
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as ac:
+                    res = await ac.delete("/plugin-key", headers=_HEADERS)
+        finally:
+            del app.dependency_overrides[get_db]
+
+        assert res.status_code == 404
+        assert res.json()["detail"] == "Tenant not found"

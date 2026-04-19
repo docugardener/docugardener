@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import smtplib
 import ssl
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Any
@@ -35,6 +35,7 @@ APP_URL = settings.app_url or "https://docugardener.dev"
 
 
 # ── SMTP transport ────────────────────────────────────────────────────────────
+
 
 def _send_smtp(to: str, subject: str, html: str, text: str) -> None:
     """Send via configured SMTP server. Raises on failure."""
@@ -75,6 +76,7 @@ def send_drip_email(to: str, subject: str, html: str, text: str) -> bool:
 
 # ── Template helpers ──────────────────────────────────────────────────────────
 
+
 def _wrap_html(body_html: str) -> str:
     return f"""<!DOCTYPE html>
 <html>
@@ -94,12 +96,13 @@ def _wrap_html(body_html: str) -> str:
 def _btn(url: str, label: str) -> str:
     return (
         f'<a href="{url}" style="display:inline-block;background:#111;color:#fff;'
-        f'font-size:14px;font-weight:700;padding:12px 28px;border-radius:8px;'
+        f"font-size:14px;font-weight:700;padding:12px 28px;border-radius:8px;"
         f'text-decoration:none;margin:8px 0">{label}</a>'
     )
 
 
 # ── Email builders ────────────────────────────────────────────────────────────
+
 
 def build_day0(first_name: str, repo_name: str, repo_count: int) -> tuple[str, str, str]:
     """Day 0 — install confirmation."""
@@ -261,6 +264,7 @@ def build_day7(first_name: str, repo_name: str, drift_count: int) -> tuple[str, 
 
 # ── Drip state helpers ────────────────────────────────────────────────────────
 
+
 def _get_drip_sent(tenant: Tenant) -> dict[str, bool]:
     cfg = tenant.workflowConfig or {}
     return cfg.get("drip_sent", {})
@@ -278,6 +282,7 @@ def _mark_sent(db: Any, tenant: Tenant, day: str) -> None:
 
 
 # ── Per-tenant drip logic ─────────────────────────────────────────────────────
+
 
 def _process_tenant(db: Any, tenant: Tenant, now: datetime) -> None:
     """Evaluate and send any due drip emails for a single tenant."""
@@ -305,25 +310,21 @@ def _process_tenant(db: Any, tenant: Tenant, now: datetime) -> None:
     repo_count = db.query(Repository).filter(Repository.tenantId == tenant.id).count()
 
     # Derived stats
-    first_job = (
-        db.query(Job)
-        .filter(Job.tenantId == tenant.id)
-        .order_by(Job.createdAt)
-        .first()
-    )
+    first_job = db.query(Job).filter(Job.tenantId == tenant.id).order_by(Job.createdAt).first()
     # drift_score lives in result JSON — fetch once, derive both stats
     completed_jobs = (
-        db.query(Job)
-        .filter(Job.tenantId == tenant.id, Job.status == JobStatus.COMPLETED)
-        .all()
+        db.query(Job).filter(Job.tenantId == tenant.id, Job.status == JobStatus.COMPLETED).all()
     )
     analyses_used = len(completed_jobs)
     drift_count = sum(
-        1 for j in completed_jobs
-        if j.result and (j.result.get("drift_score") or 0) > 0
+        1 for j in completed_jobs if j.result and (j.result.get("drift_score") or 0) > 0
     )
 
-    created = tenant.createdAt.replace(tzinfo=UTC) if tenant.createdAt.tzinfo is None else tenant.createdAt
+    created = (
+        tenant.createdAt.replace(tzinfo=UTC)
+        if tenant.createdAt.tzinfo is None
+        else tenant.createdAt
+    )
     age_days = (now - created).days
     sent = _get_drip_sent(tenant)
 
@@ -353,6 +354,7 @@ def _process_tenant(db: Any, tenant: Tenant, now: datetime) -> None:
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
+
 
 def run_drip_scheduler() -> None:
     """

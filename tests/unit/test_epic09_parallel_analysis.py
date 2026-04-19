@@ -30,13 +30,12 @@ Benchmark (always prints a report — run with pytest -s to see output):
 import asyncio
 import time
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.analysis.diff import EntityChange
 from src.pipeline.analyzer import FileChange, PRAnalyzer
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -85,10 +84,12 @@ async def test_f01_results_equivalent_to_sequential():
 
     # diff returns one change per file call
     call_count = {"n": 0}
+
     def diff_side_effect(old, new):
         ch = expected_changes[call_count["n"] % len(expected_changes)]
         call_count["n"] += 1
         return [ch]
+
     analyzer.diff.compare_entities = MagicMock(side_effect=diff_side_effect)
 
     repo_path = Path("/fake/repo")
@@ -100,6 +101,7 @@ async def test_f01_results_equivalent_to_sequential():
         # to_thread wraps blocking git calls — simulate them returning immediately
         async def fake_to_thread(fn, *args, **kwargs):
             return fn(*args, **kwargs)
+
         mock_to_thread.side_effect = fake_to_thread
 
         with patch("git.Repo", return_value=mock_repo):
@@ -125,9 +127,7 @@ async def test_f02_one_file_failure_does_not_cancel_others():
 
     analyzer.parser.detect_language = MagicMock(return_value="python")
     analyzer.parser.parse_content = MagicMock(return_value=[MagicMock()])
-    analyzer.diff.compare_entities = MagicMock(
-        return_value=[_make_entity_change("ok_func")]
-    )
+    analyzer.diff.compare_entities = MagicMock(return_value=[_make_entity_change("ok_func")])
 
     repo_path = Path("/fake/repo")
     mock_repo = MagicMock()
@@ -146,8 +146,10 @@ async def test_f02_one_file_failure_does_not_cancel_others():
     mock_repo.git.show = MagicMock(side_effect=show_side_effect)
 
     with patch("src.pipeline.analyzer.asyncio.to_thread") as mock_to_thread:
+
         async def fake_to_thread(fn, *args, **kwargs):
             return fn(*args, **kwargs)
+
         mock_to_thread.side_effect = fake_to_thread
 
         with patch("git.Repo", return_value=mock_repo):
@@ -181,8 +183,10 @@ async def test_f03_unsupported_language_files_skipped():
     mock_repo.git.show = MagicMock(return_value="")
 
     with patch("src.pipeline.analyzer.asyncio.to_thread") as mock_to_thread:
+
         async def fake_to_thread(fn, *args, **kwargs):
             return fn(*args, **kwargs)
+
         mock_to_thread.side_effect = fake_to_thread
 
         with patch("git.Repo", return_value=mock_repo):
@@ -246,8 +250,10 @@ async def test_f05_base_ref_fallback_used_when_sha_fails():
     mock_repo.git.fetch = MagicMock()
 
     with patch("src.pipeline.analyzer.asyncio.to_thread") as mock_to_thread:
+
         async def fake_to_thread(fn, *args, **kwargs):
             return fn(*args, **kwargs)
+
         mock_to_thread.side_effect = fake_to_thread
 
         with patch("git.Repo", return_value=mock_repo):
@@ -286,8 +292,10 @@ async def test_f06_new_file_no_base_version_no_crash():
     mock_repo.git.fetch = MagicMock()
 
     with patch("src.pipeline.analyzer.asyncio.to_thread") as mock_to_thread:
+
         async def fake_to_thread(fn, *args, **kwargs):
             return fn(*args, **kwargs)
+
         mock_to_thread.side_effect = fake_to_thread
 
         with patch("git.Repo", return_value=mock_repo):
@@ -335,7 +343,9 @@ async def test_f07_output_order_is_deterministic():
     results = []
     for _ in range(3):
         idx["n"] = 0
-        analyzer.diff.compare_entities = MagicMock(side_effect=lambda o, n: [_make_entity_change("fn")])
+        analyzer.diff.compare_entities = MagicMock(
+            side_effect=lambda o, n: [_make_entity_change("fn")]
+        )
         with patch("src.pipeline.analyzer.asyncio.to_thread", side_effect=fake_to_thread):
             with patch("git.Repo", return_value=mock_repo):
                 with patch.object(Path, "exists", return_value=True):
@@ -510,13 +520,19 @@ async def test_p01_wall_time_bounded_not_additive():
 
     def _is_show_call(fn, *args):
         """True when to_thread wraps the git.show blocking call."""
-        return hasattr(fn, "__self__") and fn.__func__.__name__ == "show" if hasattr(fn, "__func__") else False
+        return (
+            hasattr(fn, "__self__") and fn.__func__.__name__ == "show"
+            if hasattr(fn, "__func__")
+            else False
+        )
 
     call_tracker: dict[str, int] = {}
 
     async def selective_slow_to_thread(fn, *args, **kwargs):
         # Only slow down git.show; everything else (exists, Repo, rev_parse) is instant
-        fn_name = getattr(fn, "__name__", "") or getattr(getattr(fn, "__func__", None), "__name__", "")
+        fn_name = getattr(fn, "__name__", "") or getattr(
+            getattr(fn, "__func__", None), "__name__", ""
+        )
         if fn_name == "show":
             await asyncio.sleep(slow_delay)
         return fn(*args, **kwargs)
@@ -604,8 +620,7 @@ async def test_p02_parallel_faster_than_sequential_baseline():
 
     speedup = seq_time / par_time
     assert speedup >= 2.0, (
-        f"Expected ≥2× speedup, got {speedup:.2f}× "
-        f"(seq={seq_time:.3f}s, par={par_time:.3f}s)"
+        f"Expected ≥2× speedup, got {speedup:.2f}× (seq={seq_time:.3f}s, par={par_time:.3f}s)"
     )
 
 
@@ -626,7 +641,7 @@ async def test_b01_speedup_benchmark(capsys):
     Run with:  pytest tests/unit/test_epic09_parallel_analysis.py::test_b01_speedup_benchmark -v -s
     """
     io_delay_per_call = 0.03  # 30ms per blocking git op — realistic for local shallow clone
-    cap = 5                   # default max_concurrent_file_workers
+    cap = 5  # default max_concurrent_file_workers
 
     repo_path = Path("/fake/repo")
 
@@ -681,7 +696,9 @@ async def test_b01_speedup_benchmark(capsys):
         print("  ┌─────────────────────────────────────────────────────────────────┐")
         print("  │         EPIC-09 Parallel File Analysis — Speedup Report         │")
         print("  ├─────────────────────────────────────────────────────────────────┤")
-        print(f"  │  Simulated blocking git I/O per to_thread call: {io_delay_per_call*1000:.0f}ms          │")
+        print(
+            f"  │  Simulated blocking git I/O per to_thread call: {io_delay_per_call * 1000:.0f}ms          │"
+        )
         print(f"  │  Concurrency cap (max_concurrent_file_workers): {cap}             │")
         print("  ├────────┬──────────────┬────────────┬───────────┬───────────────┤")
         print("  │  Files │   Sequential │   Parallel │   Speedup │  Time saved   │")
@@ -697,6 +714,6 @@ async def test_b01_speedup_benchmark(capsys):
 
     # Assertions — speedup must be meaningful for multi-file PRs
     speedups = {r[0]: r[3] for r in rows}
-    assert speedups[5]  >= 2.0, f"5-file  speedup should be ≥2×, got {speedups[5]:.2f}×"
+    assert speedups[5] >= 2.0, f"5-file  speedup should be ≥2×, got {speedups[5]:.2f}×"
     assert speedups[10] >= 2.0, f"10-file speedup should be ≥2×, got {speedups[10]:.2f}×"
     assert speedups[20] >= 2.0, f"20-file speedup should be ≥2×, got {speedups[20]:.2f}×"

@@ -4,8 +4,11 @@ import * as fs from "fs"
 import * as path from "path"
 import * as http from "http"
 import * as https from "https"
+import { promisify } from "util"
 import { StatusBarManager } from "./statusBar"
 import { OutputChannelManager } from "./outputChannel"
+
+const execAsync = promisify(cp.exec)
 
 interface FileInput {
     path: string
@@ -70,6 +73,7 @@ export class DriftChecker {
     constructor(
         private output: OutputChannelManager,
         private statusBar: StatusBarManager,
+        private context: vscode.ExtensionContext,
     ) {
         this.diagnostics = vscode.languages.createDiagnosticCollection("docugardener")
     }
@@ -87,16 +91,25 @@ export class DriftChecker {
         }
 
         const backendUrl: string = config.get("backendUrl", "https://app.docugardener.dev").replace(/\/$/, "")
-        const apiKey: string = config.get("apiKey", "")
+        const apiKey: string = await this.context.secrets.get("docugardener.apiKey") ?? ""
         const blockOnCritical: boolean = config.get("blockOnCritical", false)
 
         if (!apiKey) {
             vscode.window.showWarningMessage(
-                "DocuGardener: API key is required. Generate one in the DocuGardener web app under Settings → Integrations → VS Code Plugin.",
-                "Open Settings",
-            ).then((choice) => {
-                if (choice === "Open Settings") {
-                    vscode.commands.executeCommand("workbench.action.openSettings", "docugardener.apiKey")
+                "DocuGardener: No API key configured.",
+                "Enter Key",
+                "Open Web App",
+            ).then(async (choice) => {
+                if (choice === "Enter Key") {
+                    const key = await vscode.window.showInputBox({
+                        prompt: "Paste your DocuGardener API key",
+                        password: true,
+                        placeHolder: "dg_...",
+                        validateInput: (v) => v.startsWith("dg_") ? null : "Key must start with dg_",
+                    })
+                    if (key) await this.context.secrets.store("docugardener.apiKey", key)
+                } else if (choice === "Open Web App") {
+                    vscode.env.openExternal(vscode.Uri.parse("https://app.docugardener.dev/dashboard/settings?tab=integrations"))
                 }
             })
             return
@@ -116,7 +129,7 @@ export class DriftChecker {
 
         let files: FileInput[]
         try {
-            files = this.getStagedFiles(repoRoot)
+            files = await this.getStagedFiles(repoRoot)
         } catch (err: any) {
             this.output.log(`ERROR collecting staged files: ${err.message}`)
             vscode.window.showErrorMessage(`DocuGardener: Failed to read staged files — ${err.message}`)
@@ -134,7 +147,7 @@ export class DriftChecker {
         this.output.log(`Checking ${files.length} staged file(s): ${files.map(f => path.basename(f.path)).join(", ")}`)
 
         // IDE-01 AC-2: extract repo slug from git remote for policy context
-        const repoSlug = this.getRepoSlug(repoRoot)
+        const repoSlug = await this.getRepoSlug(repoRoot)
         if (repoSlug) {
             this.output.log(`Repo: ${repoSlug} (policy context enabled)`)
         }
@@ -173,12 +186,9 @@ export class DriftChecker {
     }
 
     // IDE-01 AC-2: extract "owner/repo" from git remote URL
-    private getRepoSlug(repoRoot: string): string | undefined {
+    private async getRepoSlug(repoRoot: string): Promise<string | undefined> {
         try {
-            const remoteUrl = cp.execSync("git remote get-url origin", {
-                cwd: repoRoot,
-                encoding: "utf-8",
-            }).trim()
+            const remoteUrl = (await execAsync("git remote get-url origin", { cwd: repoRoot })).stdout.trim()
             // Handles https://github.com/owner/repo.git and git@github.com:owner/repo.git
             const match = remoteUrl.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?$/)
             return match ? match[1] : undefined
@@ -187,11 +197,8 @@ export class DriftChecker {
         }
     }
 
-    private getStagedFiles(repoRoot: string): FileInput[] {
-        const stagedOutput = cp.execSync("git diff --cached --name-only --diff-filter=ACMR", {
-            cwd: repoRoot,
-            encoding: "utf-8",
-        }).trim()
+    private async getStagedFiles(repoRoot: string): Promise<FileInput[]> {
+        const stagedOutput = (await execAsync("git diff --cached --name-only --diff-filter=ACMR", { cwd: repoRoot })).stdout.trim()
 
         if (!stagedOutput) return []
 
@@ -213,10 +220,7 @@ export class DriftChecker {
 
             let oldContent = ""
             try {
-                oldContent = cp.execSync(`git show HEAD:${relPath}`, {
-                    cwd: repoRoot,
-                    encoding: "utf-8",
-                })
+                oldContent = (await execAsync(`git show HEAD:${relPath}`, { cwd: repoRoot })).stdout
             } catch {
                 // New file — old_content stays ""
             }
@@ -366,6 +370,10 @@ export class DriftChecker {
                 this.diagnostics.set(anchorUri, existingDiags)
             }
         }
+    }
+
+    async storeApiKey(key: string): Promise<void> {
+        await this.context.secrets.store("docugardener.apiKey", key)
     }
 
     dispose(): void {

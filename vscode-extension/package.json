@@ -3,6 +3,12 @@
     "displayName": "DocuGardener",
     "description": "Pre-push documentation drift detection — know before you push",
     "version": "0.1.0",
+    "homepage": "https://docugardener.dev",
+    "bugs": {
+        "url": "https://github.com/docugardener/docugardener/issues"
+    },
+    "license": "AGPL-3.0-or-later",
+    "keywords": ["documentation", "drift", "git", "ai", "docs", "pre-push"],
     "publisher": "docugardener",
     "repository": {
         "type": "git",
@@ -21,6 +27,10 @@
                 "command": "docugardener.checkDrift",
                 "title": "DocuGardener: Check Drift Now",
                 "icon": "$(search)"
+            },
+            {
+                "command": "docugardener.enterApiKey",
+                "title": "DocuGardener: Enter API Key"
             }
         ],
         "configuration": {
@@ -34,7 +44,7 @@
                 "docugardener.apiKey": {
                     "type": "string",
                     "default": "",
-                    "description": "Plugin API key. Generate one in the DocuGardener web app under Settings → Integrations → VS Code Plugin.",
+                    "description": "API key for the DocuGardener VS Code extension. Use the 'DocuGardener: Enter API Key' command to set it securely.",
                     "secret": true
                 },
                 "docugardener.enabled": {
@@ -53,6 +63,9 @@
             "commandPalette": [
                 {
                     "command": "docugardener.checkDrift"
+                },
+                {
+                    "command": "docugardener.enterApiKey"
                 }
             ]
         }
@@ -61,12 +74,17 @@
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
         "vscode:prepublish": "npm run compile",
-        "package": "vsce package --no-dependencies"
+        "package": "vsce package --no-dependencies",
+        "test": "mocha --require ./out/test/vscode-mock.js 'out/test/**/*.test.js' --timeout 5000"
     },
     "devDependencies": {
+        "@types/mocha": "^10.0.6",
         "@types/node": "^20.0.0",
+        "@types/sinon": "^17.0.3",
         "@types/vscode": "^1.85.0",
-        "typescript": "^5.3.0",
-        "@vscode/vsce": "^2.24.0"
+        "@vscode/vsce": "^2.24.0",
+        "mocha": "^10.4.0",
+        "sinon": "^17.0.1",
+        "typescript": "^5.3.0"
     }
 }

@@ -19,9 +19,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-from scripts.score_golden import GoldenScorer, GoldenCase
+from scripts.score_golden import GoldenCase, GoldenScorer
 
 FIXTURES_DIR = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "golden"
 

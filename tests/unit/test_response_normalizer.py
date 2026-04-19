@@ -315,8 +315,13 @@ class TestNormalizeUsage:
 
     def test_openai_dict_with_cached_tokens(self):
         """EPIC-04-02/03: OpenAI dict response with prompt_tokens_details.cached_tokens."""
-        raw = {"usage": {"prompt_tokens": 800, "completion_tokens": 100,
-                          "prompt_tokens_details": {"cached_tokens": 400}}}
+        raw = {
+            "usage": {
+                "prompt_tokens": 800,
+                "completion_tokens": 100,
+                "prompt_tokens_details": {"cached_tokens": 400},
+            }
+        }
         u = normalize_usage(raw, "openai_chat")
         assert u["cache_read_tokens"] == 400
 

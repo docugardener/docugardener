@@ -67,3 +67,27 @@ def rotate_plugin_key(db: Session = Depends(get_db)):
     logger.info("Plugin API key rotated", tenant_id=tenant_id)
 
     return PluginKeyResponse(pluginApiKey=new_key, isSet=True)
+
+
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_plugin_key(db: Session = Depends(get_db)):
+    """
+    Revoke the plugin API key by removing it from workflowConfig.
+    Returns 204 No Content on success, 404 if no key is set.
+    """
+    tenant_id = get_tenant_id()
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
+
+    config = dict(tenant.workflowConfig or {})
+    if "pluginApiKey" not in config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No plugin API key is set"
+        )
+
+    del config["pluginApiKey"]
+    tenant.workflowConfig = config
+    db.commit()
+
+    logger.info("Plugin API key revoked", tenant_id=tenant_id)

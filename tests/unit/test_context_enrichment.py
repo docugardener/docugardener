@@ -16,10 +16,7 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
-import pytest
-
 from src.pipeline.context_enrichment import ContextEnricher
-
 
 # ---------------------------------------------------------------------------
 # Helpers — build temporary source files

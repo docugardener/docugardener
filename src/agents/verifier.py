@@ -13,6 +13,7 @@ import json
 import re
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from src.agents.llm import (
@@ -404,6 +405,7 @@ class VerificationAgent:
         if repo_path is not None:
             try:
                 from src.pipeline.context_enrichment import ContextEnricher
+
                 enricher = ContextEnricher()
                 neighbor_context = enricher.extract_neighbors(
                     entity.file_path, entity.name, repo_path=_Path(repo_path), n=3

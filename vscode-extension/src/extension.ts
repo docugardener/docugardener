@@ -10,10 +10,23 @@ let statusBar: StatusBarManager
 let output: OutputChannelManager
 let checker: DriftChecker
 
-export function activate(context: vscode.ExtensionContext): void {
+async function promptForApiKey(checker: DriftChecker): Promise<void> {
+    const key = await vscode.window.showInputBox({
+        prompt: "Paste your DocuGardener API key (generated in Settings → VS Code Plugin)",
+        password: true,
+        placeHolder: "dg_...",
+        validateInput: (v) => v.startsWith("dg_") ? null : "Key must start with dg_",
+    })
+    if (key) {
+        await checker.storeApiKey(key)
+        vscode.window.showInformationMessage("DocuGardener: API key saved. You're ready to go!")
+    }
+}
+
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
     output = new OutputChannelManager()
     statusBar = new StatusBarManager()
-    checker = new DriftChecker(output, statusBar)
+    checker = new DriftChecker(output, statusBar, context)
 
     output.log("DocuGardener extension activated")
     statusBar.setIdle()
@@ -49,12 +62,34 @@ export function activate(context: vscode.ExtensionContext): void {
         { providedCodeActionKinds: DocuGardenerCodeActionProvider.providedCodeActionKinds },
     )
 
+    // Register command: DocuGardener: Enter API Key — lets users re-enter their key anytime
+    const enterKeyCmd = vscode.commands.registerCommand(
+        "docugardener.enterApiKey",
+        () => promptForApiKey(checker),
+    )
+
     // Optional: run check automatically on git pre-push hook substitute.
     // We watch for changes to .git/COMMIT_EDITMSG as a lightweight proxy
     // for "user just committed staged changes" — no reliable pre-push hook
     // from within VS Code, so the command is the primary trigger.
 
-    context.subscriptions.push(checkCmd, createDocCmd, codeActionProvider, statusBar, output)
+    context.subscriptions.push(checkCmd, createDocCmd, codeActionProvider, enterKeyCmd, statusBar, output)
+
+    // Show onboarding if no API key is configured
+    const existingKey = await context.secrets.get("docugardener.apiKey")
+    if (!existingKey) {
+        vscode.window.showInformationMessage(
+            "DocuGardener: No API key configured — generate one in the web app to start checking drift.",
+            "Enter Key",
+            "Open Web App",
+        ).then(async (choice) => {
+            if (choice === "Enter Key") {
+                await promptForApiKey(checker)
+            } else if (choice === "Open Web App") {
+                vscode.env.openExternal(vscode.Uri.parse("https://app.docugardener.dev/dashboard/settings?tab=integrations"))
+            }
+        })
+    }
 }
 
 export function deactivate(): void {

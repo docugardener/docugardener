@@ -25,7 +25,6 @@ from src.agents.verifier import VerificationAgent
 from src.analysis.diff import ChangeType, EntityChange
 from src.analysis.parser import CodeEntity
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -89,9 +88,7 @@ def _make_agent() -> VerificationAgent:
     from src.agents.llm import LLMConfig
 
     mock_llm = MagicMock()
-    mock_llm.generate = AsyncMock(
-        return_value=MagicMock(content="Generated docs.", usage={})
-    )
+    mock_llm.generate = AsyncMock(return_value=MagicMock(content="Generated docs.", usage={}))
 
     agent = VerificationAgent.__new__(VerificationAgent)
     agent.generator = mock_llm

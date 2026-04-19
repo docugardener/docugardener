@@ -18,6 +18,11 @@ export const PLAN_LIMITS = {
         repos: 9999, // practically unlimited
         prsPerMonth: -1,
     },
+    ENTERPRISE: {
+        seats: -1,  // unlimited
+        repos: -1,  // unlimited
+        prsPerMonth: -1,
+    },
 }
 
 export function getPlanLimits(plan: string) {

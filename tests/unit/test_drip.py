@@ -8,8 +8,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.notifications.drip import (
     _get_drip_sent,
     _mark_sent,
@@ -22,8 +20,8 @@ from src.notifications.drip import (
     send_drip_email,
 )
 
-
 # ── Template builders ─────────────────────────────────────────────────────────
+
 
 class TestBuildDay0:
     def test_subject_and_placeholders(self):
@@ -88,6 +86,7 @@ class TestBuildDay7:
 
 # ── send_drip_email ───────────────────────────────────────────────────────────
 
+
 class TestSendDripEmail:
     def test_returns_false_when_smtp_not_configured(self):
         with patch("src.notifications.drip.settings") as mock_settings:
@@ -96,22 +95,27 @@ class TestSendDripEmail:
         assert result is False
 
     def test_returns_true_on_success(self):
-        with patch("src.notifications.drip.settings") as mock_settings, \
-             patch("src.notifications.drip._send_smtp") as mock_smtp:
+        with (
+            patch("src.notifications.drip.settings") as mock_settings,
+            patch("src.notifications.drip._send_smtp") as mock_smtp,
+        ):
             mock_settings.smtp_host = "smtp.gmail.com"
             mock_smtp.return_value = None
             result = send_drip_email("a@b.com", "subj", "<p>html</p>", "text")
         assert result is True
 
     def test_returns_false_on_smtp_error(self):
-        with patch("src.notifications.drip.settings") as mock_settings, \
-             patch("src.notifications.drip._send_smtp", side_effect=Exception("conn refused")):
+        with (
+            patch("src.notifications.drip.settings") as mock_settings,
+            patch("src.notifications.drip._send_smtp", side_effect=Exception("conn refused")),
+        ):
             mock_settings.smtp_host = "smtp.gmail.com"
             result = send_drip_email("a@b.com", "subj", "<p>html</p>", "text")
         assert result is False
 
 
 # ── Drip state helpers ────────────────────────────────────────────────────────
+
 
 class TestDripState:
     def _make_tenant(self, workflow_config=None):
@@ -138,9 +142,18 @@ class TestDripState:
 
 # ── _process_tenant ───────────────────────────────────────────────────────────
 
-def _make_db(tenant_created_days_ago=0, plan="FREE", has_admin=True,
-             first_name="Alice", repo_name="acme/api", repo_count=1,
-             first_job=None, completed_jobs=None, drip_sent=None):
+
+def _make_db(
+    tenant_created_days_ago=0,
+    plan="FREE",
+    has_admin=True,
+    first_name="Alice",
+    repo_name="acme/api",
+    repo_count=1,
+    first_job=None,
+    completed_jobs=None,
+    drip_sent=None,
+):
     db = MagicMock()
     now = datetime.now(UTC)
 
@@ -203,24 +216,30 @@ class TestProcessTenant:
 
     def test_sends_day0_on_install_day(self):
         db, tenant, now = _make_db(tenant_created_days_ago=0)
-        with patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send, \
-             patch("src.notifications.drip._mark_sent"):
+        with (
+            patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send,
+            patch("src.notifications.drip._mark_sent"),
+        ):
             _process_tenant(db, tenant, now)
         subjects = [c.args[1] for c in mock_send.call_args_list]
         assert any("set up" in s.lower() for s in subjects)
 
     def test_skips_day0_if_already_sent(self):
         db, tenant, now = _make_db(tenant_created_days_ago=0, drip_sent={"day0": True})
-        with patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send, \
-             patch("src.notifications.drip._mark_sent"):
+        with (
+            patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send,
+            patch("src.notifications.drip._mark_sent"),
+        ):
             _process_tenant(db, tenant, now)
         subjects = [c.args[1] for c in mock_send.call_args_list]
         assert not any("set up" in s.lower() for s in subjects)
 
     def test_sends_day1_when_no_jobs(self):
         db, tenant, now = _make_db(tenant_created_days_ago=1, first_job=None)
-        with patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send, \
-             patch("src.notifications.drip._mark_sent"):
+        with (
+            patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send,
+            patch("src.notifications.drip._mark_sent"),
+        ):
             _process_tenant(db, tenant, now)
         subjects = [c.args[1] for c in mock_send.call_args_list]
         assert any("PR" in s or "result" in s.lower() for s in subjects)
@@ -228,24 +247,30 @@ class TestProcessTenant:
     def test_skips_day1_when_job_exists(self):
         first_job = MagicMock()
         db, tenant, now = _make_db(tenant_created_days_ago=1, first_job=first_job)
-        with patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send, \
-             patch("src.notifications.drip._mark_sent"):
+        with (
+            patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send,
+            patch("src.notifications.drip._mark_sent"),
+        ):
             _process_tenant(db, tenant, now)
         subjects = [c.args[1] for c in mock_send.call_args_list]
         assert not any("PR" in s or "result" in s.lower() for s in subjects)
 
     def test_skips_day3_for_paid_plan(self):
         db, tenant, now = _make_db(tenant_created_days_ago=3, plan="PRO")
-        with patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send, \
-             patch("src.notifications.drip._mark_sent"):
+        with (
+            patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send,
+            patch("src.notifications.drip._mark_sent"),
+        ):
             _process_tenant(db, tenant, now)
         subjects = [c.args[1] for c in mock_send.call_args_list]
         assert not any("missing" in s.lower() or "upgrade" in s.lower() for s in subjects)
 
     def test_sends_day7_after_one_week(self):
         db, tenant, now = _make_db(tenant_created_days_ago=7)
-        with patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send, \
-             patch("src.notifications.drip._mark_sent"):
+        with (
+            patch("src.notifications.drip.send_drip_email", return_value=True) as mock_send,
+            patch("src.notifications.drip._mark_sent"),
+        ):
             _process_tenant(db, tenant, now)
         subjects = [c.args[1] for c in mock_send.call_args_list]
         assert any("working for you" in s.lower() for s in subjects)
@@ -253,10 +278,13 @@ class TestProcessTenant:
 
 # ── run_drip_scheduler ────────────────────────────────────────────────────────
 
+
 class TestRunDripScheduler:
     def test_exits_early_without_smtp(self):
-        with patch("src.notifications.drip.settings") as mock_settings, \
-             patch("src.notifications.drip.SessionLocal") as mock_session:
+        with (
+            patch("src.notifications.drip.settings") as mock_settings,
+            patch("src.notifications.drip.SessionLocal") as mock_session,
+        ):
             mock_settings.smtp_host = None
             run_drip_scheduler()
         mock_session.assert_not_called()
@@ -273,9 +301,11 @@ class TestRunDripScheduler:
         db = MagicMock()
         db.query.return_value.all.return_value = [t1, t2]
 
-        with patch("src.notifications.drip.settings") as mock_settings, \
-             patch("src.notifications.drip.SessionLocal", return_value=db), \
-             patch("src.notifications.drip._process_tenant") as mock_process:
+        with (
+            patch("src.notifications.drip.settings") as mock_settings,
+            patch("src.notifications.drip.SessionLocal", return_value=db),
+            patch("src.notifications.drip._process_tenant") as mock_process,
+        ):
             mock_settings.smtp_host = "smtp.gmail.com"
             run_drip_scheduler()
 

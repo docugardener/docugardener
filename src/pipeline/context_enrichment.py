@@ -176,9 +176,7 @@ class ContextEnricher:
             return ""
 
         # Find target's line position for proximity sorting
-        target_line = next(
-            (line for line, name, _ in candidates if name == entity_name), None
-        )
+        target_line = next((line for line, name, _ in candidates if name == entity_name), None)
         if target_line is None:
             # entity not found — return empty
             return ""
@@ -216,8 +214,7 @@ class ContextEnricher:
         top_level = [
             (n.lineno, n.name, _snippet(n))
             for n in ast.walk(tree)
-            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and n.col_offset == 0
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.col_offset == 0
         ]
         if any(name == entity_name for _, name, _ in top_level):
             return top_level
@@ -252,8 +249,7 @@ class ContextEnricher:
         except SyntaxError:
             # Fallback: grep for import lines
             import_lines = [
-                l for l in source.splitlines()
-                if l.startswith("import ") or l.startswith("from ")
+                l for l in source.splitlines() if l.startswith("import ") or l.startswith("from ")
             ]
         result = "\n".join(import_lines)
         return result[:_MAX_IMPORT_CHARS]
@@ -303,10 +299,7 @@ class ContextEnricher:
 
     def _ts_imports(self, source: str) -> str:
         """Extract TypeScript/JavaScript import lines."""
-        import_lines = [
-            line for line in source.splitlines()
-            if line.strip().startswith("import ")
-        ]
+        import_lines = [line for line in source.splitlines() if line.strip().startswith("import ")]
         result = "\n".join(import_lines)
         return result[:_MAX_IMPORT_CHARS]
 
@@ -321,7 +314,7 @@ class ContextEnricher:
 
     def _vote_docstring_style(self, source: str) -> str:
         """Scan docstrings and return the dominant style."""
-        docstrings = self._DOCSTRING_RE.findall(source)[: _DOCSTRING_SCAN_LIMIT]
+        docstrings = self._DOCSTRING_RE.findall(source)[:_DOCSTRING_SCAN_LIMIT]
         if not docstrings:
             # Also try single-quoted
             sq = re.findall(r"'''(.*?)'''", source, re.DOTALL)

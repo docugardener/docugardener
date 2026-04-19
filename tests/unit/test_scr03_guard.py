@@ -22,10 +22,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.agents.verifier import DriftAnalysis, VerificationAgent
+from src.agents.verifier import VerificationAgent
 from src.analysis.diff import ChangeType, EntityChange
 from src.analysis.parser import CodeEntity
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -115,7 +114,9 @@ class TestScr03Guard:
     @pytest.mark.asyncio
     async def test_scr03_02_high_score_nonempty_updates_unchanged(self, caplog):
         """SCR03-02: score=75 + non-empty required_updates → list untouched."""
-        existing = [{"file": "docs/api/payments.md", "section": "process_payment", "reason": "sig changed"}]
+        existing = [
+            {"file": "docs/api/payments.md", "section": "process_payment", "reason": "sig changed"}
+        ]
         agent = _make_agent(proposal_score=75, required_updates=existing)
         changes = [_make_change()]
 

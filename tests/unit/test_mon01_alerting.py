@@ -379,7 +379,9 @@ class TestDeploymentMonitoringDocs:
         internal DB takes ownership of contact points after first launch and
         ignores env var changes, so the Slack URL must be configured via UI."""
         assert "Slack" in deployment_content
-        assert "Contact points" in deployment_content or "contact point" in deployment_content.lower()
+        assert (
+            "Contact points" in deployment_content or "contact point" in deployment_content.lower()
+        )
 
     def test_documents_grafana_password(self, deployment_content):
         assert "GRAFANA_ADMIN_PASSWORD" in deployment_content
