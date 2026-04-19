@@ -75,7 +75,7 @@ groups:
             datasourceUid: __expr__
             model:
               type: math
-              expression: "$A / clamp_min($B, 0.001) > 0.05"
+              expression: "$A / ($B + 0.001) > 0.05"
         noDataState: OK
         execErrState: Alerting
         for: 5m
@@ -152,7 +152,7 @@ groups:
             datasourceUid: __expr__
             model:
               type: math
-              expression: "$A / clamp_min($B, 0.001) > 0.10"
+              expression: "$A / ($B + 0.001) > 0.10"
         noDataState: OK
         execErrState: Alerting
         for: 5m
@@ -199,7 +199,7 @@ groups:
             datasourceUid: __expr__
             model:
               type: math
-              expression: "$A / clamp_min($B, 0.001) > 0.05"
+              expression: "$A / ($B + 0.001) > 0.05"
         noDataState: OK
         execErrState: Alerting
         for: 10m
