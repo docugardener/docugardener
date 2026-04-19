@@ -19,18 +19,23 @@ class TestPgBouncerPoolPrePing:
         """_get_engine() must forward pool_pre_ping=True to create_engine."""
         import src.pipeline.job_manager as jm_module
 
-        # Reset the module-level singleton so _get_engine() re-runs create_engine
+        # Snapshot and reset the singleton so _get_engine() re-runs create_engine.
+        # Restore afterwards so this test does not contaminate the engine singleton
+        # for subsequent tests that rely on job_manager working correctly.
+        original_engine = jm_module._engine
         jm_module._engine = None
+        try:
+            with patch("src.pipeline.job_manager.create_engine") as mock_ce:
+                with patch("src.pipeline.job_manager.settings") as mock_settings:
+                    mock_settings.sql_database_url = "postgresql://fake/testdb"
+                    jm_module._get_engine()
 
-        with patch("src.pipeline.job_manager.create_engine") as mock_ce:
-            with patch("src.pipeline.job_manager.settings") as mock_settings:
-                mock_settings.sql_database_url = "postgresql://fake/testdb"
-                jm_module._get_engine()
-
-        mock_ce.assert_called_once_with(
-            "postgresql://fake/testdb",
-            pool_pre_ping=True,
-        )
+            mock_ce.assert_called_once_with(
+                "postgresql://fake/testdb",
+                pool_pre_ping=True,
+            )
+        finally:
+            jm_module._engine = original_engine
 
     def test_pool_pre_ping_present_in_source(self):
         """Smoke-check: pool_pre_ping=True is present in job_manager source."""
