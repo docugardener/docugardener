@@ -87,6 +87,17 @@ jobs:
 
             echo "==> Deploy complete — $(date -u)"
 
+      - name: Post-deploy tests — unit + integration + Vitest
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: deploy
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            cd /opt/docugardener
+            DOCKER_HOST=unix:///run/docker.sock bash scripts/run-tests-vps.sh python web
+
   # ── Smoke Test ────────────────────────────────────────────────────────────────
   smoke-test:
     name: Smoke Test

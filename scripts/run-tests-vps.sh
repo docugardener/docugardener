@@ -70,9 +70,21 @@ DC_FILE="${ROOT}/docker/docker-compose.yml"
 DC="docker compose --env-file ${ROOT}/.env -f ${DC_FILE}"
 
 # ── Suite selection ───────────────────────────────────────────────────────────
-SUITES_TO_RUN=("$@")
+# Parse --confirm-prod flag (required for e2e / playwright which touch production)
+SUITES_TO_RUN=()
+CONFIRM_PROD=false
+for arg in "$@"; do
+  if [ "${arg}" = "--confirm-prod" ]; then
+    CONFIRM_PROD=true
+  else
+    SUITES_TO_RUN+=("${arg}")
+  fi
+done
+
+# Default (no suite args): run only the safe suites that do NOT touch production.
+# Pass e2e / playwright explicitly + --confirm-prod for full QA.
 if [ ${#SUITES_TO_RUN[@]} -eq 0 ]; then
-  SUITES_TO_RUN=(python web e2e playwright)
+  SUITES_TO_RUN=(python web)
 fi
 
 # Normalise "all" → all suites
@@ -106,6 +118,31 @@ wants() {
   done
   return 1
 }
+
+# ── Production guard ──────────────────────────────────────────────────────────
+# e2e and playwright suites hit the LIVE production app and database.
+# They must be run deliberately, never automatically.
+if (wants e2e || wants playwright) && [ "${CONFIRM_PROD}" = "false" ]; then
+  echo ""
+  echo -e "${RED}${BOLD}  ✗ Production guard — cannot run e2e / playwright without --confirm-prod${NC}"
+  echo ""
+  echo "  These suites run against the LIVE production environment:"
+  echo "    • Create real GitHub PRs on docugardener/docugardener-test"
+  echo "    • Temporarily mutate tenant plan, features, and quota in the live DB"
+  echo "    • Burn real LLM API tokens (~15–20 calls per run)"
+  echo ""
+  echo "  Re-run with --confirm-prod when you intend a manual QA sign-off:"
+  echo ""
+  echo "    bash scripts/run-tests-vps.sh e2e --confirm-prod"
+  echo "    bash scripts/run-tests-vps.sh playwright --confirm-prod"
+  echo "    bash scripts/run-tests-vps.sh e2e playwright --confirm-prod"
+  echo ""
+  echo "  Safe suites (no production impact):"
+  echo "    bash scripts/run-tests-vps.sh              # python + web (default)"
+  echo "    bash scripts/run-tests-vps.sh python web"
+  echo ""
+  exit 1
+fi
 
 # ── Pre-flight ────────────────────────────────────────────────────────────────
 header "Pre-flight"
