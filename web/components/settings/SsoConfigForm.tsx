@@ -261,7 +261,7 @@ export function SsoConfigForm({ spEntityId, spAcsUrl, initialConfig }: SsoConfig
                         data-testid="sso-default-role-select"
                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                        <option value="VIEWER">Viewer (read-only)</option>
+                        <option value="VIEWER">Developer (read-only)</option>
                         <option value="AUDITOR">Auditor (read + export audit log)</option>
                         <option value="BILLING_ADMIN">Billing Admin (manage billing only)</option>
                     </select>

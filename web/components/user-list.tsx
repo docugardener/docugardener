@@ -191,7 +191,7 @@ export function UserList() {
                                             <div title={tenantPlan === "FREE" ? "Available on Pro and Team plans." : undefined}>
                                                 <SelectItem value="BILLING_ADMIN" disabled={tenantPlan === "FREE"}><span className={`text-xs font-bold uppercase ${tenantPlan === "FREE" ? "text-muted-foreground" : ""}`}>Billing Admin</span></SelectItem>
                                             </div>
-                                            <SelectItem value="VIEWER"><span className="text-xs font-bold uppercase">Viewer</span></SelectItem>
+                                            <SelectItem value="VIEWER"><span className="text-xs font-bold uppercase">Developer</span></SelectItem>
                                         </SelectContent>
                                     </Select>
 

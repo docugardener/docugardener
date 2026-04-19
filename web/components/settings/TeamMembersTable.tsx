@@ -11,6 +11,13 @@ import { UserPlus, Trash2 } from "lucide-react"
 const ROLES = ["ADMIN", "AUDITOR", "BILLING_ADMIN", "VIEWER"] as const
 type Role = (typeof ROLES)[number]
 
+const ROLE_LABELS: Record<Role, string> = {
+    ADMIN: "Admin",
+    AUDITOR: "Auditor",
+    BILLING_ADMIN: "Billing Admin",
+    VIEWER: "Developer",
+}
+
 interface Member {
     id: string
     email: string | null
@@ -154,7 +161,7 @@ export function TeamMembersTable() {
                                                 className="rounded-md border border-input bg-background px-2 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 {ROLES.map(r => (
-                                                    <option key={r} value={r}>{r}</option>
+                                                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                                                 ))}
                                             </select>
                                         </td>

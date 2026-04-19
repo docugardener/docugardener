@@ -120,7 +120,7 @@ ACS URL:       https://your-domain.example.com/auth/saml/callback`}
             <tr>
               <td className="px-4 py-3 font-mono text-xs">Admin group value</td>
               <td className="px-4 py-3 text-xs text-gray-400">optional</td>
-              <td className="px-4 py-3 text-xs">Users with this value get ADMIN role; all others get VIEWER</td>
+              <td className="px-4 py-3 text-xs">Users with this value get ADMIN role; all others get Developer</td>
             </tr>
           </tbody>
         </table>

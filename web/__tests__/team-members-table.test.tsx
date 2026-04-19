@@ -264,6 +264,41 @@ describe("E. TeamMembersTable self-protection", () => {
     })
 })
 
+// ── G. UX-COPY-01: VIEWER enum → "Developer" label ───────────────────────────
+
+describe("G. UX-COPY-01: role dropdown displays Developer instead of VIEWER", () => {
+    beforeEach(() => {
+        fetchMock.mockClear()
+        vi.resetModules()
+    })
+
+    it("role select options include 'Developer' not 'VIEWER'", async () => {
+        fetchMock.mockResolvedValueOnce(makeSuccessResponse(USERS_RESPONSE))
+        const { TeamMembersTable } = await import("@/components/settings/TeamMembersTable")
+        render(<TeamMembersTable />)
+        await waitFor(() => screen.getByText("viewer@test.com"))
+
+        const selects = screen.getAllByRole("combobox")
+        const developerOption = selects
+            .flatMap(s => Array.from((s as HTMLSelectElement).options))
+            .find(o => o.value === "VIEWER")
+        expect(developerOption?.text).toBe("Developer")
+    })
+
+    it("no option with raw text 'VIEWER' is visible in role dropdowns", async () => {
+        fetchMock.mockResolvedValueOnce(makeSuccessResponse(USERS_RESPONSE))
+        const { TeamMembersTable } = await import("@/components/settings/TeamMembersTable")
+        render(<TeamMembersTable />)
+        await waitFor(() => screen.getByText("viewer@test.com"))
+
+        // queryAllByText with exact match — raw 'VIEWER' should not appear in any option
+        const rawViewerOptions = screen
+            .queryAllByRole("option")
+            .filter(o => o.textContent === "VIEWER")
+        expect(rawViewerOptions).toHaveLength(0)
+    })
+})
+
 // ── F. Seat usage ─────────────────────────────────────────────────────────────
 
 describe("F. TeamMembersTable seat usage display", () => {

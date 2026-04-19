@@ -1,14 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * DG-ALIGN-05: Billing proxy interval passthrough.
+ * DG-ALIGN-05 / DG-SAAS-09: PlatformCloud billing proxy removed.
  *
- * Verifies that POST /api/billing/checkout (client_installed mode) forwards
- * the caller's `interval` field to PlatformCloud instead of hardcoding "monthly".
+ * The original DG-ALIGN-05 tests verified that the `client-installed` proxy
+ * forwarded an `interval` field to PlatformCloud. That proxy branch was deleted
+ * as part of DG-SAAS-09 (PlatformCloud frozen 2026-03-30).
  *
- * AC-ALIGN05-01  interval from body is forwarded to PC
- * AC-ALIGN05-02  missing interval defaults to "monthly"
- * AC-ALIGN05-03  interval="annual" is forwarded correctly
+ * These tests confirm:
+ *   AC-SAAS09-01  client-installed mode returns billing_not_available (no PC call)
+ *   AC-SAAS09-02  SaaS mode still returns a Stripe checkout URL
+ *   AC-SAAS09-03  "client-installed" string absent from checkout route source
  */
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -17,17 +20,26 @@ vi.mock("next-auth", () => ({ getServerSession: mockGetServerSession }))
 vi.mock("@/app/api/auth/[...nextauth]/route", () => ({ authOptions: {} }))
 
 const mockFindUnique = vi.fn()
+const mockUpdate = vi.fn()
 vi.mock("@/lib/prisma", () => ({
-    prisma: { tenant: { findUnique: (...a: any[]) => mockFindUnique(...a) } },
-}))
-vi.mock("@/lib/stripe", () => ({
-    getStripe: vi.fn(),
-    STRIPE_PRICE_IDS: {},
+    prisma: {
+        tenant: {
+            findUnique: (...a: any[]) => mockFindUnique(...a),
+            update: (...a: any[]) => mockUpdate(...a),
+        },
+    },
 }))
 
-// Capture what fetch receives
-const mockFetch = vi.fn()
-vi.stubGlobal("fetch", mockFetch)
+const mockCheckoutCreate = vi.fn()
+const mockSubsList = vi.fn()
+vi.mock("@/lib/stripe", () => ({
+    getStripe: () => ({
+        customers: { create: vi.fn().mockResolvedValue({ id: "cus_new" }) },
+        checkout: { sessions: { create: (...a: any[]) => mockCheckoutCreate(...a) } },
+        subscriptions: { list: (...a: any[]) => mockSubsList(...a) },
+    }),
+    STRIPE_PRICE_IDS: { pro: "price_pro", team: "price_team" },
+}))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -43,61 +55,54 @@ function makeReq(body: object) {
     })
 }
 
-describe("POST /api/billing/checkout — DG-ALIGN-05 interval passthrough (client_installed)", () => {
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+describe("DG-SAAS-09: PlatformCloud interval proxy removed from checkout", () => {
     beforeEach(() => {
         vi.resetModules()
         vi.clearAllMocks()
         vi.stubEnv("BILLING_ENABLED", "true")
         mockGetServerSession.mockResolvedValue(adminSession())
-        process.env.DEPLOYMENT_MODE = "client-installed"
-        process.env.PLATFORM_CLOUD_URL = "http://platform.test"
-        process.env.PLATFORM_CLOUD_TOKEN = "tok-123"
-        process.env.LICENSE_KEY = "dg_lic_abc"
+        vi.stubGlobal("fetch", vi.fn())
     })
 
-    it("AC-ALIGN05-01: forwards caller-supplied interval to PlatformCloud", async () => {
-        mockFetch.mockResolvedValue({
-            ok: true,
-            status: 200,
-            json: async () => ({ checkout_url: "https://stripe.com/pay/annual" }),
-        })
-
-        const { POST } = await import("@/app/api/billing/checkout/route")
-        await POST(makeReq({ plan: "pro", interval: "annual" }))
-
-        expect(mockFetch).toHaveBeenCalledOnce()
-        const [, opts] = mockFetch.mock.calls[0]
-        const body = JSON.parse(opts.body)
-        expect(body.interval).toBe("annual")
+    afterEach(() => {
+        vi.unstubAllEnvs()
+        vi.unstubAllGlobals()
     })
 
-    it("AC-ALIGN05-02: defaults to 'monthly' when interval is absent", async () => {
-        mockFetch.mockResolvedValue({
-            ok: true,
-            status: 200,
-            json: async () => ({ checkout_url: "https://stripe.com/pay/monthly" }),
-        })
-
+    it("AC-SAAS09-01: client-installed returns billing_not_available, fetch never called", async () => {
+        vi.stubEnv("DEPLOYMENT_MODE", "client-installed")
         const { POST } = await import("@/app/api/billing/checkout/route")
-        await POST(makeReq({ plan: "pro" }))
-
-        expect(mockFetch).toHaveBeenCalledOnce()
-        const [, opts] = mockFetch.mock.calls[0]
-        const body = JSON.parse(opts.body)
-        expect(body.interval).toBe("monthly")
-    })
-
-    it("AC-ALIGN05-03: returns checkout URL from PC response", async () => {
-        mockFetch.mockResolvedValue({
-            ok: true,
-            status: 200,
-            json: async () => ({ checkout_url: "https://stripe.com/pay/xyz" }),
-        })
-
-        const { POST } = await import("@/app/api/billing/checkout/route")
-        const res = await POST(makeReq({ plan: "team", interval: "annual" }))
+        const res = await POST(makeReq({ plan: "pro", interval: "annual" }))
         const data = await res.json()
 
-        expect(data.url).toBe("https://stripe.com/pay/xyz")
+        expect(data.error).toBe("billing_not_available")
+        // No outbound PC fetch should occur
+        expect(vi.mocked(global.fetch)).not.toHaveBeenCalled()
+    })
+
+    it("AC-SAAS09-02: SaaS mode (no DEPLOYMENT_MODE) returns Stripe checkout URL", async () => {
+        mockFindUnique.mockResolvedValue({ id: "t-1", name: "Acme", stripeCustomerId: "cus_existing" })
+        mockSubsList.mockResolvedValue({ data: [] })
+        mockCheckoutCreate.mockResolvedValue({ url: "https://checkout.stripe.com/saas-session" })
+
+        const { POST } = await import("@/app/api/billing/checkout/route")
+        const res = await POST(makeReq({ plan: "pro" }))
+        const data = await res.json()
+
+        expect(data.url).toBe("https://checkout.stripe.com/saas-session")
+        expect(vi.mocked(global.fetch)).not.toHaveBeenCalled()
+    })
+
+    it("AC-SAAS09-03: checkout route source does not contain client-installed proxy code", async () => {
+        const { readFileSync } = await import("fs")
+        const { join } = await import("path")
+        const src = readFileSync(
+            join(process.cwd(), "app/api/billing/checkout/route.ts"),
+            "utf8",
+        )
+        expect(src).not.toContain("client-installed")
+        expect(src).not.toContain("PLATFORM_CLOUD_URL")
     })
 })

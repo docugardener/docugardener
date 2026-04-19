@@ -267,114 +267,58 @@ describe("POST /api/billing/checkout", () => {
     })
 })
 
-// ── DG-BIL-01: client_installed proxy tests (checkout) ───────────────────────
+// ── DG-SAAS-09: client-installed proxy removed ────────────────────────────────
 
-describe("POST /api/billing/checkout — client_installed mode", () => {
+describe("DG-SAAS-09: client-installed proxy branch removed", () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        process.env.DEPLOYMENT_MODE       = "client-installed"
-        process.env.PLATFORM_CLOUD_URL    = "https://platform.example.com"
-        process.env.PLATFORM_CLOUD_TOKEN  = "pc_test_token"
-        process.env.LICENSE_KEY           = "dg_lic_test_key"
-        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-            new Response(
-                JSON.stringify({ checkout_url: "https://checkout.stripe.com/stub" }),
-                { status: 200, headers: { "Content-Type": "application/json" } },
-            )
-        ))
+        vi.stubEnv("BILLING_ENABLED", "true")
+        vi.stubEnv("DEPLOYMENT_MODE", "client-installed")
+        vi.stubGlobal("fetch", vi.fn())
     })
 
     afterEach(() => {
-        delete process.env.DEPLOYMENT_MODE
-        delete process.env.PLATFORM_CLOUD_URL
-        delete process.env.PLATFORM_CLOUD_TOKEN
-        delete process.env.LICENSE_KEY
+        vi.unstubAllEnvs()
         vi.unstubAllGlobals()
     })
 
-    it("DG-BIL-01-checkout-4: non-ADMIN role in client_installed mode → 403 (role gate applies to proxy path too)", async () => {
-        mockGetServerSession.mockResolvedValue(viewerSession() as any)
-        mockFindUnique.mockResolvedValue(makeTenant())
+    it("checkout: client-installed falls through to HYB-05 → billing_not_available (no PC proxy)", async () => {
+        mockGetServerSession.mockResolvedValue(adminSession() as any)
         const res = await checkoutPOST(makeRequest({ plan: "pro" }))
-        expect(res.status).toBe(403)
-        // PC proxy fetch must NOT be called — gate fires before the outbound request
+        const data = await res.json()
+        expect(data.error).toBe("billing_not_available")
+        // PlatformCloud fetch must NOT be called
         expect(vi.mocked(global.fetch)).not.toHaveBeenCalled()
     })
 
-    it("DG-BIL-01-checkout-1: client_installed mode calls PlatformCloud, not Stripe", async () => {
-        mockGetServerSession.mockResolvedValue(adminSession() as any)
-        const res = await checkoutPOST(makeRequest({ plan: "pro" }))
-        expect(res.status).toBe(200)
-        // Stripe should NOT be called
-        expect(mockStripeCheckoutCreate).not.toHaveBeenCalled()
-        // fetch SHOULD be called with PlatformCloud URL
-        const fetchMock = vi.mocked(global.fetch)
-        expect(fetchMock).toHaveBeenCalledOnce()
-        const calledUrl = fetchMock.mock.calls[0][0] as string
-        expect(calledUrl).toContain("platform.example.com")
-        expect(calledUrl).toContain("billing/checkout")
-    })
-
-    it("DG-BIL-01-checkout-2: proxy request body includes license_key, plan, product=docugardener", async () => {
-        mockGetServerSession.mockResolvedValue(adminSession() as any)
-        await checkoutPOST(makeRequest({ plan: "pro" }))
-        const fetchMock = vi.mocked(global.fetch)
-        const body = JSON.parse(fetchMock.mock.calls[0][1]?.body as string)
-        expect(body.license_key).toBe("dg_lic_test_key")
-        expect(body.product).toBe("docugardener")
-        expect(body.plan).toBeDefined()
-    })
-
-    it("DG-BIL-01-checkout-3: proxy sets Bearer auth header from PLATFORM_CLOUD_TOKEN", async () => {
-        mockGetServerSession.mockResolvedValue(adminSession() as any)
-        await checkoutPOST(makeRequest({ plan: "pro" }))
-        const fetchMock = vi.mocked(global.fetch)
-        const headers = fetchMock.mock.calls[0][1]?.headers as Record<string, string>
-        expect(headers["Authorization"]).toBe("Bearer pc_test_token")
-    })
-})
-
-// ── DG-BIL-01: client_installed proxy tests (portal) ─────────────────────────
-
-describe("POST /api/billing/portal — client_installed mode", () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-        process.env.DEPLOYMENT_MODE       = "client-installed"
-        process.env.PLATFORM_CLOUD_URL    = "https://platform.example.com"
-        process.env.PLATFORM_CLOUD_TOKEN  = "pc_test_token"
-        process.env.LICENSE_KEY           = "dg_lic_test_key"
-        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-            new Response(
-                JSON.stringify({ portal_url: "https://billing.stripe.com/stub_portal" }),
-                { status: 200, headers: { "Content-Type": "application/json" } },
-            )
-        ))
-    })
-
-    afterEach(() => {
-        delete process.env.DEPLOYMENT_MODE
-        delete process.env.PLATFORM_CLOUD_URL
-        delete process.env.PLATFORM_CLOUD_TOKEN
-        delete process.env.LICENSE_KEY
-        vi.unstubAllGlobals()
-    })
-
-    it("DG-BIL-01-portal-1: client_installed mode proxies portal to PlatformCloud", async () => {
+    it("portal: client-installed falls through to HYB-05 → billing_not_available (no PC proxy)", async () => {
         mockGetServerSession.mockResolvedValue(adminSession() as any)
         const req = new Request("http://localhost/api/billing/portal", { method: "POST" })
         const res = await portalPOST(req)
-        expect(res.status).toBe(200)
-        // Stripe should NOT be called
-        expect(mockStripePortalCreate).not.toHaveBeenCalled()
-        // fetch SHOULD be called with PlatformCloud URL
-        const fetchMock = vi.mocked(global.fetch)
-        expect(fetchMock).toHaveBeenCalledOnce()
-        const calledUrl = fetchMock.mock.calls[0][0] as string
-        expect(calledUrl).toContain("platform.example.com")
-        expect(calledUrl).toContain("billing/portal")
-        // proxy should pass Bearer token
-        const headers = fetchMock.mock.calls[0][1]?.headers as Record<string, string>
-        expect(headers["Authorization"]).toBe("Bearer pc_test_token")
+        const data = await res.json()
+        expect(data.error).toBe("billing_not_available")
+        // PlatformCloud fetch must NOT be called
+        expect(vi.mocked(global.fetch)).not.toHaveBeenCalled()
+    })
+
+    it("checkout source: DEPLOYMENT_MODE=client-installed string is absent from route", async () => {
+        const { readFileSync } = await import("fs")
+        const { join } = await import("path")
+        const src = readFileSync(
+            join(process.cwd(), "app/api/billing/checkout/route.ts"),
+            "utf8",
+        )
+        expect(src).not.toContain("client-installed")
+    })
+
+    it("portal source: DEPLOYMENT_MODE=client-installed string is absent from route", async () => {
+        const { readFileSync } = await import("fs")
+        const { join } = await import("path")
+        const src = readFileSync(
+            join(process.cwd(), "app/api/billing/portal/route.ts"),
+            "utf8",
+        )
+        expect(src).not.toContain("client-installed")
     })
 })
 

@@ -28,50 +28,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "BILLING_NOT_ENABLED" }, { status: 404 })
   }
 
-    // DG-BIL-01: client-installed mode proxies billing to PlatformCloud
-    // FROZEN: client-installed mode is not actively maintained (PlatformCloud frozen 2026-03-30)
-    if (process.env.DEPLOYMENT_MODE === "client-installed") {
-        const session = await getServerSession(authOptions)
-        if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-        if ((session.user as any).role !== "ADMIN") {
-            return NextResponse.json({ error: "Forbidden — ADMIN role required" }, { status: 403 })
-        }
-
-        let body: { plan?: string; interval?: string }
-        try { body = await req.json() } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }) }
-
-        const platformUrl = process.env.PLATFORM_CLOUD_URL
-        const platformToken = process.env.PLATFORM_CLOUD_TOKEN
-        const licenseKey = process.env.LICENSE_KEY
-
-        // DG-ALIGN-05: pass interval through so callers can request annual billing
-        const interval = body.interval ?? "monthly"
-        // PC expects uppercase plan names and requires redirect URLs
-        const resp = await fetch(`${platformUrl}/api/v1/billing/checkout`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${platformToken}` },
-            body: JSON.stringify({
-                product: "docugardener",
-                license_key: licenseKey,
-                plan: (body.plan as string).toUpperCase(),
-                interval,
-                success_url: `${APP_URL}/dashboard/billing?upgraded=1`,
-                cancel_url: `${APP_URL}/dashboard/billing`,
-            }),
-        })
-        const data = await resp.json()
-        if (!resp.ok) {
-            const errMsg = typeof data?.error === "string"
-                ? data.error
-                : data?.error?.fieldErrors
-                    ? `Validation: ${JSON.stringify(data.error.fieldErrors)}`
-                    : JSON.stringify(data)
-            console.error("[DG-BIL-01] PC checkout error", resp.status, errMsg)
-            return NextResponse.json({ error: errMsg }, { status: resp.status })
-        }
-        return NextResponse.json({ url: data.checkout_url }, { status: 200 })
-    }
-
     // HYB-05: Stripe billing is only available in SaaS mode.
     if (process.env.DEPLOYMENT_MODE && process.env.DEPLOYMENT_MODE !== "saas") {
         return NextResponse.json(
