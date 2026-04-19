@@ -71,10 +71,12 @@ ufw status
 ```bash
 git clone https://github.com/<your-org>/docugardener.git
 cd docugardener
-
-# Place your GitHub App private key
 mkdir -p secrets
-cp /path/to/your-github-app.pem secrets/github-app.pem
+```
+
+Place your GitHub App private key at `secrets/github-app.pem` and lock it down:
+
+```bash
 chmod 600 secrets/github-app.pem
 ```
 
