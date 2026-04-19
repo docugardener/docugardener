@@ -23,6 +23,7 @@ from src.core.logging import get_logger
 from src.jobs.nightly_rollup import run_nightly_rollup
 from src.jobs.rules_staleness import run_rules_staleness_check
 from src.jobs.stale_sweeper import run_stale_job_sweeper
+from src.notifications.drip import run_drip_scheduler
 
 logger = get_logger(__name__)
 
@@ -50,6 +51,16 @@ def build_scheduler() -> BlockingScheduler:
         trigger=CronTrigger(hour=3, minute=0, timezone="UTC"),
         id="rules_staleness_check",
         name="Rules Artifact Staleness Check (RULES-01)",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
+    # EPIC-01-GAP-02: Welcome email drip — daily at 09:00 UTC
+    scheduler.add_job(
+        func=run_drip_scheduler,
+        trigger=CronTrigger(hour=9, minute=0, timezone="UTC"),
+        id="drip_scheduler",
+        name="Welcome Email Drip (EPIC-01-GAP-02)",
         replace_existing=True,
         misfire_grace_time=3600,
     )

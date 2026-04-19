@@ -69,6 +69,14 @@ class Settings(BaseSettings):
     resend_api_key: str | None = None
     anthropic_model: str = Field(default="claude-sonnet-4-6")
 
+    # Email / SMTP (Google Workspace in production)
+    smtp_host: str | None = Field(default=None)
+    smtp_port: int = Field(default=587)
+    smtp_secure: bool = Field(default=False)
+    smtp_user: str | None = Field(default=None)
+    smtp_pass: str | None = Field(default=None)
+    email_from: str = Field(default="DocuGardener <noreply@docugardener.dev>")
+
     # Ollama
     ollama_url: str = Field(default="http://localhost:11434")
     ollama_model: str = Field(default="llama3")

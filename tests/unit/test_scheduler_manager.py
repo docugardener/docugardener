@@ -19,19 +19,20 @@ class TestBuildScheduler:
         scheduler = build_scheduler()
         assert isinstance(scheduler, BlockingScheduler)
 
-    def test_registers_three_jobs(self):
-        """build_scheduler registers exactly three jobs."""
+    def test_registers_four_jobs(self):
+        """build_scheduler registers exactly four jobs."""
         scheduler = build_scheduler()
         jobs = scheduler.get_jobs()
-        assert len(jobs) == 3
+        assert len(jobs) == 4
 
     def test_job_ids_are_present(self):
-        """build_scheduler registers nightly_rollup, rules_staleness_check, stale_job_sweeper."""
+        """build_scheduler registers all four scheduled jobs."""
         scheduler = build_scheduler()
         job_ids = {j.id for j in scheduler.get_jobs()}
         assert "nightly_rollup" in job_ids
         assert "rules_staleness_check" in job_ids
         assert "stale_job_sweeper" in job_ids
+        assert "drip_scheduler" in job_ids
 
 
 class TestRunScheduler:
