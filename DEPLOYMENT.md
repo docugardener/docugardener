@@ -9,12 +9,25 @@ Internet
   │  443 / 80
   ▼
 Caddy (TLS termination)
-  ├── /webhooks/*  →  FastAPI  :8000
-  ├── /health      →  FastAPI  :8000
-  └── *            →  Next.js  :3001
-                           │
-                    Postgres / Redis / Weaviate
-                    (Docker-internal only)
+  ├── /webhooks/*       →  FastAPI  :8000
+  ├── /api/webhooks/*   →  FastAPI  :8000  (strips /api prefix)
+  ├── /health           →  FastAPI  :8000
+  ├── /diagnostics*     →  FastAPI  :8000
+  ├── /auth/saml/*      →  FastAPI  :8000
+  ├── /scim/v2*         →  FastAPI  :8000
+  ├── /check*           →  FastAPI  :8000
+  ├── /plugin-key*      →  FastAPI  :8000
+  ├── /repos/*          →  FastAPI  :8000
+  ├── /billing/*        →  FastAPI  :8000
+  ├── /inbox/*          →  FastAPI  :8000
+  ├── /prompts/*        →  FastAPI  :8000
+  ├── /api/feedback*    →  FastAPI  :8000
+  └── *                 →  Next.js  :3001
+                                │
+                  PgBouncer :5432 (connection pooler)
+                         │
+                  Postgres / Redis / Weaviate
+                  (Docker-internal only)
 ```
 
 ---
@@ -106,8 +119,9 @@ On first run Docker will:
 2. Start Postgres and wait for it to be healthy
 3. Run `prisma migrate deploy` (the `migrate` service — exits when done)
 4. Start the Next.js web app
-5. Start the FastAPI backend, worker, and scheduler
-6. Start Caddy — which immediately obtains a TLS certificate
+5. Start PgBouncer (connection pooler between Python services and Postgres)
+6. Start the FastAPI backend, two RQ workers, and the nightly scheduler
+7. Start Caddy — which immediately obtains a TLS certificate
 
 Check the logs:
 
@@ -152,6 +166,25 @@ docker compose --env-file .env.production \
 ```
 
 The `migrate` service runs on every `up`, applying any new Prisma migrations before the web app restarts.
+
+> **Env var change?** `docker compose up -d --build` reuses cached environment values from the previous run. If you changed `.env.production`, add `--force-recreate` to ensure all containers pick up the new values:
+> ```bash
+> docker compose --env-file .env.production \
+>                -f docker/docker-compose.prod.yml \
+>                up -d --build --force-recreate
+> ```
+
+---
+
+## PgBouncer (connection pooler)
+
+The production stack includes **PgBouncer** in transaction-mode pooling between the Python services (`docugardener`, `worker`, `worker-2`, `scheduler`) and Postgres. This caps Postgres connections and prevents connection exhaustion under load.
+
+- FastAPI and workers connect to `pgbouncer:5432` — **not** `postgres:5432` directly
+- Next.js (`web`) and the Prisma migration runner (`migrate`) bypass PgBouncer and connect to `postgres:5432` directly, because Prisma requires session-mode semantics
+- No configuration needed — PgBouncer starts automatically with the stack
+
+If you see `FATAL: too many connections` in Postgres logs, reduce `MAX_CLIENT_CONN` or `DEFAULT_POOL_SIZE` in the `pgbouncer` service environment in `docker-compose.prod.yml`.
 
 ---
 
@@ -325,7 +358,9 @@ Browsers will show an "untrusted certificate" warning until you add Caddy's loca
 - [ ] Firewall allows only 22, 80, 443
 - [ ] `secrets/github-app.pem` has `chmod 600`
 - [ ] `.env.production` has `chmod 600` and is in `.gitignore`
-- [ ] All four generated secrets (`NEXTAUTH_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `ENCRYPTION_KEY`) are set to unique random values
+- [ ] Generated secrets set to unique random values: `NEXTAUTH_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `ENCRYPTION_KEY`, `FEEDBACK_HMAC_SECRET`, `AUDIT_EXPORT_SIGNING_KEY`
 - [ ] `GITHUB_WEBHOOK_SECRET` matches what is configured in the GitHub App settings
 - [ ] GitHub OAuth callback URL is `https://<domain>/api/auth/callback/github`
+- [ ] `OWNER_EMAIL` set to a real address (gates the `/admin/owner` console — leave unset to disable)
+- [ ] Stripe keys (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_TEAM`) set if billing is enabled
 - [ ] `ufw status` shows only 22/80/443 open
