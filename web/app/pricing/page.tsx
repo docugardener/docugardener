@@ -4,7 +4,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Check, X, Zap, Building2, Sparkles, ChevronDown } from "lucide-react"
+import { Check, X, Zap, Building2, Sparkles, ChevronDown, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -86,51 +86,89 @@ const PLANS = [
         cta: "Upgrade to Team",
         ctaVariant: "default" as const,
     },
+    {
+        id: "enterprise" as const,
+        name: "Enterprise",
+        monthlyPrice: null,
+        period: "",
+        description: "For organisations where data isolation, compliance, and SLAs are non-negotiable.",
+        icon: Shield,
+        badge: null,
+        highlight: false,
+        features: [
+            "Everything in Team",
+            "Dedicated instance — data never leaves your circuit",
+            "Air-gapped / self-hosted deployment option",
+            "Unlimited seats",
+            "Unlimited repositories",
+            "Audit log retention — 7 years",
+            "Custom policy engine rules",
+            "99.9% uptime SLA",
+            "Quarterly Business Review",
+            "Custom contract, MSA & DPA",
+            "Dedicated onboarding & support",
+        ],
+        cta: "Contact sales",
+        ctaVariant: "outline" as const,
+    },
 ]
 
 // ── Feature matrix ─────────────────────────────────────────────────────────────
 
 type CellValue = boolean | string
 
-const FEATURE_MATRIX: { group: string; rows: { label: string; free: CellValue; pro: CellValue; team: CellValue }[] }[] = [
+const FEATURE_MATRIX: { group: string; rows: { label: string; free: CellValue; pro: CellValue; team: CellValue; enterprise: CellValue }[] }[] = [
     {
         group: "Core",
         rows: [
-            { label: "PR analyses / month",  free: "50",        pro: "500",       team: "Unlimited" },
-            { label: "Repositories",          free: "1",         pro: "5",         team: "Unlimited" },
-            { label: "Team seats",            free: "1",         pro: "10",        team: "100" },
-            { label: "Private repos",         free: false,       pro: true,        team: true },
-            { label: "Agent rule sets",       free: "3",         pro: "Unlimited", team: "Unlimited" },
+            { label: "PR analyses / month",  free: "50",        pro: "500",       team: "Unlimited",  enterprise: "Unlimited" },
+            { label: "Repositories",          free: "1",         pro: "5",         team: "Unlimited",  enterprise: "Unlimited" },
+            { label: "Team seats",            free: "1",         pro: "10",        team: "100",        enterprise: "Unlimited" },
+            { label: "Private repos",         free: false,       pro: true,        team: true,         enterprise: true },
+            { label: "Agent rule sets",       free: "3",         pro: "Unlimited", team: "Unlimited",  enterprise: "Unlimited" },
         ],
     },
     {
         group: "AI & Automation",
         rows: [
-            { label: "AI Author Mode",        free: true,        pro: true,        team: true },
-            { label: "Drift analysis",        free: true,        pro: true,        team: true },
-            { label: "Auto-fix PR generation",free: true,        pro: true,        team: true },
-            { label: "Holistic scoring",      free: false,       pro: true,        team: true },
-            { label: "Custom prompt tone",    free: false,       pro: true,        team: true },
+            { label: "AI Author Mode",        free: true,        pro: true,        team: true,         enterprise: true },
+            { label: "Drift analysis",        free: true,        pro: true,        team: true,         enterprise: true },
+            { label: "Auto-fix PR generation",free: true,        pro: true,        team: true,         enterprise: true },
+            { label: "Holistic scoring",      free: false,       pro: true,        team: true,         enterprise: true },
+            { label: "Custom prompt tone",    free: false,       pro: true,        team: true,         enterprise: true },
+            { label: "Custom policy rules",   free: false,       pro: false,       team: false,        enterprise: true },
         ],
     },
     {
         group: "Integrations",
         rows: [
-            { label: "GitHub Issues",         free: true,        pro: true,        team: true },
-            { label: "Slack",                 free: false,       pro: true,        team: true },
-            { label: "Jira",                  free: false,       pro: true,        team: true },
-            { label: "Linear",                free: false,       pro: true,        team: true },
-            { label: "VS Code extension",     free: false,       pro: true,        team: true },
+            { label: "GitHub Issues",         free: true,        pro: true,        team: true,         enterprise: true },
+            { label: "Slack",                 free: false,       pro: true,        team: true,         enterprise: true },
+            { label: "Jira",                  free: false,       pro: true,        team: true,         enterprise: true },
+            { label: "Linear",                free: false,       pro: true,        team: true,         enterprise: true },
+            { label: "VS Code extension",     free: false,       pro: true,        team: true,         enterprise: true },
         ],
     },
     {
-        group: "Enterprise",
+        group: "Security & Compliance",
         rows: [
-            { label: "Audit log",             free: false,       pro: true,        team: true },
-            { label: "Audit log export",      free: false,       pro: false,       team: true },
-            { label: "SSO / SAML 2.0",        free: false,       pro: false,       team: true },
-            { label: "SCIM provisioning",     free: false,       pro: false,       team: true },
-            { label: "Compliance templates",  free: false,       pro: false,       team: true },
+            { label: "Audit log",                    free: false, pro: true,  team: true,  enterprise: true },
+            { label: "Audit log export",             free: false, pro: false, team: true,  enterprise: true },
+            { label: "Audit log retention",          free: false, pro: false, team: "90 days", enterprise: "7 years" },
+            { label: "SSO / SAML 2.0",               free: false, pro: false, team: true,  enterprise: true },
+            { label: "SCIM provisioning",            free: false, pro: false, team: true,  enterprise: true },
+            { label: "Compliance templates",         free: false, pro: false, team: true,  enterprise: true },
+            { label: "Dedicated instance",           free: false, pro: false, team: false, enterprise: true },
+            { label: "Air-gapped / self-hosted",     free: false, pro: false, team: false, enterprise: true },
+        ],
+    },
+    {
+        group: "Support & SLA",
+        rows: [
+            { label: "Uptime SLA",           free: false,       pro: false,       team: false,        enterprise: "99.9%" },
+            { label: "Quarterly Business Review", free: false,  pro: false,       team: false,        enterprise: true },
+            { label: "Dedicated onboarding", free: false,       pro: false,       team: false,        enterprise: true },
+            { label: "Custom contract & DPA",free: false,       pro: false,       team: false,        enterprise: true },
         ],
     },
 ]
@@ -271,25 +309,30 @@ export default function PricingPage() {
                 )}
 
                 {/* ── Plan cards ───────────────────────────────────────────── */}
-                <div className="grid md:grid-cols-3 gap-6 mb-20">
+                <div className="grid md:grid-cols-4 gap-5 mb-20">
                     {PLANS.map((plan) => {
                         const Icon = plan.icon
                         const isCurrentPlan = currentPlan?.toUpperCase() === plan.id.toUpperCase()
-                        const displayPrice = plan.monthlyPrice === 0
-                            ? "$0"
-                            : isAnnual && plan.annualMonthlyPrice
-                                ? `$${plan.annualMonthlyPrice}`
-                                : `$${plan.monthlyPrice}`
-                        const periodLabel = plan.monthlyPrice === 0
-                            ? "forever"
-                            : isAnnual
-                                ? "/ mo, billed annually"
-                                : "/ month"
+                        const isEnterprise = plan.id === "enterprise"
+                        const displayPrice = plan.monthlyPrice === null
+                            ? "Custom"
+                            : plan.monthlyPrice === 0
+                                ? "$0"
+                                : isAnnual && (plan as any).annualMonthlyPrice
+                                    ? `$${(plan as any).annualMonthlyPrice}`
+                                    : `$${plan.monthlyPrice}`
+                        const periodLabel = plan.monthlyPrice === null
+                            ? "pricing"
+                            : plan.monthlyPrice === 0
+                                ? "forever"
+                                : isAnnual
+                                    ? "/ mo, billed annually"
+                                    : "/ month"
 
                         return (
                             <Card
                                 key={plan.id}
-                                className={`relative flex flex-col ${plan.highlight ? "border-green-500 shadow-lg shadow-green-500/10" : "border-gray-200"}`}
+                                className={`relative flex flex-col ${plan.highlight ? "border-green-500 shadow-lg shadow-green-500/10" : isEnterprise ? "border-gray-800 bg-gray-950 text-white" : "border-gray-200"}`}
                             >
                                 {plan.badge && (
                                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -300,30 +343,27 @@ export default function PricingPage() {
                                 )}
                                 <CardHeader className="pb-4">
                                     <div className="flex items-center gap-2 mb-3">
-                                        <Icon className="h-5 w-5 text-green-600" />
-                                        <span className="text-sm font-black uppercase tracking-widest text-gray-900">{plan.name}</span>
-                                        {!billingEnabled && plan.monthlyPrice > 0 && (
+                                        <Icon className={`h-5 w-5 ${isEnterprise ? "text-gray-300" : "text-green-600"}`} />
+                                        <span className={`text-sm font-black uppercase tracking-widest ${isEnterprise ? "text-white" : "text-gray-900"}`}>{plan.name}</span>
+                                        {!billingEnabled && plan.monthlyPrice !== null && plan.monthlyPrice > 0 && (
                                             <span className="ml-auto text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
                                                 Coming soon
                                             </span>
                                         )}
                                     </div>
                                     <div className="flex items-baseline gap-1">
-                                        <span className={`text-4xl font-black text-gray-900 ${!billingEnabled && plan.monthlyPrice > 0 ? "blur-sm select-none" : ""}`}>
+                                        <span className={`text-4xl font-black ${isEnterprise ? "text-white" : "text-gray-900"} ${!billingEnabled && plan.monthlyPrice !== null && plan.monthlyPrice > 0 ? "blur-sm select-none" : ""}`}>
                                             {displayPrice}
                                         </span>
-                                        <span className="text-sm text-gray-500">{periodLabel}</span>
+                                        <span className={`text-sm ${isEnterprise ? "text-gray-400" : "text-gray-500"}`}>{periodLabel}</span>
                                     </div>
-                                    {isAnnual && plan.annualPrice && !(!billingEnabled && plan.monthlyPrice > 0) && (
-                                        <p className="text-xs text-green-600 font-semibold mt-1">${plan.annualPrice} billed annually</p>
-                                    )}
-                                    <p className="text-xs text-gray-500 mt-2 leading-relaxed">{plan.description}</p>
+                                    <p className={`text-xs mt-2 leading-relaxed ${isEnterprise ? "text-gray-400" : "text-gray-500"}`}>{plan.description}</p>
                                 </CardHeader>
                                 <CardContent className="flex flex-col flex-1 gap-6">
                                     <ul className="space-y-2.5 flex-1">
                                         {plan.features.map((f) => (
-                                            <li key={f} className="flex items-start gap-2 text-sm text-gray-700">
-                                                <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                                            <li key={f} className={`flex items-start gap-2 text-sm ${isEnterprise ? "text-gray-300" : "text-gray-700"}`}>
+                                                <Check className={`h-4 w-4 mt-0.5 shrink-0 ${isEnterprise ? "text-gray-400" : "text-green-500"}`} />
                                                 <span>{f}</span>
                                             </li>
                                         ))}
@@ -333,6 +373,13 @@ export default function PricingPage() {
                                         <Button variant="outline" disabled className="w-full text-[10px] font-black uppercase tracking-widest">
                                             Current Plan
                                         </Button>
+                                    ) : isEnterprise ? (
+                                        <a
+                                            href="mailto:sales@docugardener.dev"
+                                            className="w-full inline-flex items-center justify-center rounded-md border border-gray-600 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-gray-800 transition-colors"
+                                        >
+                                            Contact sales →
+                                        </a>
                                     ) : plan.id === "free" ? (
                                         <Button
                                             variant={plan.ctaVariant}
@@ -372,17 +419,18 @@ export default function PricingPage() {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-gray-200 bg-gray-50">
-                                    <th className="text-left px-6 py-4 text-xs font-black uppercase tracking-widest text-gray-500 w-1/2">Feature</th>
+                                    <th className="text-left px-6 py-4 text-xs font-black uppercase tracking-widest text-gray-500 w-2/5">Feature</th>
                                     {["Free", "Pro", "Team"].map((h) => (
                                         <th key={h} className="px-4 py-4 text-center text-xs font-black uppercase tracking-widest text-gray-500">{h}</th>
                                     ))}
+                                    <th className="px-4 py-4 text-center text-xs font-black uppercase tracking-widest text-gray-900 bg-gray-100">Enterprise</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {FEATURE_MATRIX.map((group, gi) => (
                                     <>
                                         <tr key={`g-${gi}`} className="bg-gray-50/60">
-                                            <td colSpan={4} className="px-6 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                            <td colSpan={5} className="px-6 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
                                                 {group.group}
                                             </td>
                                         </tr>
@@ -392,6 +440,7 @@ export default function PricingPage() {
                                                 <td className="px-4 py-3 text-center"><MatrixCell value={row.free} /></td>
                                                 <td className="px-4 py-3 text-center"><MatrixCell value={row.pro} /></td>
                                                 <td className="px-4 py-3 text-center"><MatrixCell value={row.team} /></td>
+                                                <td className="px-4 py-3 text-center bg-gray-50/80"><MatrixCell value={row.enterprise} /></td>
                                             </tr>
                                         ))}
                                     </>

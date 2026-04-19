@@ -79,6 +79,7 @@ enum PlanType {
   FREE
   PRO
   TEAM
+  ENTERPRISE
 }
 
 model User {

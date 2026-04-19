@@ -4,7 +4,7 @@
 This is the server-side source of truth for:
 - Feature definitions (key, label, description, group, gate, min_tier)
 - Quota dimensions (pr_analyses_monthly, repos, seats)
-- Plan quota limits (FREE / PRO / TEAM)
+- Plan quota limits (FREE / PRO / TEAM / ENTERPRISE)
 
 Used by DG-MAN-01 (manifest serializer) and DG-LPP-04 (pending changes).
 """
@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-TierType = Literal["FREE", "PRO", "TEAM"]
+TierType = Literal["FREE", "PRO", "TEAM", "ENTERPRISE"]
 GateType = Literal["tier", "flag"]
 QuotaValueType = Literal["number", "boolean"]
 
@@ -48,9 +48,10 @@ QUOTA_DIMENSIONS: list[QuotaDimension] = [
 # Plan quota limits — mirror PLAN_LIMITS in billing.ts / quota.py
 # -1 = unlimited
 PLAN_QUOTAS: dict[str, dict[str, int]] = {
-    "FREE": {"pr_analyses_monthly": 50, "repos": 1, "seats": 1},
-    "PRO": {"pr_analyses_monthly": 500, "repos": 5, "seats": 10},
-    "TEAM": {"pr_analyses_monthly": -1, "repos": 9999, "seats": 100},
+    "FREE":       {"pr_analyses_monthly": 50,  "repos": 1,    "seats": 1},
+    "PRO":        {"pr_analyses_monthly": 500, "repos": 5,    "seats": 10},
+    "TEAM":       {"pr_analyses_monthly": -1,  "repos": 9999, "seats": 100},
+    "ENTERPRISE": {"pr_analyses_monthly": -1,  "repos": -1,   "seats": -1},
 }
 
 

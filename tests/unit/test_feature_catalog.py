@@ -8,6 +8,8 @@ AC-CAT-04  gate is always "tier" or "flag"
 AC-CAT-05  min_tier is always FREE, PRO, or TEAM
 AC-CAT-06  QUOTA_DIMENSIONS covers pr_analyses_monthly, repos, seats
 AC-CAT-07  PLAN_QUOTAS covers FREE, PRO, TEAM with correct values from billing.ts
+AC-CAT-11  ENTERPRISE plan has all-unlimited quota dimensions (-1)
+AC-CAT-12  PLAN_QUOTAS covers all four tiers (FREE, PRO, TEAM, ENTERPRISE)
 AC-CAT-08  No duplicate feature keys
 AC-CAT-09  trial_eligible features have min_tier PRO (not FREE or TEAM)
 AC-CAT-10  get_feature() returns correct feature or raises KeyError
@@ -47,7 +49,7 @@ EXPECTED_KEYS = {
     "agent_rules",
 }
 
-VALID_TIERS = {"FREE", "PRO", "TEAM"}
+VALID_TIERS = {"FREE", "PRO", "TEAM", "ENTERPRISE"}
 VALID_GATES = {"tier", "flag"}
 
 
@@ -79,7 +81,7 @@ def test_ac_cat_04_valid_gate():
 
 
 def test_ac_cat_05_valid_min_tier():
-    """AC-CAT-05: min_tier is FREE, PRO, or TEAM."""
+    """AC-CAT-05: min_tier is FREE, PRO, TEAM, or ENTERPRISE."""
     for f in FEATURES:
         assert f.min_tier in VALID_TIERS, f"{f.key} has invalid min_tier {f.min_tier!r}"
 
@@ -109,6 +111,20 @@ def test_ac_cat_07_plan_quotas_match_billing_ts():
     assert PLAN_QUOTAS["TEAM"]["pr_analyses_monthly"] == -1  # unlimited
     assert PLAN_QUOTAS["TEAM"]["repos"] == 9999
     assert PLAN_QUOTAS["TEAM"]["seats"] == 100
+
+
+def test_ac_cat_11_enterprise_plan_quotas_all_unlimited():
+    """AC-CAT-11: ENTERPRISE plan has all-unlimited quota dimensions (-1)."""
+    assert "ENTERPRISE" in PLAN_QUOTAS, "ENTERPRISE missing from PLAN_QUOTAS"
+    assert PLAN_QUOTAS["ENTERPRISE"]["pr_analyses_monthly"] == -1
+    assert PLAN_QUOTAS["ENTERPRISE"]["repos"] == -1
+    assert PLAN_QUOTAS["ENTERPRISE"]["seats"] == -1
+
+
+def test_ac_cat_12_all_plans_present_in_quotas():
+    """AC-CAT-12: PLAN_QUOTAS covers all four tiers."""
+    for tier in ("FREE", "PRO", "TEAM", "ENTERPRISE"):
+        assert tier in PLAN_QUOTAS, f"{tier} missing from PLAN_QUOTAS"
 
 
 def test_ac_cat_08_no_duplicate_keys():

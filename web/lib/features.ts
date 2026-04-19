@@ -6,16 +6,17 @@
  *   import { canAccess } from "@/lib/features"
  *   if (!canAccess(tenant.plan, "audit_log")) return 403
  *
- * Plan hierarchy: FREE < PRO < TEAM
+ * Plan hierarchy: FREE < PRO < TEAM < ENTERPRISE
  * trialEligible: feature unlocks at PRO level during an active PRO trial
  */
 
-export type PlanTier = "FREE" | "PRO" | "TEAM"
+export type PlanTier = "FREE" | "PRO" | "TEAM" | "ENTERPRISE"
 
 const PLAN_RANK: Record<PlanTier, number> = {
-    FREE: 0,
-    PRO:  1,
-    TEAM: 2,
+    FREE:       0,
+    PRO:        1,
+    TEAM:       2,
+    ENTERPRISE: 3,
 }
 
 interface FeatureDef {
