@@ -10,7 +10,11 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src.analysis.embeddings import generate_batch_embeddings, generate_embedding
+from src.analysis.embeddings import (
+    format_entity_for_embedding,
+    generate_batch_embeddings,
+    generate_embedding,
+)
 from src.analysis.parser import CodeEntity, get_parser
 from src.core.logging import get_logger
 from src.storage.schemas import (
@@ -381,8 +385,6 @@ class DocumentIndexer:
         Returns:
             List of related documentation
         """
-        from src.analysis.embeddings import format_entity_for_embedding
-
         query_text = format_entity_for_embedding(entity)
         query_embedding = generate_embedding(query_text)
 
@@ -412,13 +414,12 @@ class DocumentIndexer:
         Returns:
             Merged, score-sorted results with source_namespace in metadata.
         """
-        from src.analysis.embeddings import format_entity_for_embedding
         from src.storage.weaviate_db import WeaviateDB
 
         if not sibling_namespaces:
             return []
 
-        if not isinstance(self.vector_db, WeaviateDB):
+        if not hasattr(self.vector_db, "search_multi_namespace"):
             logger.warning("cross_repo: find_cross_repo_docs requires WeaviateDB backend")
             return []
 

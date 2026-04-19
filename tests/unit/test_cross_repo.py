@@ -495,7 +495,7 @@ class TestFindCrossRepoContextPlanGate:
 
             changes = [_make_entity_change(name=f"fn{i}") for i in range(5)]
 
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.run(
                 analyzer._find_cross_repo_context(
                     meaningful_changes=changes,
                     tenant_id="test-tenant",

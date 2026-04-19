@@ -234,23 +234,27 @@ Please check the logs for more details.
     return "\n".join(lines) + feedback_footer
 
 
-def _display_repo(source_namespace: str) -> str:
+def _display_repo(identifier: str) -> str:
     """
-    EPIC-11: Convert a sub-namespace string back to a human-readable repo name.
+    EPIC-11: Convert a sub-namespace or repo identifier to a human-readable label.
 
     Sub-namespace format: {tenant_id}__{owner}__{repo}
-    Display format:       owner/repo  (underscores back to hyphens where plausible)
+    Display format:       owner/repo  (trailing underscores → hyphens in repo segment)
 
-    We strip the tenant prefix (first segment) and rejoin with slash.
+    If the identifier already looks like "owner/repo", it is returned as-is.
     Hyphens in repo names were normalised to underscores during sub-namespace
-    derivation — we cannot reverse that losslessly, so we display as-is with
-    underscores. Callers see e.g. "myorg/sdk_js" rather than "myorg/sdk-js".
-    This is acceptable for a demo-scope feature.
+    derivation — we reverse this for display (best-effort; lossless for typical names).
     """
-    parts = source_namespace.split("__")
+    parts = identifier.split("__")
     if len(parts) >= 3:
-        return f"{parts[1]}/{parts[2]}"
-    return source_namespace
+        # Sub-namespace: strip tenant prefix, restore hyphens in repo segment
+        owner = parts[1]
+        repo_seg = parts[2].replace("_", "-")
+        return f"{owner}/{repo_seg}"
+    if "/" in identifier:
+        # Already a display name like "myorg/sdk-js"
+        return identifier
+    return identifier
 
 
 def _format_cross_repo_section_md(findings: list[dict]) -> str:
@@ -276,8 +280,10 @@ def _format_cross_repo_section_md(findings: list[dict]) -> str:
         "|------|------|-----------|--------|",
     ]
     for f in findings:
-        ns = f.get("source_namespace", "")
-        repo_display = _display_repo(ns) if ns else f.get("repo", "?")
+        # Prefer source_namespace for display (has tenant prefix to strip);
+        # fall back to repo field which may also be a sub-namespace string.
+        ns = f.get("source_namespace", "") or f.get("repo", "?")
+        repo_display = _display_repo(ns)
         file_display = f.get("file", "?")
         line = f.get("line_hint")
         if line:
