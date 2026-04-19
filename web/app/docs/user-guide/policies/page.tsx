@@ -52,7 +52,7 @@ export default function PoliciesPage() {
             ["Coverage rule", "Every file matching a source glob must have a corresponding docs file.", "FREE+"],
             ["Docstring rule", "Every exported symbol in a source file must have a docstring.", "PRO+"],
             ["CHANGELOG rule", "The CHANGELOG must be updated when specified paths are modified.", "FREE+"],
-            ["Custom LLM rule", "A free-text prompt evaluated by the LLM against each PR. Flexible but slower.", "TEAM"],
+            ["Custom LLM rule", "A free-text prompt evaluated by the LLM against each PR. Flexible but slower.", "TEAM+"],
           ].map(([type, desc, plan]) => (
             <tr key={type}>
               <td className="px-3 py-2 border border-gray-200 text-gray-600 font-medium align-top">{type}</td>

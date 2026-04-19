@@ -92,9 +92,10 @@ export default function RepositoriesPage() {
         </thead>
         <tbody>
           {[
-            ["FREE", "50", "Unlimited"],
-            ["PRO", "500", "Unlimited"],
+            ["FREE", "50", "1"],
+            ["PRO", "500", "5"],
             ["TEAM", "Unlimited", "Unlimited"],
+            ["ENTERPRISE", "Unlimited", "Unlimited"],
           ].map(([plan, analyses, repos]) => (
             <tr key={plan}>
               <td className="px-3 py-2 border border-gray-200 text-gray-600 font-medium">{plan}</td>
