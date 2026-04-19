@@ -5,23 +5,29 @@
 # DOMAIN and LETSENCRYPT_EMAIL are injected from the production .env file.
 #
 # Routing:
-#   /webhooks/*      →  FastAPI (docugardener:8000)  — GitHub webhook delivery (canonical)
-#   /api/webhooks/*  →  FastAPI (docugardener:8000)  — /api prefix stripped before forward
-#   /health          →  FastAPI (docugardener:8000)  — health probe
-#   /diagnostics*    →  FastAPI (docugardener:8000)  — operator diagnostics
-#   /auth/saml/*     →  FastAPI (docugardener:8000)  — SAML 2.0 SSO endpoints
-#   /scim/v2*        →  FastAPI (docugardener:8000)  — SCIM 2.0 user provisioning (Okta)
-#   /check*          →  FastAPI (docugardener:8000)  — VS Code extension drift check
-#   /plugin-key*     →  FastAPI (docugardener:8000)  — VS Code extension API key management
-#   /repos/*         →  FastAPI (docugardener:8000)  — repo contents + rules compiler endpoints
-#   /billing/*       →  FastAPI (docugardener:8000)  — billing profile + quota endpoints
-#   /inbox/*         →  FastAPI (docugardener:8000)  — analysis inbox (job triage) endpoints
-#   /prompts/*       →  FastAPI (docugardener:8000)  — prompt config endpoints
-#   *                →  Next.js (web:3001)            — web app + its own /api/*
+#   grafana.{DOMAIN}  →  Grafana (grafana:3000)       — ops monitoring dashboard
+#   /webhooks/*       →  FastAPI (docugardener:8000)  — GitHub webhook delivery (canonical)
+#   /api/webhooks/*   →  FastAPI (docugardener:8000)  — /api prefix stripped before forward
+#   /health           →  FastAPI (docugardener:8000)  — health probe
+#   /diagnostics*     →  FastAPI (docugardener:8000)  — operator diagnostics
+#   /auth/saml/*      →  FastAPI (docugardener:8000)  — SAML 2.0 SSO endpoints
+#   /scim/v2*         →  FastAPI (docugardener:8000)  — SCIM 2.0 user provisioning (Okta)
+#   /check*           →  FastAPI (docugardener:8000)  — VS Code extension drift check
+#   /plugin-key*      →  FastAPI (docugardener:8000)  — VS Code extension API key management
+#   /repos/*          →  FastAPI (docugardener:8000)  — repo contents + rules compiler endpoints
+#   /billing/*        →  FastAPI (docugardener:8000)  — billing profile + quota endpoints
+#   /inbox/*          →  FastAPI (docugardener:8000)  — analysis inbox (job triage) endpoints
+#   /prompts/*        →  FastAPI (docugardener:8000)  — prompt config endpoints
+#   *                 →  Next.js (web:3001)            — web app + its own /api/*
 # =============================================================================
 
 {
     email {$LETSENCRYPT_EMAIL}
+}
+
+# ── Grafana monitoring subdomain ─────────────────────────────────────────────
+grafana.{$DOMAIN} {
+    reverse_proxy grafana:3000
 }
 
 {$DOMAIN} {
