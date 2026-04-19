@@ -90,6 +90,7 @@ class Settings(BaseSettings):
     # Security
     tmpfs_path: Path = Field(default=Path("/tmp/docugardener"))
     max_processing_time: int = Field(default=120)  # seconds
+    max_concurrent_file_workers: int = Field(default=5)  # EPIC-09: parallel file analysis
     drift_score_threshold: int = Field(default=70)  # 0-100
     encryption_key: str | None = Field(default=None)  # 32-byte hex for BYOK
 

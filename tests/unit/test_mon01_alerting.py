@@ -97,10 +97,13 @@ class TestContactPoint:
         cp = alerts_config["contactPoints"][0]
         assert cp["name"] == "docugardener-ops"
 
-    def test_contact_point_is_webhook(self, alerts_config):
+    def test_contact_point_is_slack(self, alerts_config):
+        """Contact point must use the Slack integration type (not generic webhook).
+        Changed from webhook→slack in EPIC-03-FIX: Slack rejects the generic
+        Grafana webhook JSON payload; type:slack sends the correct format."""
         cp = alerts_config["contactPoints"][0]
         receiver = cp["receivers"][0]
-        assert receiver["type"] == "webhook"
+        assert receiver["type"] == "slack"
 
 
 # ---------------------------------------------------------------------------
@@ -370,8 +373,13 @@ class TestDeploymentMonitoringDocs:
         assert "API Error Rate" in deployment_content
         assert "Queue Depth" in deployment_content
 
-    def test_documents_webhook_url(self, deployment_content):
-        assert "GRAFANA_ALERT_WEBHOOK_URL" in deployment_content
+    def test_documents_slack_wiring_steps(self, deployment_content):
+        """DEPLOYMENT.md must document the manual Slack contact-point wiring.
+        GRAFANA_ALERT_WEBHOOK_URL env var was removed in EPIC-03-FIX: Grafana's
+        internal DB takes ownership of contact points after first launch and
+        ignores env var changes, so the Slack URL must be configured via UI."""
+        assert "Slack" in deployment_content
+        assert "Contact points" in deployment_content or "contact point" in deployment_content.lower()
 
     def test_documents_grafana_password(self, deployment_content):
         assert "GRAFANA_ADMIN_PASSWORD" in deployment_content

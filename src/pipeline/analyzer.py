@@ -11,6 +11,7 @@ Coordinates the full DocuGardener analysis pipeline:
 6. Post results to GitHub
 """
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -26,6 +27,7 @@ from src.agents.verifier import (
 from src.analysis.diff import EntityChange, SemanticDiff
 from src.analysis.parser import get_parser
 from src.analysis.scorer import DriftScorer
+from src.core.config import settings
 from src.core.logging import get_logger
 from src.github.clone import ephemeral_clone
 from src.storage.factory import get_db_manager
@@ -489,26 +491,32 @@ class PRAnalyzer:
 
         return result
 
-    async def _analyze_file_changes(
+    async def _process_one_file(
         self,
         repo_path: Path,
         base_sha: str,
-        changed_files: list[FileChange],
+        file_change: FileChange,
+        semaphore: asyncio.Semaphore,
         base_ref: str | None = None,
     ) -> list[EntityChange]:
-        """Analyze changes in modified files."""
+        """Process a single file change within the concurrency semaphore.
+
+        Each invocation opens its own git.Repo handle to avoid sharing mutable
+        GitPython state across threads (asyncio.to_thread uses a thread pool).
+        All blocking git and filesystem calls are dispatched via asyncio.to_thread
+        so the event loop remains unblocked.
+        """
         import git
 
-        all_changes: list[EntityChange] = []
-        repo = git.Repo(str(repo_path))
-
-        for file_change in changed_files:
+        async with semaphore:
             file_path = repo_path / file_change.path
 
+            # ── Read new (head) version ───────────────────────────────────────
             new_entities = []
-            if file_path.exists():
+            file_exists = await asyncio.to_thread(file_path.exists)
+            if file_exists:
                 try:
-                    content = file_path.read_text(encoding="utf-8")
+                    content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
                     language = self.parser.detect_language(file_change.path)
                     if language:
                         new_entities = self.parser.parse_content(
@@ -519,32 +527,31 @@ class PRAnalyzer:
                         "Failed to parse new content", file=file_change.path, error=str(e)
                     )
 
-            # Parse base version
+            # ── Read base (old) version via git ───────────────────────────────
             old_entities = []
+            # Open a per-task Repo handle — cheap (no network) and thread-safe.
+            repo = await asyncio.to_thread(git.Repo, str(repo_path))
 
             logger.info("Processing file change", file=file_change.path, status=file_change.status)
 
-            # Always try to fetch base version to be safe / handle race conditions
-            # If it really is new, git show will verify it doesn't exist.
             try:
-                # Ensure base_sha is available locally
                 logger.info(
                     "Attempting to fetch base version", base_sha=base_sha, file=file_change.path
                 )
                 try:
-                    repo.git.rev_parse(base_sha)
+                    await asyncio.to_thread(repo.git.rev_parse, base_sha)
                 except git.GitCommandError:
                     logger.info("Base SHA not found locally, fetching", base_sha=base_sha)
-                    repo.git.fetch("origin", base_sha, depth=1)
+                    await asyncio.to_thread(repo.git.fetch, "origin", base_sha, depth=1)
 
-                # Get old content from git
-                old_content = repo.git.show(f"{base_sha}:{file_change.path}")
+                old_content = await asyncio.to_thread(
+                    repo.git.show, f"{base_sha}:{file_change.path}"
+                )
                 logger.info(
                     "Successfully fetched base content",
                     file=file_change.path,
                     size=len(old_content),
                 )
-
                 old_entities = self.parser.parse_content(
                     content=old_content,
                     file_path=file_change.path,
@@ -555,8 +562,10 @@ class PRAnalyzer:
                 if base_ref:
                     try:
                         logger.info("Base SHA failed, trying base_ref fallback", ref=base_ref)
-                        repo.git.fetch("origin", base_ref, depth=1)
-                        old_content = repo.git.show(f"origin/{base_ref}:{file_change.path}")
+                        await asyncio.to_thread(repo.git.fetch, "origin", base_ref, depth=1)
+                        old_content = await asyncio.to_thread(
+                            repo.git.show, f"origin/{base_ref}:{file_change.path}"
+                        )
                         old_entities = self.parser.parse_content(
                             content=old_content,
                             file_path=file_change.path,
@@ -575,12 +584,10 @@ class PRAnalyzer:
                     )
             except Exception as e:
                 logger.error(
-                    "Base version fetch failed (General)",
-                    file=file_change.path,
-                    error=str(e),
+                    "Base version fetch failed (General)", file=file_change.path, error=str(e)
                 )
 
-            # Compare entities to detect semantic changes
+            # ── Semantic diff ─────────────────────────────────────────────────
             file_changes = self.diff.compare_entities(old_entities, new_entities)
             for ch in file_changes:
                 logger.info(
@@ -590,7 +597,53 @@ class PRAnalyzer:
                     meaningful=ch.is_meaningful,
                     requires_docs=ch.requires_doc_update,
                 )
-            all_changes.extend(file_changes)
+            return file_changes
+
+    async def _analyze_file_changes(
+        self,
+        repo_path: Path,
+        base_sha: str,
+        changed_files: list[FileChange],
+        base_ref: str | None = None,
+    ) -> list[EntityChange]:
+        """Analyze changes in modified files — files processed concurrently.
+
+        EPIC-09: Each file is processed in a separate coroutine dispatched via
+        asyncio.gather(). A Semaphore caps concurrent git I/O at
+        settings.max_concurrent_file_workers (default 5) to avoid overwhelming
+        the thread pool or git subprocess limit.
+
+        Order of returned EntityChanges mirrors the order of changed_files so
+        that callers remain deterministic.
+        """
+        if not changed_files:
+            return []
+
+        semaphore = asyncio.Semaphore(settings.max_concurrent_file_workers)
+        tasks = [
+            self._process_one_file(
+                repo_path=repo_path,
+                base_sha=base_sha,
+                file_change=fc,
+                semaphore=semaphore,
+                base_ref=base_ref,
+            )
+            for fc in changed_files
+        ]
+
+        # return_exceptions=True: a single file failure does not cancel siblings.
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        all_changes: list[EntityChange] = []
+        for fc, result in zip(changed_files, results):
+            if isinstance(result, BaseException):
+                logger.error(
+                    "File processing task failed unexpectedly",
+                    file=fc.path,
+                    error=str(result),
+                )
+            else:
+                all_changes.extend(result)
 
         return all_changes
 
