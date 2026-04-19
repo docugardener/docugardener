@@ -416,8 +416,15 @@ class VerificationAgent:
                     system_prompt=prompt_manager.get_prompt(tenant_id, "GENERATOR_SYSTEM_PROMPT"),
                     config=self.config,
                 )
+                _u = getattr(response, "usage", {}) or {}
                 record_llm_request(
-                    self._session_provider, self._session_model, "generate", time.monotonic() - _t0
+                    self._session_provider,
+                    self._session_model,
+                    "generate",
+                    time.monotonic() - _t0,
+                    prompt_tokens=int(_u.get("prompt_tokens", 0) or 0),
+                    cache_read_tokens=int(_u.get("cache_read_tokens", 0) or 0),
+                    cache_creation_tokens=int(_u.get("cache_creation_tokens", 0) or 0),
                 )
             except Exception as _exc:
                 record_llm_request(
@@ -621,11 +628,15 @@ class VerificationAgent:
                 system_prompt=prompt_manager.get_prompt(tenant_id, "DRIFT_ANALYSIS_SYSTEM_PROMPT"),
                 config=self.config,
             )
+            _pu = getattr(proposal_response, "usage", {}) or {}
             record_llm_request(
                 self._session_provider,
                 self._session_model,
                 "drift_proposal",
                 time.monotonic() - _t0,
+                prompt_tokens=int(_pu.get("prompt_tokens", 0) or 0),
+                cache_read_tokens=int(_pu.get("cache_read_tokens", 0) or 0),
+                cache_creation_tokens=int(_pu.get("cache_creation_tokens", 0) or 0),
             )
         except Exception as _exc:
             record_llm_request(

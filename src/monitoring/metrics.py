@@ -109,16 +109,22 @@ HALLUCINATIONS_DETECTED = Counter(
     "Total hallucinations detected by verifier",
 )
 
-# EPIC-04-02: Anthropic prompt-cache token counters (for Grafana cache hit rate panel)
+# EPIC-04-02/03: LLM token counters for Grafana cache hit rate panel (all providers)
+LLM_PROMPT_TOKENS = Counter(
+    "docugardener_llm_prompt_tokens_total",
+    "Total prompt (input) tokens sent to LLM — denominator for cache hit rate",
+    ["provider", "model"],
+)
+
 LLM_CACHE_READ_TOKENS = Counter(
     "docugardener_llm_cache_read_tokens_total",
-    "Anthropic prompt-cache read tokens (tokens served from cache)",
+    "LLM prompt-cache read tokens (tokens served from cache — Anthropic, OpenAI, Gemini)",
     ["provider", "model"],
 )
 
 LLM_CACHE_CREATION_TOKENS = Counter(
     "docugardener_llm_cache_creation_tokens_total",
-    "Anthropic prompt-cache creation tokens (tokens written to cache)",
+    "LLM prompt-cache creation tokens written to cache (Anthropic only; OpenAI/Gemini cache automatically)",
     ["provider", "model"],
 )
 
@@ -211,6 +217,7 @@ def record_llm_request(
     purpose: str,
     latency_seconds: float,
     error_type: str = "",
+    prompt_tokens: int = 0,
     cache_read_tokens: int = 0,
     cache_creation_tokens: int = 0,
 ) -> None:
@@ -221,7 +228,9 @@ def record_llm_request(
     if error_type:
         LLM_ERRORS.labels(provider=provider, error_type=error_type).inc()
 
-    # EPIC-04-02: track Anthropic prompt-cache token counts for Grafana cache hit rate panel
+    # EPIC-04-02/03: track prompt-cache token counts for Grafana cache hit rate panel (all providers)
+    if prompt_tokens:
+        LLM_PROMPT_TOKENS.labels(provider=provider, model=model).inc(prompt_tokens)
     if cache_read_tokens:
         LLM_CACHE_READ_TOKENS.labels(provider=provider, model=model).inc(cache_read_tokens)
     if cache_creation_tokens:

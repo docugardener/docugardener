@@ -133,7 +133,7 @@ class TestGeminiClientUsageMetadata:
 
         response = await client.generate(prompt="Test prompt")
 
-        assert response.usage == {"prompt_tokens": 0, "completion_tokens": 0}
+        assert response.usage == {"prompt_tokens": 0, "completion_tokens": 0, "cache_read_tokens": 0}
 
     @pytest.mark.asyncio
     async def test_generate_with_none_token_counts_coerced_to_zero(self):

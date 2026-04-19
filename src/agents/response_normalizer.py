@@ -163,10 +163,13 @@ def normalize_usage(raw: Any, input_format: str) -> dict[str, int]:
 def _usage_gemini(raw: Any) -> dict[str, int]:
     um = getattr(raw, "usage_metadata", None)
     if um is None:
-        return {"prompt_tokens": 0, "completion_tokens": 0}
+        return {"prompt_tokens": 0, "completion_tokens": 0, "cache_read_tokens": 0}
+    # EPIC-04-02/03: cached_content_token_count is populated when Gemini Context Cache is active.
+    # For standard generate_content() calls it is 0 or absent.
     return {
         "prompt_tokens": getattr(um, "prompt_token_count", 0) or 0,
         "completion_tokens": getattr(um, "candidates_token_count", 0) or 0,
+        "cache_read_tokens": getattr(um, "cached_content_token_count", 0) or 0,
     }
 
 
@@ -175,13 +178,18 @@ def _usage_openai_compat(raw: Any) -> dict[str, int]:
         u = raw.get("usage") or {}
         pt = u.get("prompt_tokens", 0) or 0
         ct = u.get("completion_tokens", 0) or 0
+        # EPIC-04-02/03: OpenAI returns cached prompt tokens in prompt_tokens_details.cached_tokens
+        cached = (u.get("prompt_tokens_details") or {}).get("cached_tokens", 0) or 0
     else:
         u = getattr(raw, "usage", None)
         if u is None:
-            return {"prompt_tokens": 0, "completion_tokens": 0}
+            return {"prompt_tokens": 0, "completion_tokens": 0, "cache_read_tokens": 0}
         pt = getattr(u, "prompt_tokens", 0) or 0
         ct = getattr(u, "completion_tokens", 0) or 0
-    return {"prompt_tokens": pt, "completion_tokens": ct}
+        # EPIC-04-02/03: prompt_tokens_details.cached_tokens — available on gpt-4o / gpt-4o-mini
+        details = getattr(u, "prompt_tokens_details", None)
+        cached = (getattr(details, "cached_tokens", 0) or 0) if details else 0
+    return {"prompt_tokens": pt, "completion_tokens": ct, "cache_read_tokens": cached}
 
 
 def _usage_ollama_native(raw: Any) -> dict[str, int]:

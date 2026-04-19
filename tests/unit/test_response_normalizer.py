@@ -249,10 +249,11 @@ class TestExtractContentOllamaNative:
 
 class TestNormalizeUsage:
     # ── Gemini ────────────────────────────────────────────────────────────────
-    def _gemini_raw(self, pt: int | None, ct: int | None) -> MagicMock:
+    def _gemini_raw(self, pt: int | None, ct: int | None, cached: int = 0) -> MagicMock:
         um = MagicMock()
         um.prompt_token_count = pt
         um.candidates_token_count = ct
+        um.cached_content_token_count = cached
         raw = MagicMock()
         raw.usage_metadata = um
         return raw
@@ -260,24 +261,36 @@ class TestNormalizeUsage:
     def test_gemini_normal_usage(self):
         raw = self._gemini_raw(200, 100)
         u = normalize_usage(raw, "gemini_generate")
-        assert u == {"prompt_tokens": 200, "completion_tokens": 100}
+        assert u == {"prompt_tokens": 200, "completion_tokens": 100, "cache_read_tokens": 0}
 
     def test_gemini_none_counts_coerced_to_zero(self):
         raw = self._gemini_raw(None, None)
         u = normalize_usage(raw, "gemini_generate")
-        assert u == {"prompt_tokens": 0, "completion_tokens": 0}
+        assert u == {"prompt_tokens": 0, "completion_tokens": 0, "cache_read_tokens": 0}
 
     def test_gemini_no_usage_metadata(self):
         raw = MagicMock()
         raw.usage_metadata = None
         u = normalize_usage(raw, "gemini_generate")
-        assert u == {"prompt_tokens": 0, "completion_tokens": 0}
+        assert u == {"prompt_tokens": 0, "completion_tokens": 0, "cache_read_tokens": 0}
+
+    def test_gemini_cached_content_tokens(self):
+        """EPIC-04-02/03: cached_content_token_count surfaced when Gemini Context Cache is active."""
+        raw = self._gemini_raw(500, 80, cached=120)
+        u = normalize_usage(raw, "gemini_generate")
+        assert u["cache_read_tokens"] == 120
 
     # ── OpenAI (object) ──────────────────────────────────────────────────────
-    def _openai_raw_obj(self, pt: int, ct: int) -> MagicMock:
+    def _openai_raw_obj(self, pt: int, ct: int, cached: int = 0) -> MagicMock:
         usage = MagicMock()
         usage.prompt_tokens = pt
         usage.completion_tokens = ct
+        if cached:
+            details = MagicMock()
+            details.cached_tokens = cached
+            usage.prompt_tokens_details = details
+        else:
+            usage.prompt_tokens_details = None
         raw = MagicMock()
         raw.usage = usage
         return raw
@@ -285,18 +298,32 @@ class TestNormalizeUsage:
     def test_openai_object_usage(self):
         raw = self._openai_raw_obj(300, 150)
         u = normalize_usage(raw, "openai_chat")
-        assert u == {"prompt_tokens": 300, "completion_tokens": 150}
+        assert u == {"prompt_tokens": 300, "completion_tokens": 150, "cache_read_tokens": 0}
+
+    def test_openai_object_with_cached_tokens(self):
+        """EPIC-04-02/03: OpenAI automatic prompt caching — cached_tokens in prompt_tokens_details."""
+        raw = self._openai_raw_obj(1024, 200, cached=512)
+        u = normalize_usage(raw, "openai_chat")
+        assert u["cache_read_tokens"] == 512
+        assert u["prompt_tokens"] == 1024
 
     # ── OpenAI (dict) ────────────────────────────────────────────────────────
     def test_openai_dict_usage(self):
         raw = {"usage": {"prompt_tokens": 400, "completion_tokens": 200}}
         u = normalize_usage(raw, "openai_chat")
-        assert u == {"prompt_tokens": 400, "completion_tokens": 200}
+        assert u == {"prompt_tokens": 400, "completion_tokens": 200, "cache_read_tokens": 0}
+
+    def test_openai_dict_with_cached_tokens(self):
+        """EPIC-04-02/03: OpenAI dict response with prompt_tokens_details.cached_tokens."""
+        raw = {"usage": {"prompt_tokens": 800, "completion_tokens": 100,
+                          "prompt_tokens_details": {"cached_tokens": 400}}}
+        u = normalize_usage(raw, "openai_chat")
+        assert u["cache_read_tokens"] == 400
 
     def test_openai_dict_missing_usage_key(self):
         raw = {}
         u = normalize_usage(raw, "openai_chat")
-        assert u == {"prompt_tokens": 0, "completion_tokens": 0}
+        assert u == {"prompt_tokens": 0, "completion_tokens": 0, "cache_read_tokens": 0}
 
     # ── Ollama native ────────────────────────────────────────────────────────
     def test_ollama_native_usage(self):
@@ -313,7 +340,7 @@ class TestNormalizeUsage:
     def test_ollama_openai_usage(self):
         raw = {"usage": {"prompt_tokens": 60, "completion_tokens": 90}}
         u = normalize_usage(raw, "ollama_openai")
-        assert u == {"prompt_tokens": 60, "completion_tokens": 90}
+        assert u == {"prompt_tokens": 60, "completion_tokens": 90, "cache_read_tokens": 0}
 
     # ── Unknown format ───────────────────────────────────────────────────────
     def test_unknown_format_returns_zeros(self):

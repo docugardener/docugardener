@@ -44,6 +44,7 @@ def _openai_raw_response(content: str, pt: int = 100, ct: int = 50) -> MagicMock
     usage = MagicMock()
     usage.prompt_tokens = pt
     usage.completion_tokens = ct
+    usage.prompt_tokens_details = None  # no cache by default
     raw = MagicMock()
     raw.choices = [choice]
     raw.usage = usage
@@ -199,7 +200,7 @@ class TestOpenAIClientGenerateStandard:
             MockOpenAI.return_value.chat.completions.create = AsyncMock(return_value=raw)
             result = await client.generate("Do X.")
 
-        assert result.usage == {"prompt_tokens": 200, "completion_tokens": 100}
+        assert result.usage == {"prompt_tokens": 200, "completion_tokens": 100, "cache_read_tokens": 0}
 
 
 # ---------------------------------------------------------------------------

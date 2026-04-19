@@ -1003,8 +1003,8 @@
     },
     {
       "id": 106,
-      "title": "Anthropic Cache Hit Rate",
-      "description": "EPIC-04-02: Fraction of Anthropic input tokens served from prompt cache (higher = more savings). cache_read / (cache_read + cache_creation).",
+      "title": "LLM Cache Hit Rate — All Providers",
+      "description": "EPIC-04-02/03: Fraction of input tokens served from prompt cache per provider. Anthropic: explicit cache_control; OpenAI: automatic (gpt-4o/mini); Gemini: Context Cache API. Higher = more cost savings.",
       "type": "gauge",
       "gridPos": {
         "h": 4,
@@ -1057,8 +1057,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(rate(docugardener_llm_cache_read_tokens_total{provider=\"anthropic\"}[5m])) / (sum(rate(docugardener_llm_cache_read_tokens_total{provider=\"anthropic\"}[5m])) + sum(rate(docugardener_llm_cache_creation_tokens_total{provider=\"anthropic\"}[5m])))",
-          "legendFormat": "cache hit rate",
+          "expr": "sum by (provider) (rate(docugardener_llm_cache_read_tokens_total[5m])) / clamp_min(sum by (provider) (rate(docugardener_llm_prompt_tokens_total[5m])), 0.000001)",
+          "legendFormat": "{{provider}}",
           "refId": "A"
         }
       ],
