@@ -98,10 +98,10 @@ DRIFT_SCORE_THRESHOLD=30
 
 ## Step 5: Add GitHub App Private Key
 
+Place the PEM file downloaded from your GitHub App settings at `secrets/github-app.pem`, then lock down its permissions:
+
 ```bash
 mkdir -p secrets
-# Copy your downloaded .pem file
-cp ~/Downloads/*.private-key.pem secrets/github-app.pem
 chmod 600 secrets/github-app.pem
 ```
 

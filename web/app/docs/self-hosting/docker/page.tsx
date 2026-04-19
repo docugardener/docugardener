@@ -95,16 +95,14 @@ cd docugardener`}
           <h2 className="text-base font-bold text-gray-900 mb-1">Add the GitHub App private key</h2>
           <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">
 {`mkdir -p secrets
-cp ~/Downloads/your-app.private-key.pem secrets/github-app.pem
 chmod 600 secrets/github-app.pem`}
           </pre>
           <p className="text-gray-600 leading-relaxed mt-2">
-            This is the PEM file generated when you created your GitHub App. The default path in
-            the config is{" "}
+            Place the PEM file downloaded from your GitHub App settings at{" "}
             <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
-              ./secrets/github-app.pem
+              secrets/github-app.pem
             </code>
-            .
+            , then lock down its permissions with the command above.
           </p>
         </div>
       </div>
