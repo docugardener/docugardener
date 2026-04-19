@@ -245,3 +245,36 @@ def record_vectordb_operation(
     """Record a vector DB operation."""
     VECTORDB_OPERATIONS.labels(provider=provider, operation=operation).inc()
     VECTORDB_LATENCY.labels(provider=provider, operation=operation).observe(latency_seconds)
+
+
+# EPIC-11: Cross-repo analysis metrics
+CROSS_REPO_CALLS = Counter(
+    "docugardener_cross_repo_calls_total",
+    "Total cross-repo analysis LLM calls",
+    ["result"],  # labels: ok | error | empty
+)
+
+CROSS_REPO_FINDINGS = Histogram(
+    "docugardener_cross_repo_findings_count",
+    "Number of cross-repo findings per analysis",
+    buckets=[0, 1, 2, 3, 4, 5],
+)
+
+CROSS_REPO_LATENCY = Histogram(
+    "docugardener_cross_repo_latency_seconds",
+    "End-to-end latency for cross-repo analysis (retrieval + LLM)",
+    buckets=[0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+)
+
+
+def record_cross_repo(result: str, findings_count: int, latency_seconds: float) -> None:
+    """Record a cross-repo analysis pass.
+
+    Args:
+        result:          "ok" | "error" | "empty" (no findings after filtering)
+        findings_count:  Number of findings returned (0 on error or empty).
+        latency_seconds: Wall time for full cross-repo pass (retrieval + LLM).
+    """
+    CROSS_REPO_CALLS.labels(result=result).inc()
+    CROSS_REPO_FINDINGS.observe(findings_count)
+    CROSS_REPO_LATENCY.observe(latency_seconds)
