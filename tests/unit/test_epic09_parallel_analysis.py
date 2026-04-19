@@ -22,6 +22,9 @@ Concurrency:
 Performance:
   P-01  N files processed in ~(max_time_per_file) wall time, not N×max_time_per_file
   P-02  Wall time with concurrency=5 is meaningfully less than sequential for N=5 files
+
+Benchmark (always prints a report — run with pytest -s to see output):
+  B-01  Speedup table across N=1,5,10,20 files with simulated 50ms git I/O per file
 """
 
 import asyncio
@@ -604,3 +607,96 @@ async def test_p02_parallel_faster_than_sequential_baseline():
         f"Expected ≥2× speedup, got {speedup:.2f}× "
         f"(seq={seq_time:.3f}s, par={par_time:.3f}s)"
     )
+
+
+# ── B-01: Benchmark — speedup table across file counts ────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_b01_speedup_benchmark(capsys):
+    """B-01: Print a speedup table for N=1,5,10,20 files.
+
+    Each asyncio.to_thread call is delayed by `io_delay_per_call` ms to simulate
+    realistic blocking git I/O (git show, rev_parse, Repo open). Each file makes
+    ~3 to_thread calls inside the semaphore, so:
+
+      sequential wall time  ≈ N_files × N_calls × io_delay
+      parallel wall time    ≈ ceil(N_files / cap) × N_calls × io_delay
+
+    Run with:  pytest tests/unit/test_epic09_parallel_analysis.py::test_b01_speedup_benchmark -v -s
+    """
+    io_delay_per_call = 0.03  # 30ms per blocking git op — realistic for local shallow clone
+    cap = 5                   # default max_concurrent_file_workers
+
+    repo_path = Path("/fake/repo")
+
+    async def uniform_io_delay(fn, *args, **kwargs):
+        """All to_thread calls incur I/O delay — simulates any blocking git/fs op."""
+        await asyncio.sleep(io_delay_per_call)
+        return fn(*args, **kwargs)
+
+    rows = []
+    for n_files in (1, 5, 10, 20):
+        mock_repo = MagicMock()
+        mock_repo.git.rev_parse = MagicMock()
+        mock_repo.git.show = MagicMock(return_value="")
+
+        analyzer = _make_analyzer()
+        files = [_make_file_change(f"src/mod_{i}.py") for i in range(n_files)]
+        analyzer.parser.detect_language = MagicMock(return_value="python")
+        analyzer.parser.parse_content = MagicMock(return_value=[])
+        analyzer.diff.compare_entities = MagicMock(return_value=[])
+
+        # Sequential baseline (cap=1)
+        with patch("src.pipeline.analyzer.asyncio.to_thread", side_effect=uniform_io_delay):
+            with patch("git.Repo", return_value=mock_repo):
+                with patch.object(Path, "exists", return_value=False):
+                    with patch("src.pipeline.analyzer.settings") as ms:
+                        ms.max_concurrent_file_workers = 1
+                        t0 = time.monotonic()
+                        await analyzer._analyze_file_changes(
+                            repo_path=repo_path, base_sha="abc123", changed_files=files
+                        )
+                        seq_ms = (time.monotonic() - t0) * 1000
+
+        # Parallel (cap=5)
+        with patch("src.pipeline.analyzer.asyncio.to_thread", side_effect=uniform_io_delay):
+            with patch("git.Repo", return_value=mock_repo):
+                with patch.object(Path, "exists", return_value=False):
+                    with patch("src.pipeline.analyzer.settings") as ms:
+                        ms.max_concurrent_file_workers = cap
+                        t0 = time.monotonic()
+                        await analyzer._analyze_file_changes(
+                            repo_path=repo_path, base_sha="abc123", changed_files=files
+                        )
+                        par_ms = (time.monotonic() - t0) * 1000
+
+        speedup = seq_ms / par_ms if par_ms > 0 else float("inf")
+        saved_ms = seq_ms - par_ms
+        rows.append((n_files, seq_ms, par_ms, speedup, saved_ms))
+
+    # ── Print report (always visible with pytest -s) ──────────────────────────
+    with capsys.disabled():
+        print("\n")
+        print("  ┌─────────────────────────────────────────────────────────────────┐")
+        print("  │         EPIC-09 Parallel File Analysis — Speedup Report         │")
+        print("  ├─────────────────────────────────────────────────────────────────┤")
+        print(f"  │  Simulated blocking git I/O per to_thread call: {io_delay_per_call*1000:.0f}ms          │")
+        print(f"  │  Concurrency cap (max_concurrent_file_workers): {cap}             │")
+        print("  ├────────┬──────────────┬────────────┬───────────┬───────────────┤")
+        print("  │  Files │   Sequential │   Parallel │   Speedup │  Time saved   │")
+        print("  ├────────┼──────────────┼────────────┼───────────┼───────────────┤")
+        for n_files, seq_ms, par_ms, speedup, saved_ms in rows:
+            note = " (1 file)" if n_files == 1 else ""
+            print(
+                f"  │ {n_files:>6} │ {seq_ms:>9.0f}ms │ {par_ms:>7.0f}ms │ "
+                f"{speedup:>7.2f}×  │ {saved_ms:>7.0f}ms{note:<6}│"
+            )
+        print("  └────────┴──────────────┴────────────┴───────────┴───────────────┘")
+        print()
+
+    # Assertions — speedup must be meaningful for multi-file PRs
+    speedups = {r[0]: r[3] for r in rows}
+    assert speedups[5]  >= 2.0, f"5-file  speedup should be ≥2×, got {speedups[5]:.2f}×"
+    assert speedups[10] >= 2.0, f"10-file speedup should be ≥2×, got {speedups[10]:.2f}×"
+    assert speedups[20] >= 2.0, f"20-file speedup should be ≥2×, got {speedups[20]:.2f}×"
