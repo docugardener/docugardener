@@ -259,4 +259,97 @@ describe("POST /api/settings/sso — saves config", () => {
         const updateCall = mockUpdate.mock.calls[0][0]
         expect(updateCall.data.sessionIdleTimeoutMinutes).toBeNull()
     })
+
+    it("saves samlDefaultRole when AUDITOR is provided", async () => {
+        mockGetServerSession.mockResolvedValue(makeAdminSession())
+        mockFindUnique.mockResolvedValue(TEAM_TENANT)
+        mockUpdate.mockResolvedValue({ id: "t-1" })
+        mockFindMany.mockResolvedValue([])
+        mockCreate.mockResolvedValue({})
+
+        const { POST } = await import("@/app/api/settings/sso/route")
+        await POST(new Request("http://localhost/api/settings/sso", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ssoEnabled: true, samlDefaultRole: "AUDITOR" }),
+        }))
+        const updateCall = mockUpdate.mock.calls[0][0]
+        expect(updateCall.data.samlDefaultRole).toBe("AUDITOR")
+    })
+
+    it("saves samlDefaultRole when BILLING_ADMIN is provided", async () => {
+        mockGetServerSession.mockResolvedValue(makeAdminSession())
+        mockFindUnique.mockResolvedValue(TEAM_TENANT)
+        mockUpdate.mockResolvedValue({ id: "t-1" })
+        mockFindMany.mockResolvedValue([])
+        mockCreate.mockResolvedValue({})
+
+        const { POST } = await import("@/app/api/settings/sso/route")
+        await POST(new Request("http://localhost/api/settings/sso", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ssoEnabled: true, samlDefaultRole: "BILLING_ADMIN" }),
+        }))
+        const updateCall = mockUpdate.mock.calls[0][0]
+        expect(updateCall.data.samlDefaultRole).toBe("BILLING_ADMIN")
+    })
+
+    it("saves null for samlDefaultRole when ADMIN is provided (admin not allowed as default)", async () => {
+        mockGetServerSession.mockResolvedValue(makeAdminSession())
+        mockFindUnique.mockResolvedValue(TEAM_TENANT)
+        mockUpdate.mockResolvedValue({ id: "t-1" })
+        mockFindMany.mockResolvedValue([])
+        mockCreate.mockResolvedValue({})
+
+        const { POST } = await import("@/app/api/settings/sso/route")
+        await POST(new Request("http://localhost/api/settings/sso", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ssoEnabled: true, samlDefaultRole: "ADMIN" }),
+        }))
+        const updateCall = mockUpdate.mock.calls[0][0]
+        // ADMIN is not in ALLOWED_DEFAULT_ROLES → stored as null, backend falls back to VIEWER
+        expect(updateCall.data.samlDefaultRole).toBeNull()
+    })
+
+    it("saves null for samlDefaultRole when field is missing from body", async () => {
+        mockGetServerSession.mockResolvedValue(makeAdminSession())
+        mockFindUnique.mockResolvedValue(TEAM_TENANT)
+        mockUpdate.mockResolvedValue({ id: "t-1" })
+        mockFindMany.mockResolvedValue([])
+        mockCreate.mockResolvedValue({})
+
+        const { POST } = await import("@/app/api/settings/sso/route")
+        await POST(new Request("http://localhost/api/settings/sso", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ssoEnabled: true }),
+        }))
+        const updateCall = mockUpdate.mock.calls[0][0]
+        expect(updateCall.data.samlDefaultRole).toBeNull()
+    })
+})
+
+// ── D. GET — samlDefaultRole ───────────────────────────────────────────────────
+
+describe("GET /api/settings/sso — samlDefaultRole", () => {
+    beforeEach(() => { vi.resetModules(); vi.resetAllMocks() })
+
+    it("returns samlDefaultRole from DB when set", async () => {
+        mockGetServerSession.mockResolvedValue(makeAdminSession())
+        mockFindUnique.mockResolvedValue({ ...TEAM_TENANT, samlDefaultRole: "AUDITOR" })
+        const { GET } = await import("@/app/api/settings/sso/route")
+        const res = await GET(new Request("http://localhost/api/settings/sso"))
+        const data = await res.json()
+        expect(data.samlDefaultRole).toBe("AUDITOR")
+    })
+
+    it("returns VIEWER as default when samlDefaultRole is null in DB", async () => {
+        mockGetServerSession.mockResolvedValue(makeAdminSession())
+        mockFindUnique.mockResolvedValue({ ...TEAM_TENANT, samlDefaultRole: null })
+        const { GET } = await import("@/app/api/settings/sso/route")
+        const res = await GET(new Request("http://localhost/api/settings/sso"))
+        const data = await res.json()
+        expect(data.samlDefaultRole).toBe("VIEWER")
+    })
 })
