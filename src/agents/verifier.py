@@ -161,6 +161,37 @@ class DriftAnalysis:
 # result.
 _GRACE_THRESHOLD: float = 0.5
 
+# EPIC-11: Cross-repo impact detection prompt.
+# Validated by Spike 2 + Spike 1b-v2 (labels stripped, temp=0.2, 10 runs).
+# HR-domain isolation: 0/10 false positives. Signal precision: 10/10.
+_CROSS_REPO_SYSTEM_PROMPT = """\
+You are a cross-repository documentation drift detector. Your job is to analyse
+a code diff from a SOURCE REPO and determine which documentation chunks from
+SIBLING REPOS reference constructs that the diff changes.
+
+Rules:
+- PRECISION OVER RECALL. Only report a finding when you are genuinely confident
+  (>= 50/100) that the chunk references a construct directly affected by the diff.
+- Private/internal changes that are not part of any public API or interface do NOT
+  impact sibling documentation.
+- Generic mentions of a changed symbol in unrelated contexts (HR systems, UI copy,
+  unrelated domain concepts) are NOT impacted by this change.
+- An EMPTY findings array is a valid and expected output. Do NOT hallucinate impact.
+- Output ONLY valid JSON. No markdown fences. No preamble. No trailing explanation.
+
+Output schema (strict):
+{
+  "findings": [
+    {
+      "file":       "<filename from one of the sibling chunks provided>",
+      "repo":       "<repo value from one of the sibling chunks provided>",
+      "line_hint":  <integer line number or null>,
+      "confidence": <integer 0-100>,
+      "reason":     "<max 80 chars — direct impact explanation>"
+    }
+  ]
+}"""
+
 
 class VerificationAgent:
     """
@@ -854,6 +885,78 @@ class VerificationAgent:
             summary=summary,
             confidence_score=confidence_score,
         )
+
+    async def analyze_cross_repo_impact(
+        self,
+        diff_summary: str,
+        sibling_chunks: list[dict],
+        min_confidence: int = 60,
+        max_findings: int = 5,
+    ) -> list[dict]:
+        """
+        EPIC-11: Identify cross-repo documentation impact for a code change.
+
+        Args:
+            diff_summary:    Rich summary of the change (old→new symbols, snippets).
+            sibling_chunks:  Retrieved docs from sibling sub-namespaces.
+                             Each dict must have keys: repo, file, content.
+            min_confidence:  Minimum LLM confidence score to include a finding.
+            max_findings:    Hard cap on returned findings (sorted by confidence desc).
+
+        Returns:
+            List of finding dicts: {file, repo, line_hint, confidence, reason}.
+            Empty list when no findings pass the threshold or LLM fails.
+        """
+        if not sibling_chunks:
+            return []
+
+        # Build the valid (repo, file) pairs from the input for injection defence.
+        valid_pairs: set[tuple[str, str]] = {
+            (c["repo"], c["file"]) for c in sibling_chunks
+        }
+
+        chunks_text = "\n\n".join(
+            f"[Chunk {i + 1}]\nrepo: {c['repo']}\nfile: {c['file']}\n{c['content']}"
+            for i, c in enumerate(sibling_chunks)
+        )
+        user_message = (
+            f"SOURCE REPO CHANGE:\n{diff_summary}\n\n"
+            f"SIBLING REPO DOCUMENTATION CHUNKS:\n{chunks_text}"
+        )
+
+        try:
+            response = await self.generator.generate(
+                system_prompt=_CROSS_REPO_SYSTEM_PROMPT,
+                user_message=user_message,
+                temperature=0.2,
+            )
+            raw_json = self._extract_json(response.content)
+            data = json.loads(raw_json)
+            findings = data.get("findings", [])
+        except Exception:
+            logger.warning("cross_repo: LLM call failed", exc_info=True)
+            return []
+
+        # Filter: confidence threshold + prompt injection defence
+        validated: list[dict] = []
+        for f in findings:
+            repo = f.get("repo", "")
+            file = f.get("file", "")
+            confidence = f.get("confidence", 0)
+            if confidence < min_confidence:
+                continue
+            if (repo, file) not in valid_pairs:
+                logger.warning(
+                    "cross_repo: discarding hallucinated finding",
+                    repo=repo,
+                    file=file,
+                )
+                continue
+            validated.append(f)
+
+        # Sort by confidence descending, cap at max_findings
+        validated.sort(key=lambda x: x.get("confidence", 0), reverse=True)
+        return validated[:max_findings]
 
     def _detect_language(self, file_path: str) -> str:
         """Detect programming language from file path."""
