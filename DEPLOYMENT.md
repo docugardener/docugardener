@@ -155,6 +155,49 @@ The `migrate` service runs on every `up`, applying any new Prisma migrations bef
 
 ---
 
+## QA & Testing
+
+Post-deploy tests run automatically as part of the `deploy.yml` workflow — no manual action required. For on-demand verification or a full pre-release sign-off, use the test runner on the VPS.
+
+### Safe suites — zero production impact
+
+```bash
+# On the VPS (from /opt/docugardener):
+bash scripts/run-tests-vps.sh           # python + web (default)
+```
+
+Runs 1500+ Python unit/integration tests and 1300+ Vitest component tests against the production Docker image with mocked services. Takes ~3 minutes.
+
+### Pre-release QA sign-off — hits live production
+
+```bash
+bash scripts/run-tests-vps.sh e2e --confirm-prod
+```
+
+Creates real GitHub PRs, exercises the full webhook→pipeline→fix-PR flow against `docugardener.dev`, and temporarily mutates tenant config. Run this deliberately before a significant release — **never in an automated loop**. Requires `--confirm-prod` to prevent accidental execution.
+
+### CI / Playwright (GitHub Actions, no production impact)
+
+```bash
+# Full unit + integration + Vitest in Actions (use before a release)
+gh workflow run ci.yml --repo docugardener/docugardener
+
+# Playwright browser tests against an ephemeral Postgres DB (monthly)
+gh workflow run e2e.yml --repo docugardener/docugardener
+```
+
+### Cadence summary
+
+| When | Command | Impact |
+|------|---------|--------|
+| Every deploy (automatic) | `deploy.yml` post-deploy step | None |
+| After any hotfix | `bash scripts/run-tests-vps.sh` | None |
+| Before a release | `bash scripts/run-tests-vps.sh e2e --confirm-prod` | Live prod |
+| Monthly | `gh workflow run e2e.yml` | None (ephemeral DB) |
+| Before a release | `gh workflow run ci.yml` | None (Actions) |
+
+---
+
 ## Backups
 
 The `backup-cron` service runs nightly at 02:00 UTC, backing up both PostgreSQL and Weaviate.

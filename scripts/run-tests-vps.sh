@@ -3,32 +3,42 @@
 # =============================================================================
 # DocuGardener — VPS Test Runner
 #
-# Runs all test suites against the live VPS environment.
+# Runs test suites on the production VPS.
 #
 # Usage (from /opt/docugardener on the VPS):
-#   bash scripts/run-tests-vps.sh [suite ...]
+#   bash scripts/run-tests-vps.sh [suite ...] [--confirm-prod]
 #
-#   Suites: python  web  e2e  playwright  all (default: all)
+#   Suites: python  web  e2e  playwright  all
+#   Default (no args): python web   ← safe, no production impact
 #
-# Examples:
-#   bash scripts/run-tests-vps.sh              # run everything
-#   bash scripts/run-tests-vps.sh python web   # only Python + Vitest
-#   bash scripts/run-tests-vps.sh e2e          # only Python e2e
+# ── Safe suites (no production impact) ───────────────────────────────────────
+#   bash scripts/run-tests-vps.sh              # python + web (default)
+#   bash scripts/run-tests-vps.sh python web   # same, explicit
+#
+# ── Production QA (requires --confirm-prod) ──────────────────────────────────
+#   bash scripts/run-tests-vps.sh e2e --confirm-prod
+#     Creates real GitHub PRs, mutates live tenant config, burns LLM tokens.
+#     Run manually before a release — never in an automated loop.
+#
+# ── Cadence reference ────────────────────────────────────────────────────────
+#   Every deploy (auto)   deploy.yml post-deploy step → python web (~3 min)
+#   Pre-release sign-off  bash scripts/run-tests-vps.sh e2e --confirm-prod
+#   Monthly Playwright    gh workflow run e2e.yml  (ephemeral DB, no prod)
+#   Pre-release CI        gh workflow run ci.yml   (Actions, no prod)
 #
 # Prerequisites — run scripts/setup-vps-e2e.sh once first.
 #
 # What each suite does:
 #   python      Unit + integration tests inside the app Docker image.
-#               No external services required (SQLite in-memory, all mocked).
+#               SQLite in-memory, all mocked. Zero prod impact.
 #   web         Vitest component tests + TypeScript type-check.
-#               Requires Node.js 20+ on the VPS host.
+#               Runs in node:20-slim container. Zero prod impact.
 #   e2e         Python e2e tests against https://docugardener.dev.
-#               Requires: gh CLI authed, full Docker stack running,
-#               PostgreSQL reachable on localhost:5433.
+#               ⚠ Hits live production — requires --confirm-prod.
+#               Requires: gh CLI authed, full Docker stack running.
 #   playwright  Playwright browser tests against https://docugardener.dev.
-#               Requires: Node.js 20+, Playwright chromium installed,
-#               DATABASE_URL pointing to the live Postgres DB.
-#               WARNING: seeds test users into the production database.
+#               ⚠ Hits live production — requires --confirm-prod.
+#               Requires: Node.js 20+, Playwright chromium installed.
 # =============================================================================
 
 set -euo pipefail
