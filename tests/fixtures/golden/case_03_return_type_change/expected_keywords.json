@@ -1,0 +1,5 @@
+{
+  "required": ["None", "unavailable", "non-fatal"],
+  "preferred": ["bool", "channel", "configuration", "NotificationError"],
+  "must_not_contain": ["always raises", "raises on any failure"]
+}

@@ -1,0 +1,5 @@
+{
+  "required": ["secret", "event_types", "HMAC", "signing"],
+  "preferred": ["list", "str", "subscribe", "webhook"],
+  "must_not_contain": []
+}

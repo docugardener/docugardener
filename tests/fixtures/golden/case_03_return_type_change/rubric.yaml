@@ -1,0 +1,5 @@
+weights:
+  required_keywords: 0.50
+  preferred_keywords: 0.30
+  must_not_violations: 0.20
+pass_threshold: 0.65

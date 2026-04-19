@@ -25,7 +25,12 @@ Output Format:
 - Structure documentation logically (description, parameters, returns, examples)"""
 
 
-# Prompt template for generating documentation updates
+# Prompt template for generating documentation updates.
+# EPIC-13: Three optional enrichment slots were added:
+#   {neighbor_context}  — sibling functions from the same file (ContextEnricher)
+#   {import_block}      — import section of the file (ContextEnricher)
+#   {style_guide}       — detected docstring convention (ContextEnricher)
+# All three default to "" when repo_path is unavailable or enrichment fails.
 DRAFT_GENERATION_PROMPT = """## Code Changes Analysis
 
 ### Changed Entity
@@ -53,6 +58,12 @@ DRAFT_GENERATION_PROMPT = """## Code Changes Analysis
 ### Related Documentation Context
 {related_docs}
 
+### File Import Block
+{import_block}
+
+### Sibling Functions (Style Reference)
+{neighbor_context}
+
 ---
 
 ## Task
@@ -64,6 +75,8 @@ Generate updated documentation that:
 3. Maintains consistency with the existing documentation style
 4. For DOCSTRING_CHANGED: Simply sync the external documentation with the new internal docstring.
 5. For LOGIC_MODIFIED or SIGNATURE_CHANGED: Detail the functional impact and update examples.
+6. Match the docstring style used in this codebase: **{style_guide}** style.
+   If style_guide is empty, infer the style from the sibling functions shown above.
 
 Generate the documentation update now:"""
 

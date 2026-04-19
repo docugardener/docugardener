@@ -1,0 +1,12 @@
+{
+  "case_id": "case_01_stale_params",
+  "description": "Function gains two new required parameters; existing docs describe old signature",
+  "entity_name": "create_webhook",
+  "entity_type": "function",
+  "file_path": "src/api/webhooks.py",
+  "language": "python",
+  "change_type": "SIGNATURE_CHANGED",
+  "old_code": "def create_webhook(url: str) -> dict:\n    \"\"\"Create a webhook.\n\n    Args:\n        url: The webhook URL.\n\n    Returns:\n        Webhook config dict.\n    \"\"\"\n    return {\"url\": url}",
+  "new_code": "def create_webhook(url: str, secret: str, event_types: list[str]) -> dict:\n    \"\"\"Create a webhook.\n\n    Args:\n        url: The webhook URL.\n        secret: HMAC signing secret.\n        event_types: List of event types to subscribe to.\n\n    Returns:\n        Webhook config dict.\n    \"\"\"\n    return {\"url\": url, \"secret\": secret, \"events\": event_types}",
+  "existing_docs": "# create_webhook\n\nCreate a webhook.\n\n**Parameters**\n- `url` (str): The webhook URL.\n\n**Returns** dict"
+}

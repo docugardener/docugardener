@@ -345,10 +345,11 @@ class PRAnalyzer:
                                 namespace=namespace,
                             )
 
-                            # Generate doc update
+                            # Generate doc update (EPIC-13: pass repo_path for context enrichment)
                             draft = await self.verifier.generate_documentation(
                                 change=change,
                                 related_docs=related_docs,
+                                repo_path=repo_path,
                             )
 
                             if draft.is_verified:
@@ -477,6 +478,7 @@ class PRAnalyzer:
                     draft = await self.verifier.generate_documentation(
                         change=change,
                         related_docs=[],  # No RAG in local CLI for now
+                        repo_path=repo_path,  # EPIC-13: enrich with local context
                     )
                     if draft.is_verified:
                         result.documentation_updates.append(draft)

@@ -363,6 +363,7 @@ class VerificationAgent:
         change: EntityChange,
         existing_docs: str = "",
         related_docs: list[SearchResult] | None = None,
+        repo_path: "Path | None" = None,
     ) -> DocumentationDraft:
         """
         Generate and verify documentation for a code change.
@@ -371,10 +372,15 @@ class VerificationAgent:
             change: The code change to document
             existing_docs: Current documentation (if any)
             related_docs: Related documentation from vector search
+            repo_path: EPIC-13 — absolute path to the cloned repo root.
+                When provided, ContextEnricher extracts sibling functions,
+                imports, and docstring style to enrich the generation prompt.
 
         Returns:
             Verified documentation draft
         """
+        from pathlib import Path as _Path
+
         entity = change.entity
 
         # Format related docs
@@ -390,6 +396,31 @@ class VerificationAgent:
         # Detect language from file
         language = self._detect_language(entity.file_path)
 
+        # EPIC-13: Context enrichment — neighbors, imports, docstring style.
+        # Gracefully skipped when repo_path is None or enricher raises.
+        neighbor_context = ""
+        import_block = ""
+        style_guide = ""
+        if repo_path is not None:
+            try:
+                from src.pipeline.context_enrichment import ContextEnricher
+                enricher = ContextEnricher()
+                neighbor_context = enricher.extract_neighbors(
+                    entity.file_path, entity.name, repo_path=_Path(repo_path), n=3
+                )
+                import_block = enricher.extract_imports(
+                    entity.file_path, repo_path=_Path(repo_path)
+                )
+                style_guide = enricher.detect_docstring_style(
+                    entity.file_path, repo_path=_Path(repo_path)
+                )
+            except Exception as _enr_exc:
+                logger.warning(
+                    "EPIC-13: context enrichment failed (non-fatal)",
+                    file=entity.file_path,
+                    error=str(_enr_exc),
+                )
+
         # Build generation prompt
         prompt = DRAFT_GENERATION_PROMPT.format(
             entity_name=entity.qualified_name,
@@ -402,6 +433,9 @@ class VerificationAgent:
             new_code=change.new_content or entity.content,
             existing_docs=existing_docs or "(No existing documentation)",
             related_docs=related_docs_text or "(No related documentation found)",
+            neighbor_context=neighbor_context or "(No sibling functions available)",
+            import_block=import_block or "(Import block unavailable)",
+            style_guide=style_guide or "plain",
         )
 
         # Generate with retries
@@ -783,10 +817,37 @@ class VerificationAgent:
                 drift_score=final_score,
             )
 
+        required_updates = proposal_data.get("required_updates", [])
+
+        # SCR-03: Empty action list with high drift score.
+        # When the LLM returns no actionable required_updates but the deterministic
+        # score is ≥ 60, users see "high drift" but nothing to act on.  Inject a
+        # fallback entry so the inbox always has at least one concrete item.
+        if int(final_score) >= 60 and not required_updates:
+            affected_files = list({c.entity.file_path for c in changes})
+            fallback_file = affected_files[0] if affected_files else "unknown"
+            required_updates = [
+                {
+                    "file": fallback_file,
+                    "section": "General",
+                    "reason": (
+                        f"SCR-03 fallback: drift score {int(final_score)}/100 but no "
+                        "specific updates were identified. Review the changed entities "
+                        "and update corresponding documentation."
+                    ),
+                }
+            ]
+            logger.warning(
+                "SCR-03: high drift score but LLM returned empty required_updates — "
+                "fallback entry injected",
+                drift_score=int(final_score),
+                affected_file=fallback_file,
+            )
+
         return DriftAnalysis(
             drift_score=int(final_score),
             severity=DriftScorer.get_severity(int(final_score)),
-            required_updates=proposal_data.get("required_updates", []),
+            required_updates=required_updates,
             block_merge=block_merge,
             summary=summary,
             confidence_score=confidence_score,

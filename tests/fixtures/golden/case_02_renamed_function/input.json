@@ -1,0 +1,12 @@
+{
+  "case_id": "case_02_renamed_function",
+  "description": "Function renamed from get_user to fetch_user; docs still reference old name",
+  "entity_name": "fetch_user",
+  "entity_type": "function",
+  "file_path": "src/api/users.py",
+  "language": "python",
+  "change_type": "RENAMED",
+  "old_code": "def get_user(user_id: str) -> dict:\n    \"\"\"Retrieve a user by ID.\"\"\"\n    return {}",
+  "new_code": "def fetch_user(user_id: str, include_roles: bool = False) -> dict:\n    \"\"\"Fetch a user by ID, optionally with their roles.\n\n    Args:\n        user_id: The user's unique identifier.\n        include_roles: If True, attach the user's role list.\n\n    Returns:\n        User dict, with 'roles' key when include_roles=True.\n    \"\"\"\n    return {}",
+  "existing_docs": "# get_user\n\nRetrieve a user by ID.\n\n**Parameters**\n- `user_id` (str): The user's ID."
+}

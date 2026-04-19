@@ -1,0 +1,12 @@
+{
+  "case_id": "case_03_return_type_change",
+  "description": "Function now returns None on failure instead of raising; docs don't reflect nullable return",
+  "entity_name": "send_notification",
+  "entity_type": "function",
+  "file_path": "src/notifications/dispatcher.py",
+  "language": "python",
+  "change_type": "LOGIC_MODIFIED",
+  "old_code": "def send_notification(user_id: str, message: str) -> bool:\n    \"\"\"Send a notification to a user.\n\n    Returns:\n        True on success.\n\n    Raises:\n        NotificationError: If delivery fails.\n    \"\"\"\n    raise NotificationError(\"failed\")",
+  "new_code": "def send_notification(user_id: str, message: str) -> bool | None:\n    \"\"\"Send a notification to a user.\n\n    Returns:\n        True on success, None if the channel is unavailable (non-fatal).\n        Raises NotificationError only for configuration errors.\n    \"\"\"\n    return None",
+  "existing_docs": "# send_notification\n\nSend a notification.\n\n**Raises** NotificationError on any failure."
+}

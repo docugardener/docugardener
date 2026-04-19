@@ -1,0 +1,5 @@
+{
+  "required": ["fetch_user", "include_roles", "roles"],
+  "preferred": ["user_id", "bool", "dict", "identifier"],
+  "must_not_contain": ["get_user"]
+}
