@@ -55,6 +55,7 @@ export function FirstRepoWizardCard({
 
   useEffect(() => {
     const stored = localStorage.getItem(dismissedKey(repoId));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDismissed(stored === "true");
   }, [repoId]);
 

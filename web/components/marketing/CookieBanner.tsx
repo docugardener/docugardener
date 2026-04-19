@@ -12,6 +12,7 @@ export function CookieBanner() {
 
     useEffect(() => {
         if (!localStorage.getItem(STORAGE_KEY)) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setVisible(true)
         }
     }, [])

@@ -24,6 +24,7 @@ export function OnboardingBanner({ hasRepos, hasJobs }: OnboardingBannerProps) {
 
   useEffect(() => {
     const stored = localStorage.getItem(BANNER_DISMISSED_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDismissed(stored === "true");
   }, []);
 
