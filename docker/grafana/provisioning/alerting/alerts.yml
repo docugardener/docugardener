@@ -18,10 +18,13 @@ contactPoints:
     name: docugardener-ops
     receivers:
       - uid: docugardener-ops-webhook
-        type: webhook
+        type: slack
         settings:
           url: "${GRAFANA_ALERT_WEBHOOK_URL}"
-          httpMethod: POST
+          title: |
+            {{ template "default.title" . }}
+          text: |
+            {{ template "default.message" . }}
         disableResolveMessage: false
 
 policies:
