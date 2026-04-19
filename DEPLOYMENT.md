@@ -297,42 +297,56 @@ curl -X POST http://localhost:8080/v1/backups/filesystem/backup-20260314-020000/
 
 ## Monitoring & Alerting
 
-The production stack includes **Prometheus** (metrics collection) and **Grafana** (dashboards + alerting), with no host-port bindings. Access Grafana via SSH tunnel:
+The production stack includes **Prometheus** (metrics collection) and **Grafana** (dashboards + alerting).
 
-```bash
-ssh -L 3002:localhost:3000 your-server
-# Then open http://localhost:3002 in your browser
-# Default credentials: admin / value of GRAFANA_ADMIN_PASSWORD
+### Accessing Grafana
+
+**Recommended:** expose Grafana on a subdomain by adding a DNS A record and a Caddy block (already in `docker/Caddyfile`):
+
 ```
+Type: A  |  Name: grafana  |  Value: <your-server-ip>  |  Proxy: DNS only (grey cloud in Cloudflare)
+```
+
+Then open **https://grafana.your-domain.com** — Caddy provisions TLS automatically.
+
+> **Note:** Leave Cloudflare proxy OFF (grey cloud) for the grafana subdomain. Caddy handles TLS itself; the orange proxy causes cert conflicts.
+
+Default credentials: `admin` / value of `GRAFANA_ADMIN_PASSWORD` in `.env`. **Change the password** on first login via Profile → Change password.
 
 ### Provisioned alert rules
 
-| Alert | Condition | Severity | For |
-|---|---|---|---|
-| API Error Rate >5% | 5xx / total HTTP requests >5% | critical | 5 min |
-| RQ Queue Depth >100 | `docugardener_queue_size{default}` >100 | warning | 5 min |
-| Webhook Failure Rate >10% | Failed / total webhooks >10% | warning | 5 min |
-| LLM Error Rate >5% | LLM errors / total LLM requests >5% | warning | 10 min |
+6 alert rules fire automatically:
 
-Alert rules are provisioned from `docker/grafana/provisioning/alerting/alerts.yml` and loaded on Grafana startup.
+| Alert | Condition | Severity |
+|---|---|---|
+| API Error Rate >5% | 5xx / total requests >5% | critical |
+| RQ Queue Depth >100 | queue size >100 for 5 min | warning |
+| Webhook Failure Rate >10% | failed / total webhooks >10% | warning |
+| LLM Error Rate >5% | LLM errors / requests >5% | warning |
+| RQ Queue Stuck | queue non-empty for 5+ min | critical |
+| Worker Silent | queue non-empty, no completions in 10 min | critical |
 
-### Notification channel
+### Wiring alert notifications (required manual step)
 
-Alerts are sent to the `docugardener-ops` contact point (webhook). Configure the destination in `.env.production`:
+Alert rules are provisioned automatically. The **notification destination must be configured manually in Grafana UI** after first launch — Grafana's internal DB takes ownership of contact points after startup and ignores further env var changes.
 
-```bash
-# Slack incoming webhook, PagerDuty, or any HTTP endpoint
-GRAFANA_ALERT_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../xxx
-```
+1. Go to **Alerting → Contact points → docugardener-ops → Edit**
+2. Delete the placeholder receiver
+3. Click **Add contact point integration** → select **Slack**
+4. Paste your Slack Incoming Webhook URL
+5. Click **Test** — confirm the message arrives in your Slack channel
+6. **Save contact point**
 
-If not set, alerts are silently dropped (the default points to a non-existent localhost sink).
+To create a Slack Incoming Webhook: Slack workspace → Apps → Incoming WebHooks → Add → choose a channel → copy the URL.
 
 ### Custom Grafana password
 
 ```bash
-# in .env.production
+# in .env
 GRAFANA_ADMIN_PASSWORD=your-secure-password
 ```
+
+Note: Grafana only reads this on first launch. After that, use the UI to change the password (Profile → Change password).
 
 ### Prometheus retention
 
