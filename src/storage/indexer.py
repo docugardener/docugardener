@@ -240,13 +240,12 @@ class DocumentIndexer:
         embeddings = generate_batch_embeddings(texts)
 
         # Compute repo-relative path for display (avoids leaking ephemeral paths)
-        relative_path = (
-            str(file_path.relative_to(repo_root)) if repo_root else str(file_path)
-        )
+        relative_path = str(file_path.relative_to(repo_root)) if repo_root else str(file_path)
 
         # Create records
         records = []
         import dataclasses
+
         for entity, embedding in zip(entities, embeddings):
             # Override entity file_path with the repo-relative version
             if repo_root:

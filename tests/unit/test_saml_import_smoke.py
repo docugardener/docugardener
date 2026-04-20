@@ -25,4 +25,4 @@ def test_saml_routes_registered():
 
     routes = [r.path for r in app.routes]
     assert "/auth/saml/callback" in routes, f"SAML callback route missing. Routes: {routes}"
-    assert "/auth/saml/sls" in routes, f"SAML SLO route missing. Routes: {routes}"
+    assert "/auth/saml/logout" in routes, f"SAML SLO route missing. Routes: {routes}"
