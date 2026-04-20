@@ -380,14 +380,10 @@ export default function FeaturesPage() {
               ]}
             />
           </div>
-        </div>
 
-        {/* ── Multi-Repo ───────────────────────────────────────────── */}
-        <div className="mt-16">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-            Multi-Repo
-          </h2>
-          <div className="max-w-md">
+          {/* ── Multi-Repo ───────────────────────────────────────────── */}
+          <GroupLabel>Multi-Repo</GroupLabel>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <FeatureCard
               icon={GitFork}
               iconBg="bg-sky-50"
