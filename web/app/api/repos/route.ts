@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
                 },
                 update: {
                     name: repoData.name,
-                    enabled: true,
+                    // Do NOT override enabled — preserve manual disable/enable by user
                     updatedAt: new Date()
                 },
                 create: {
