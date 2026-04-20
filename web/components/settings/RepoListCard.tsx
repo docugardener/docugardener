@@ -4,7 +4,8 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, GitBranch, Check, X, Loader2, AlertTriangle, Lock } from "lucide-react"
+import { RefreshCw, GitBranch, Check, X, Loader2, AlertTriangle, Lock, GitFork, ChevronDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { UpgradeContextCard } from "@/components/billing/UpgradeContextCard"
 
@@ -13,6 +14,7 @@ interface Repo {
     name: string
     enabled: boolean
     githubRepoId: string
+    config?: unknown
 }
 
 interface RepoListCardProps {
@@ -25,8 +27,18 @@ export function RepoListCard({ initialRepos, plan }: RepoListCardProps) {
     const [syncing, setSyncing] = useState(false)
     const [warnings, setWarnings] = useState<string[]>([])
     const [toggling, setToggling] = useState<string | null>(null)
+    const [siblingsMap, setSiblingsMap] = useState<Record<string, string[]>>(() =>
+        Object.fromEntries(initialRepos.map(r => {
+            const cfg = r.config as Record<string, unknown> | null | undefined
+            const siblings = cfg?.crossRepoSiblings
+            return [r.id, Array.isArray(siblings) ? (siblings as string[]) : []]
+        }))
+    )
+    const [expandedSiblings, setExpandedSiblings] = useState<string | null>(null)
+    const [savingSiblings, setSavingSiblings] = useState<string | null>(null)
 
     const isFree = plan === "FREE"
+    const canConfigureSiblings = plan === "TEAM" || plan === "ENTERPRISE"
 
     async function handleSync() {
         setSyncing(true)
@@ -67,6 +79,22 @@ export function RepoListCard({ initialRepos, plan }: RepoListCardProps) {
             toast.error("Failed to update repository")
         } finally {
             setToggling(null)
+        }
+    }
+
+    async function handleSaveSiblings(repo: Repo, siblings: string[]) {
+        setSavingSiblings(repo.id)
+        try {
+            const res = await fetch(`/api/repos/${repo.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ crossRepoSiblings: siblings }),
+            })
+            if (!res.ok) { toast.error("Failed to save"); return }
+            setSiblingsMap(prev => ({ ...prev, [repo.id]: siblings }))
+            toast.success("Sibling repos updated")
+        } finally {
+            setSavingSiblings(null)
         }
     }
 
@@ -127,31 +155,81 @@ export function RepoListCard({ initialRepos, plan }: RepoListCardProps) {
             ) : (
                 <div className="divide-y divide-border rounded-md border border-border overflow-hidden">
                     {repos.map(repo => (
-                        <div key={repo.id} className="flex items-center justify-between px-4 py-3 bg-card hover:bg-muted/30 transition-colors">
-                            <div className="flex items-center gap-3">
-                                <GitBranch className="w-4 h-4 text-muted-foreground shrink-0" />
-                                <span className="text-sm font-medium text-foreground">{repo.name}</span>
-                                <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                                    repo.enabled
-                                        ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-                                        : "bg-muted text-muted-foreground border-border"
-                                }`}>
-                                    {repo.enabled
-                                        ? <><Check className="w-2.5 h-2.5" /> Connected</>
-                                        : <><X className="w-2.5 h-2.5" /> Disabled</>}
-                                </span>
+                        <div key={repo.id} className="px-4 py-3 bg-card hover:bg-muted/30 transition-colors">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <GitBranch className="w-4 h-4 text-muted-foreground shrink-0" />
+                                    <span className="text-sm font-medium text-foreground">{repo.name}</span>
+                                    <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                                        repo.enabled
+                                            ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                                            : "bg-muted text-muted-foreground border-border"
+                                    }`}>
+                                        {repo.enabled
+                                            ? <><Check className="w-2.5 h-2.5" /> Connected</>
+                                            : <><X className="w-2.5 h-2.5" /> Disabled</>}
+                                    </span>
+                                </div>
+                                <Button
+                                    variant={repo.enabled ? "outline" : "default"}
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    disabled={toggling === repo.id}
+                                    onClick={() => handleToggle(repo)}
+                                >
+                                    {toggling === repo.id
+                                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                                        : repo.enabled ? "Disable" : "Enable"}
+                                </Button>
                             </div>
-                            <Button
-                                variant={repo.enabled ? "outline" : "default"}
-                                size="sm"
-                                className="h-7 text-xs"
-                                disabled={toggling === repo.id}
-                                onClick={() => handleToggle(repo)}
-                            >
-                                {toggling === repo.id
-                                    ? <Loader2 className="w-3 h-3 animate-spin" />
-                                    : repo.enabled ? "Disable" : "Enable"}
-                            </Button>
+                            {canConfigureSiblings && repos.length > 1 && (
+                                <div className="mt-2 border-t pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setExpandedSiblings(expandedSiblings === repo.id ? null : repo.id)}
+                                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                                    >
+                                        <GitFork className="w-3 h-3" />
+                                        Configure sibling repos
+                                        {(siblingsMap[repo.id]?.length ?? 0) > 0 && (
+                                            <span className="ml-1 text-[10px] text-sky-600 font-semibold">
+                                                ({siblingsMap[repo.id]!.length} configured)
+                                            </span>
+                                        )}
+                                        <ChevronDown className={cn("w-3 h-3 transition-transform", expandedSiblings === repo.id && "rotate-180")} />
+                                    </button>
+                                    {expandedSiblings === repo.id && (
+                                        <div className="mt-2 space-y-1">
+                                            {repos.filter(r => r.id !== repo.id).map(sibling => (
+                                                <label key={sibling.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={(siblingsMap[repo.id] ?? []).includes(sibling.id)}
+                                                        onChange={e => {
+                                                            const current = siblingsMap[repo.id] ?? []
+                                                            setSiblingsMap(prev => ({
+                                                                ...prev,
+                                                                [repo.id]: e.target.checked
+                                                                    ? [...current, sibling.id]
+                                                                    : current.filter(id => id !== sibling.id),
+                                                            }))
+                                                        }}
+                                                    />
+                                                    {sibling.name}
+                                                </label>
+                                            ))}
+                                            <button
+                                                type="button"
+                                                disabled={savingSiblings === repo.id}
+                                                onClick={() => handleSaveSiblings(repo, siblingsMap[repo.id] ?? [])}
+                                                className="mt-1 text-xs px-2 py-1 rounded bg-primary text-primary-foreground disabled:opacity-50"
+                                            >
+                                                {savingSiblings === repo.id ? "Saving…" : "Save"}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

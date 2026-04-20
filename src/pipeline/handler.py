@@ -393,6 +393,10 @@ async def process_pull_request(
                 )
                 result_payload["auto_fix_enqueued"] = _epic05_will_fire or _scale04_will_fire
 
+                # CR-UX-01: persist cross-repo findings so the inbox chip can read them
+                if result.cross_repo_findings:
+                    result_payload["cross_repo_findings"] = result.cross_repo_findings
+
                 job_manager.complete_job(job_id, result_payload)
 
                 # C-04: first-analysis email — fire-and-forget, never blocks job
@@ -872,6 +876,8 @@ async def process_fix_pr(job_id: str, auto_merge: bool = False) -> None:
                     # Persist the merge method + merged-at timestamp
                     new_result["autoMergeMethod"] = _merge_method
                     new_result["fix_pr_merged_at"] = datetime.utcnow().isoformat() + "Z"
+                    # CR-DATA-01: AI Author Mode always stamps ai_auto here
+                    new_result["resolution_actor"] = "ai_auto"
                     job.result = new_result
                     # Post summary comment on the original PR
                     committer.post_pr_comment(

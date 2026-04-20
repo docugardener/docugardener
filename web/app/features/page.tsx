@@ -21,6 +21,7 @@ import {
   ScrollText,
   Map,
   Bot,
+  GitFork,
 } from "lucide-react"
 
 interface FeatureCardProps {
@@ -376,6 +377,28 @@ export default function FeaturesPage() {
                 "Auto-comment on linked Jira tickets at 4 lifecycle points",
                 "Works with any ticket key in PR branch, title, or body",
                 "No extra setup — uses your existing Jira workflow",
+              ]}
+            />
+          </div>
+        </div>
+
+        {/* ── Multi-Repo ───────────────────────────────────────────── */}
+        <div className="mt-16">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
+            Multi-Repo
+          </h2>
+          <div className="max-w-md">
+            <FeatureCard
+              icon={GitFork}
+              iconBg="bg-sky-50"
+              iconColor="text-sky-600"
+              badge="Team+"
+              title="Cross-Repo Drift Detection"
+              description="Fan-out across sibling repos — detects when a code change breaks docs in related repos."
+              bullets={[
+                "Fan-out analysis across siblings",
+                "Prompt injection defence",
+                "TEAM: 3 siblings · ENTERPRISE: 10 siblings",
               ]}
             />
           </div>

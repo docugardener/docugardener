@@ -53,6 +53,8 @@ class TriageStatus(enum.StrEnum):
     # BUG-4: FIX_PR_FAILED: fix PR creation/push failed (e.g. missing Contents: write).
     # Distinct from job FAILED status (which means analysis failed).
     FIX_PR_FAILED = "FIX_PR_FAILED"
+    # BUG-8: FIX_PR_CANCELLED: fix PR was closed without merging.
+    FIX_PR_CANCELLED = "FIX_PR_CANCELLED"
     RESOLVED = "RESOLVED"
 
 

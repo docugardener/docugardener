@@ -352,6 +352,14 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
     ):
         return await handle_fix_pr_merged(data, head_ref_closed)
 
+    # Fix PR closed WITHOUT merging → BUG-8 FIX_PR_OPEN → FIX_PR_CANCELLED
+    if (
+        action == "closed"
+        and pull_request.get("merged") is False
+        and head_ref_closed.startswith("docugardener-fix-")
+    ):
+        return await handle_fix_pr_closed(data, head_ref_closed)
+
     # Only process opened and synchronized (new commits) events
     if action not in ["opened", "synchronize", "reopened"]:
         logger.debug("Skipping PR action", action=action)
@@ -938,6 +946,10 @@ async def handle_fix_pr_merged(data: dict[str, Any], head_ref: str) -> dict[str,
                 # Stamp merge timestamp so the Jobs timeline can display it
                 new_result = dict(job.result or {})
                 new_result["fix_pr_merged_at"] = merged_at_str
+                # CR-DATA-01: stamp resolution actor for audit + UI differentiation
+                new_result["resolution_actor"] = (
+                    "ai_auto" if new_result.get("auto_fix_enqueued") else "human"
+                )
                 job.result = new_result
             db.commit()
 
@@ -1050,6 +1062,78 @@ async def handle_fix_pr_merged(data: dict[str, Any], head_ref: str) -> dict[str,
 
     except Exception as e:
         logger.error("handle_fix_pr_merged failed", error=str(e), branch=head_ref)
+        return {"status": "error", "reason": str(e)}
+
+
+async def handle_fix_pr_closed(data: dict, head_ref: str) -> dict:
+    """BUG-8: Handle a DocuGardener fix PR that was closed without merging.
+
+    Transitions FIX_PR_OPEN → FIX_PR_CANCELLED so jobs don't stay open forever.
+    """
+    import re as _re
+
+    match = _re.search(r"docugardener-fix-(\d+)-", head_ref)
+    if not match:
+        logger.warning("handle_fix_pr_closed: cannot parse PR number from branch", branch=head_ref)
+        return {"status": "skipped", "reason": "branch_parse_failed"}
+
+    original_pr_number = int(match.group(1))
+    installation_id = data.get("installation", {}).get("id")
+    if not installation_id:
+        return {"status": "skipped", "reason": "no_installation_id"}
+
+    try:
+        from datetime import datetime
+
+        from src.pipeline.job_manager import SessionLocal
+        from src.storage.sql_models import Job, Tenant, TriageStatus
+
+        db = SessionLocal()
+        try:
+            tenant = db.query(Tenant).filter(Tenant.installationId == str(installation_id)).first()
+            if not tenant:
+                logger.warning(
+                    "handle_fix_pr_closed: tenant not found", installation_id=installation_id
+                )
+                return {"status": "skipped", "reason": "tenant_not_found"}
+
+            jobs = (
+                db.query(Job)
+                .filter(
+                    Job.tenantId == tenant.id,
+                    Job.prNumber == original_pr_number,
+                    Job.triageStatus == TriageStatus.FIX_PR_OPEN,
+                )
+                .all()
+            )
+
+            if not jobs:
+                logger.debug(
+                    "handle_fix_pr_closed: no FIX_PR_OPEN jobs found", pr=original_pr_number
+                )
+                return {"status": "skipped", "reason": "no_matching_jobs"}
+
+            closed_at_str = datetime.utcnow().isoformat() + "Z"
+            for job in jobs:
+                job.triageStatus = TriageStatus.FIX_PR_CANCELLED
+                job.updatedAt = datetime.utcnow()
+                new_result = dict(job.result or {})
+                new_result["fix_pr_closed_at"] = closed_at_str
+                job.result = new_result
+
+            db.commit()
+            logger.info(
+                "handle_fix_pr_closed: transitioned jobs to FIX_PR_CANCELLED",
+                pr=original_pr_number,
+                count=len(jobs),
+            )
+            return {"status": "cancelled", "jobs_updated": len(jobs)}
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error("handle_fix_pr_closed failed", error=str(e), branch=head_ref)
         return {"status": "error", "reason": str(e)}
 
 

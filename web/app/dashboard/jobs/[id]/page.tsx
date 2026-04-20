@@ -58,11 +58,19 @@ export default async function JobDetailsPage({ params }: PageProps) {
     const humanActor = triageAudit?.actorEmail ?? null
     const resolver: { kind: "ai-author" | "human" | "mixed"; label: string } | null = (() => {
         const ts = (job as any).triageStatus as string
+        const actor = result.resolution_actor as string | undefined
+        // CR-DATA-01: prefer explicit actor field over legacy heuristics
+        if (actor === "ai_auto")
+            return { kind: "ai-author", label: "AI Auto-fix" }
+        if (actor === "human")
+            return { kind: "human", label: humanActor ?? "Human" }
+        // Legacy fallback for jobs created before CR-DATA-01
         if (result.autoMergeMethod)
             return { kind: "ai-author", label: "AI Author" }
         if (result.autoMergeSkipReason)
             return { kind: "mixed", label: humanActor ?? "Mixed" }
-        if (ts === "IGNORED" || ts === "ACCEPTED" || ts === "RESOLVED")
+        // Only show human resolver if there's actual evidence (email from audit or a fix PR was opened)
+        if ((ts === "IGNORED" || ts === "ACCEPTED" || ts === "RESOLVED") && (humanActor || result.fixPrUrl))
             return { kind: "human", label: humanActor ?? "Human" }
         return null
     })()

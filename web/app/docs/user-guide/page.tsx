@@ -35,6 +35,12 @@ const SECTIONS = [
           "Let DocuGardener automatically generate and merge documentation fixes for AI-authored PRs.",
         href: "/docs/user-guide/auto-fix",
       },
+      {
+        title: "Cross-Repo Drift Detection",
+        description:
+          "Configure sibling repository fan-out to detect documentation drift spanning multiple related repos.",
+        href: "/docs/user-guide/cross-repo-drift",
+      },
     ],
   },
   {

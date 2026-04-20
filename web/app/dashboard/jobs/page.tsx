@@ -16,6 +16,7 @@ import { GitPullRequest, Clock, ExternalLink, ThumbsUp, ThumbsDown, Loader2, Inf
 import { formatDistanceToNow } from "date-fns"
 import { getUiStatus, type UiStatus } from "@/lib/job-status"
 import { JobsAutoRefresh } from "@/components/jobs/JobsAutoRefresh"
+import { JobsLastVisited } from "@/components/jobs/JobsLastVisited"
 
 const ACTIVE_UI_STATUSES: UiStatus[] = ["QUEUED", "ANALYZING", "AI_FIXING", "FIX_PR_OPEN"]
 
@@ -182,6 +183,7 @@ export default async function JobsPage({
     return (
         <div className="w-full min-h-screen bg-background pb-20 font-sans text-foreground">
             <JobsAutoRefresh hasActiveJobs={hasActiveJobs} />
+            <JobsLastVisited />
             <PageHeader
                 title="JOB HISTORY"
                 description="All analysis runs across your connected repositories"

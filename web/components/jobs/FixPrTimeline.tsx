@@ -133,11 +133,20 @@ export function buildTimeline(job: TimelineJob): TimelineStep[] {
             })
         } else if (uiStatus === "RESOLVED") {
             const mergedAtStr = result.fix_pr_merged_at as string | undefined
+            const isAiAuto = result.resolution_actor === "ai_auto"
             steps.push({
                 id: "merged",
-                label: "Fix PR merged",
+                label: isAiAuto ? "Auto-resolved" : "Fix PR merged",
                 status: "done",
                 timestamp: mergedAtStr ? new Date(mergedAtStr) : undefined,
+                detail: isAiAuto ? "Resolved by AI Author Mode" : undefined,
+            })
+        } else if (uiStatus === "FIX_PR_CANCELLED") {
+            steps.push({
+                id: "cancelled",
+                label: "Fix PR closed",
+                status: "done",
+                detail: "Fix PR was closed without merging",
             })
         }
     }

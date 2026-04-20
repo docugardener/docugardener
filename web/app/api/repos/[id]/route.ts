@@ -53,7 +53,14 @@ export async function PATCH(
 
     try {
         const body = await req.json()
-        const { enabled, threshold } = body
+        const { enabled, threshold, crossRepoSiblings } = body
+
+        // Validate crossRepoSiblings
+        if (crossRepoSiblings !== undefined && crossRepoSiblings !== null) {
+            if (!Array.isArray(crossRepoSiblings) || !crossRepoSiblings.every((s: unknown) => typeof s === "string")) {
+                return NextResponse.json({ error: "crossRepoSiblings must be a string array" }, { status: 400 })
+            }
+        }
 
         // Verify ownership
         const repo = await prisma.repository.findFirst({
@@ -69,9 +76,13 @@ export async function PATCH(
         if (typeof enabled === "boolean") data.enabled = enabled
 
         // Merge config
-        if (threshold !== undefined) {
+        if (threshold !== undefined || crossRepoSiblings !== undefined) {
             const currentConfig = (repo.config as any) || {}
-            data.config = { ...currentConfig, threshold: Number(threshold) }
+            data.config = {
+                ...currentConfig,
+                ...(threshold !== undefined ? { threshold: Number(threshold) } : {}),
+                ...(crossRepoSiblings !== undefined ? { crossRepoSiblings } : {}),
+            }
         }
 
         const updated = await prisma.repository.update({

@@ -4,10 +4,11 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Check, X, Zap, Building2, Sparkles, ChevronDown, Shield } from "lucide-react"
+import { Check, X, Zap, Building2, Sparkles, ChevronDown, Shield, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card"
 import { MarketingHeader } from "@/components/marketing/MarketingHeader"
 import { MarketingFooter } from "@/components/marketing/MarketingFooter"
 
@@ -81,6 +82,7 @@ const PLANS = [
             "SCIM user provisioning",
             "Compliance templates",
             "Audit log & export (SOC 2 ready)",
+            "Cross-repo drift detection (up to 3 siblings)",
             "Priority support",
         ],
         cta: "Upgrade to Team",
@@ -103,6 +105,7 @@ const PLANS = [
             "Unlimited repositories",
             "Audit log retention — 7 years",
             "Custom policy engine rules",
+            "Cross-repo drift detection (up to 10 siblings)",
             "99.9% uptime SLA",
             "Quarterly Business Review",
             "Custom contract, MSA & DPA",
@@ -115,7 +118,7 @@ const PLANS = [
 
 // ── Feature matrix ─────────────────────────────────────────────────────────────
 
-type CellValue = boolean | string
+type CellValue = boolean | string | "locked"
 
 const FEATURE_MATRIX: { group: string; rows: { label: string; free: CellValue; pro: CellValue; team: CellValue; enterprise: CellValue }[] }[] = [
     {
@@ -137,6 +140,7 @@ const FEATURE_MATRIX: { group: string; rows: { label: string; free: CellValue; p
             { label: "Holistic scoring",      free: false,       pro: true,        team: true,         enterprise: true },
             { label: "Custom prompt tone",    free: false,       pro: true,        team: true,         enterprise: true },
             { label: "Custom policy rules",   free: false,       pro: false,       team: false,        enterprise: true },
+            { label: "Cross-repo siblings",   free: "locked" as CellValue, pro: "locked" as CellValue, team: "Up to 3",  enterprise: "Up to 10" },
         ],
     },
     {
@@ -205,6 +209,16 @@ const FAQS = [
 // ── Cell renderer ──────────────────────────────────────────────────────────────
 
 function MatrixCell({ value }: { value: CellValue }) {
+    if (value === "locked") return (
+        <HoverCard>
+            <HoverCardTrigger asChild>
+                <span className="flex justify-center cursor-pointer">
+                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                </span>
+            </HoverCardTrigger>
+            <HoverCardContent className="text-xs w-40">Upgrade to TEAM</HoverCardContent>
+        </HoverCard>
+    )
     if (typeof value === "string") {
         return <span className="text-sm font-semibold text-gray-900">{value}</span>
     }

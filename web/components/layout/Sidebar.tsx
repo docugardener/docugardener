@@ -104,6 +104,26 @@ export function Sidebar({ className }: SidebarProps) {
         return () => clearInterval(timer)
     }, [])
 
+    // CR-UX-02: Jobs unread count — newly-terminal jobs since last visit
+    const [jobsUnreadCount, setJobsUnreadCount] = useState(0)
+    useEffect(() => {
+        const fetchJobsCount = async () => {
+            try {
+                // Default to 24h ago on first use so the badge works before the first Jobs visit
+                const since =
+                    localStorage.getItem("dg-jobs-last-visited") ??
+                    new Date(Date.now() - 24 * 60 * 60_000).toISOString()
+                const res = await fetch(`/api/jobs?countOnly=true&since=${encodeURIComponent(since)}`)
+                if (!res.ok) return
+                const data = await res.json()
+                setJobsUnreadCount(data.count ?? 0)
+            } catch { /* silent */ }
+        }
+        fetchJobsCount()
+        const timer = setInterval(fetchJobsCount, 60_000)
+        return () => clearInterval(timer)
+    }, [])
+
     return (
         <div
             id="dashboard-sidebar"
@@ -138,7 +158,10 @@ export function Sidebar({ className }: SidebarProps) {
                 <div className="space-y-1.5">
                     {mainNavLinks.filter(link => link.roles.includes(userRole)).map((link) => {
                         const isActive = pathname.startsWith(link.href)
-                        const showBadge = link.href === "/dashboard/inbox" && inboxCount > 0
+                        const showBadge =
+                            (link.href === "/dashboard/inbox" && inboxCount > 0) ||
+                            (link.href === "/dashboard/jobs" && jobsUnreadCount > 0)
+                        const badgeCount = link.href === "/dashboard/jobs" ? jobsUnreadCount : inboxCount
                         return (
                             <Link
                                 key={link.href}
@@ -154,7 +177,7 @@ export function Sidebar({ className }: SidebarProps) {
                                 <span className="flex-1">{link.label}</span>
                                 {showBadge && (
                                     <span className="ml-auto inline-flex items-center justify-center min-w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-black px-1.5">
-                                        {inboxCount > 99 ? "99+" : inboxCount}
+                                        {badgeCount > 99 ? "99+" : badgeCount}
                                     </span>
                                 )}
                             </Link>
@@ -241,7 +264,7 @@ export function Sidebar({ className }: SidebarProps) {
                             </span>
                         </div>
                         <Badge variant={userRole === 'ADMIN' ? "default" : "outline"} className="text-[9px] px-1.5 py-0 h-4 rounded-sm">
-                            {userRole}
+                            {userRole === "VIEWER" ? "Developer" : userRole}
                         </Badge>
                     </div>
                 )}

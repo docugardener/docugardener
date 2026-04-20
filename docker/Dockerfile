@@ -8,14 +8,17 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Build dependencies
 # -----------------------------------------------------------------------------
-FROM python:3.11-slim as builder
+FROM python:3.13-slim as builder
 
 WORKDIR /build
 
-# Install build dependencies
+# Install build dependencies (including SAML C libs for python3-saml)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
+    libxmlsec1-dev \
+    libxml2-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment
@@ -31,16 +34,19 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # -----------------------------------------------------------------------------
 # Stage 2: Production image
 # -----------------------------------------------------------------------------
-FROM python:3.11-slim as production
+FROM python:3.13-slim as production
 
 # Security: Run as non-root user
 RUN useradd --create-home --shell /bin/bash docugardener
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies (including SAML C libs for python3-saml)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    libxmlsec1-dev \
+    libxml2-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder

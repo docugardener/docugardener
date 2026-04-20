@@ -31,6 +31,7 @@ export type UiStatus =
     | "AI_FIXING"
     | "FIX_PR_OPEN"
     | "FIX_PR_FAILED"
+    | "FIX_PR_CANCELLED"
     | "RESOLVED"
     | "DISMISSED"
     | "NO_DRIFT"
@@ -54,6 +55,7 @@ export function getUiStatus(job: JobLike): UiStatus {
 
     // Triage-based terminal / in-flight states
     if (job.triageStatus === "FIX_PR_FAILED") return "FIX_PR_FAILED"
+    if (job.triageStatus === "FIX_PR_CANCELLED") return "FIX_PR_CANCELLED"
     if (job.triageStatus === "IGNORED") return "DISMISSED"
     if (job.triageStatus === "RESOLVED") return "RESOLVED"
     if (job.triageStatus === "FIX_PR_OPEN") return "FIX_PR_OPEN"
@@ -79,6 +81,7 @@ export const UI_STATUS_LABEL: Record<UiStatus, string> = {
     AI_FIXING: "AI fixing…",
     FIX_PR_OPEN: "Fix PR open",
     FIX_PR_FAILED: "Fix PR failed",
+    FIX_PR_CANCELLED: "Fix PR closed",
     RESOLVED: "Resolved",
     DISMISSED: "Dismissed",
     NO_DRIFT: "No drift",

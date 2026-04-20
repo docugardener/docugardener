@@ -36,6 +36,7 @@ export const FEATURES = {
     prompt_customization:{ minPlan: "PRO",  trialEligible: true  } as FeatureDef,
     llm_config:          { minPlan: "FREE", trialEligible: false } as FeatureDef,
     ai_author_mode:      { minPlan: "FREE", trialEligible: false } as FeatureDef,
+    cross_repo_drift:    { minPlan: "TEAM", trialEligible: false } as FeatureDef,
 
     // ── Integrations ──────────────────────────────────────────────────────
     slack_integration:         { minPlan: "PRO",  trialEligible: false } as FeatureDef,

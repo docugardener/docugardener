@@ -63,7 +63,7 @@ export default async function SettingsPage() {
     const allRepos = await prisma.repository.findMany({
         where: { tenantId, enabled: true },
         orderBy: { name: "asc" },
-        select: { id: true, name: true, enabled: true, githubRepoId: true },
+        select: { id: true, name: true, enabled: true, githubRepoId: true, config: true },
     })
     const isPro = tenant.plan !== "FREE"
     const planLimits = getPlanLimits(tenant.plan)

@@ -22,6 +22,7 @@ const NAV = [
       { label: "Triage Inbox", href: "/docs/user-guide/triage-inbox" },
       { label: "Auto-Fix & AI Author Mode", href: "/docs/user-guide/auto-fix" },
       { label: "Repositories", href: "/docs/user-guide/repositories" },
+      { label: "Cross-repo drift", href: "/docs/user-guide/cross-repo-drift" },
       { label: "Notifications", href: "/docs/user-guide/notifications" },
       { label: "Documentation Policies", href: "/docs/user-guide/policies" },
       { label: "Team & RBAC", href: "/docs/user-guide/team" },

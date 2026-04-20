@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { SEVERITY_CONFIG, normaliseSeverity } from "@/lib/severity";
-import { Loader2, UserCheck, CheckCircle2, GitMerge, AlertTriangle } from "lucide-react";
+import { Loader2, UserCheck, CheckCircle2, GitMerge, AlertTriangle, GitPullRequestClosed } from "lucide-react";
 import { getUiStatus } from "@/lib/job-status";
 import { GettingStartedEmpty } from "@/components/onboarding/GettingStartedEmpty";
 
@@ -88,6 +88,13 @@ function AlertStatusChip({ alert }: { alert: DriftAlert }) {
             className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-px rounded-full">
             <AlertTriangle className="w-2 h-2" />
             Fix PR failed
+        </span>
+    )
+    if (uiStatus === "FIX_PR_CANCELLED") return (
+        <span data-testid="status-chip-fix-pr-cancelled"
+            className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 bg-slate-500/10 border border-slate-500/30 px-1.5 py-px rounded-full">
+            <GitPullRequestClosed className="w-2 h-2" />
+            Fix PR closed
         </span>
     )
     if (uiStatus === "NEEDS_REVIEW") return (
@@ -178,6 +185,11 @@ export function DriftAlertList({
                             </span>
                             {(alert.policyViolations?.length ?? 0) > 0 && (
                                 <span className="text-[9px] font-black uppercase text-orange-500">🛡️</span>
+                            )}
+                            {(alert.result?.cross_repo_findings?.length ?? 0) > 0 && (
+                                <span className="inline-flex items-center gap-0.5 rounded-full border border-blue-500/40 px-1.5 py-0 text-[9px] font-medium text-blue-500">
+                                    🔗 {alert.result.cross_repo_findings.length === 1 ? "1 repo impacted" : `${alert.result.cross_repo_findings.length} repos impacted`}
+                                </span>
                             )}
                             <span className="ml-auto">
                                 <AlertStatusChip alert={alert} />

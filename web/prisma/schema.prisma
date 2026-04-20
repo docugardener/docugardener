@@ -176,6 +176,7 @@ enum TriageStatus {
   IGNORED
   FIX_PR_OPEN
   FIX_PR_FAILED
+  FIX_PR_CANCELLED
   RESOLVED
 }
 

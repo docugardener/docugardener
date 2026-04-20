@@ -68,9 +68,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
       
+      - name: Install SAML system deps
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxmlsec1-dev libxml2-dev pkg-config
+
       - name: Run unit tests with coverage
         run: |
           pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=html --cov-fail-under=70
+
+      - name: Smoke — SAML import + routes (TEST-SSO-02)
+        run: pytest tests/unit/test_saml_import_smoke.py -q
 
       - name: SCA — Python dependency audit (CI-04)
         run: |

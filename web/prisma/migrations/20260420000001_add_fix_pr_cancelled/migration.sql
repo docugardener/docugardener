@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "TriageStatus" ADD VALUE 'FIX_PR_CANCELLED';

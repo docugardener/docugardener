@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect } from "vitest"
-import { getUiStatus } from "./job-status"
+import { getUiStatus, UI_STATUS_LABEL } from "./job-status"
 
 type JobInput = Parameters<typeof getUiStatus>[0]
 
@@ -94,5 +94,13 @@ describe("getUiStatus()", () => {
     it("D15 — auto_fix_enqueued takes priority over drift_score>0", () => {
         // Even high score: if AI is fixing it, show AI_FIXING not NEEDS_REVIEW
         expect(getUiStatus(job({ result: { drift_score: 95, auto_fix_enqueued: true } }))).toBe("AI_FIXING")
+    })
+
+    it("D16 — triageStatus=FIX_PR_CANCELLED returns FIX_PR_CANCELLED", () => {
+        expect(getUiStatus(job({ triageStatus: "FIX_PR_CANCELLED" }))).toBe("FIX_PR_CANCELLED")
+    })
+
+    it("D17 — UI_STATUS_LABEL[FIX_PR_CANCELLED] is 'Fix PR closed'", () => {
+        expect(UI_STATUS_LABEL["FIX_PR_CANCELLED"]).toBe("Fix PR closed")
     })
 })
