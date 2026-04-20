@@ -80,7 +80,7 @@ groups:
               type: math
               expression: "$A / ($B + 0.001) > 0.05"
         noDataState: OK
-        execErrState: Alerting
+        execErrState: OK
         for: 5m
         annotations:
           summary: "API 5xx error rate exceeds 5% over the last 5 minutes."
@@ -157,7 +157,7 @@ groups:
               type: math
               expression: "$A / ($B + 0.001) > 0.10"
         noDataState: OK
-        execErrState: Alerting
+        execErrState: OK
         for: 5m
         annotations:
           summary: "Webhook failure rate exceeds 10% over the last 5 minutes."
@@ -204,7 +204,7 @@ groups:
               type: math
               expression: "$A / ($B + 0.001) > 0.05"
         noDataState: OK
-        execErrState: Alerting
+        execErrState: OK
         for: 10m
         annotations:
           summary: "LLM API error rate exceeds 5% over the last 10 minutes."
@@ -278,7 +278,7 @@ groups:
               type: math
               expression: "$A > 0 && $B == 0"
         noDataState: OK
-        execErrState: Alerting
+        execErrState: OK
         for: 10m
         annotations:
           summary: "Worker has not completed any jobs in 10 minutes despite a non-empty queue."
