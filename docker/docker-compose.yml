@@ -87,6 +87,7 @@ services:
       - GITHUB_APP_ID=${GITHUB_APP_ID}
       - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH}
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      - CROSS_REPO_BETA=${CROSS_REPO_BETA:-false}
     volumes:
       - ../src:/app/src:ro
       - ../scripts:/app/scripts:ro
@@ -132,6 +133,7 @@ services:
       - GITHUB_APP_ID=${GITHUB_APP_ID}
       - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH}
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      - CROSS_REPO_BETA=${CROSS_REPO_BETA:-false}
     volumes:
       - ../src:/app/src:ro
       - ../scripts:/app/scripts:ro
@@ -225,7 +227,7 @@ services:
     image: deltaprojects/smee-client:latest
     container_name: docugardener-smee
     restart: always
-    command: -u ${WEBHOOK_PROXY_URL} -t http://host.docker.internal:8000/api/webhooks/github
+    command: -u ${WEBHOOK_PROXY_URL} -t http://host.docker.internal:8000/webhooks/github
     depends_on: []
     networks:
       - docugardener-network

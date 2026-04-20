@@ -111,7 +111,7 @@ class DocumentIndexer:
         # Index code files
         code_files = self._discover_code_files(repo_path)
         for code_file in code_files:
-            entities = await self._index_code_file(code_file, namespace)
+            entities = await self._index_code_file(code_file, namespace, repo_root=repo_path)
             stats["code_entities_indexed"] += len(entities)
             stats["files_processed"] += 1
 
@@ -225,6 +225,7 @@ class DocumentIndexer:
         self,
         file_path: Path,
         namespace: str,
+        repo_root: Path | None = None,
     ) -> list[CodeEntity]:
         """Index code entities from a file."""
         entities = self.parser.parse_file(file_path)
@@ -238,9 +239,18 @@ class DocumentIndexer:
         texts = [format_entity_for_embedding(e) for e in entities]
         embeddings = generate_batch_embeddings(texts)
 
+        # Compute repo-relative path for display (avoids leaking ephemeral paths)
+        relative_path = (
+            str(file_path.relative_to(repo_root)) if repo_root else str(file_path)
+        )
+
         # Create records
         records = []
+        import dataclasses
         for entity, embedding in zip(entities, embeddings):
+            # Override entity file_path with the repo-relative version
+            if repo_root:
+                entity = dataclasses.replace(entity, file_path=relative_path)
             indexed = IndexedCodeEntity(entity=entity, repo_id=namespace)
 
             records.append(

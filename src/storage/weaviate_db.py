@@ -165,10 +165,13 @@ class WeaviateDB(VectorDB):
 
                 obj_uuid = generate_uuid5({"record_id": record.id, "namespace": namespace})
 
+                # Exclude "repo_id" from the metadata spread: schema declares it
+                # as DataType.UUID but sub-namespace values are not valid UUIDs.
+                # The namespace context already provides tenant isolation.
                 properties = {
                     "record_id": record.id,
                     "content": record.content or "",
-                    **{k: str(v) for k, v in record.metadata.items()},
+                    **{k: str(v) for k, v in record.metadata.items() if k != "repo_id"},
                 }
 
                 batch.add_object(

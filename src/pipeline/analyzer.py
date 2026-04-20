@@ -373,7 +373,10 @@ class PRAnalyzer:
                                     if (
                                         settings.cross_repo_beta
                                         and workflow_config
-                                        and workflow_config.get("cross_repo_siblings")
+                                        and (
+                                            workflow_config.get("cross_repo_siblings")
+                                            or workflow_config.get("crossRepoSiblings")
+                                        )
                                     ):
                                         from src.storage.indexer import _repo_sub_namespace
 
@@ -418,7 +421,9 @@ class PRAnalyzer:
                         # Gate on the global kill switch here; _find_cross_repo_context
                         # handles plan-tier limits and empty-sibling short-circuit.
                         sibling_repos: list[str] = (
-                            (workflow_config or {}).get("cross_repo_siblings", [])
+                            (workflow_config or {}).get("cross_repo_siblings")
+                            or (workflow_config or {}).get("crossRepoSiblings")
+                            or []
                             if settings.cross_repo_beta
                             else []
                         )
@@ -529,12 +534,20 @@ class PRAnalyzer:
                     for r in results:
                         if r.id not in seen_ids:
                             seen_ids.add(r.id)
+                            src_ns = r.metadata.get("source_namespace", "")
+                            # Derive human-readable repo name from sub-namespace
+                            # format: {tenant_id}__{owner}__{repo} → owner/repo
+                            repo_name = r.metadata.get("repo") or ""
+                            if not repo_name and src_ns:
+                                parts = src_ns.split("__")
+                                if len(parts) >= 3:
+                                    repo_name = f"{parts[-2].replace('_', '-')}/{parts[-1].replace('_', '-')}"
                             all_chunks.append(
                                 {
-                                    "repo": r.metadata.get("repo", ""),
+                                    "repo": repo_name,
                                     "file": r.metadata.get("file_path", ""),
                                     "content": r.content or "",
-                                    "source_namespace": r.metadata.get("source_namespace", ""),
+                                    "source_namespace": src_ns,
                                 }
                             )
 

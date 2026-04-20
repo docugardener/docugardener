@@ -924,9 +924,9 @@ class VerificationAgent:
 
         try:
             response = await self.generator.generate(
+                prompt=user_message,
                 system_prompt=_CROSS_REPO_SYSTEM_PROMPT,
-                user_message=user_message,
-                temperature=0.2,
+                config=LLMConfig(temperature=0.2),
             )
             raw_json = self._extract_json(response.content)
             data = json.loads(raw_json)

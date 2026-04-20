@@ -56,6 +56,7 @@ class EntityChange:
     details: dict[str, Any] | None = field(default_factory=dict)
     blast_radius: int = 0
     directory_weight: float = 1.0
+    extra_context: dict[str, Any] | None = field(default_factory=dict)
 
     @property
     def is_meaningful(self) -> bool:
