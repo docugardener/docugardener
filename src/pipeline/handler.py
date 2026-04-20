@@ -14,7 +14,10 @@ from src.core.logging import get_logger
 from src.github.app import get_installation_token
 from src.monitoring.metrics import record_analysis
 from src.notifications.dispatcher import NotificationDispatcher
-from src.notifications.first_analysis_email import maybe_send_first_analysis_email
+from src.notifications.first_analysis_email import (
+    is_first_drift_for_tenant,
+    maybe_send_first_analysis_email,
+)
 from src.pipeline.analyzer import FileChange, PRAnalysisResult, PRAnalyzer
 from src.pipeline.job_manager import JobStatus, job_manager
 from src.pipeline.policy_evaluator import evaluate_policies
@@ -169,6 +172,9 @@ async def process_pull_request(
         pr_number=pr_number,
         repo_full_name=f"{owner}/{repo}",
     )
+
+    # EPIC-01-GAP-05: first drift celebration flag — set in try, read in finally
+    _is_first_drift: bool = False
 
     # Track Job in DB
     repo_id: str | None = None  # BUG-5: resolved below for Weaviate indexing
@@ -410,6 +416,10 @@ async def process_pull_request(
                     _summary_text_c04: str = (
                         _da.get("summary", "") if isinstance(_da, dict) else ""
                     ) or ""
+                    # EPIC-01-GAP-05: detect first drift for celebration banner + email
+                    _is_first_drift = is_first_drift_for_tenant(
+                        tenant_id, _drift_score_c04
+                    )
                     maybe_send_first_analysis_email(
                         tenant_id=tenant_id,
                         pr_number=pr_number,
@@ -417,6 +427,7 @@ async def process_pull_request(
                         drift_score=_drift_score_c04,
                         summary_text=_summary_text_c04,
                         correlation_id=job_id,
+                        is_first_drift=_is_first_drift,
                     )
                 except Exception as _c04_exc:  # noqa: BLE001
                     logger.warning(
@@ -623,6 +634,7 @@ async def process_pull_request(
                 check_run_id=check_run_id,
                 job_id=job_id,
                 tenant_id=tenant_id,
+                is_first_drift=_is_first_drift,
             )
         except Exception as _report_exc:
             # Reporting failure must never mask the original analysis error.

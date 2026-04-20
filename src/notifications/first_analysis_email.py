@@ -64,6 +64,7 @@ def _build_email_html(
     drift_score: float,
     summary_text: str,
     app_url: str,
+    is_first_drift: bool = False,
 ) -> str:
     """Build the HTML body for the first-analysis email."""
     severity = _severity_label(drift_score)
@@ -73,6 +74,24 @@ def _build_email_html(
     summary = summary_text[:200] + ("…" if len(summary_text) > 200 else "")
     inbox_url = f"{app_url.rstrip('/')}/dashboard/inbox"
     settings_url = f"{app_url.rstrip('/')}/dashboard/settings"
+
+    title = (
+        "🎉 Your first documentation drift is detected!"
+        if is_first_drift and drift_score > 0
+        else "Your first drift report is ready"
+    )
+    celebration_banner = (
+        """<tr>
+            <td style="background-color:#166534;border-radius:8px;padding:12px 16px;margin-bottom:20px;text-align:center;">
+              <p style="margin:0;font-size:14px;color:#bbf7d0;font-weight:600;">
+                🎉 Welcome! DocuGardener just caught its first documentation drift in your repository.
+              </p>
+            </td>
+          </tr>
+          <tr><td style="height:20px;"></td></tr>"""
+        if is_first_drift and drift_score > 0
+        else ""
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -95,9 +114,10 @@ def _build_email_html(
           <!-- Card -->
           <tr>
             <td style="background-color:#1e293b;border-radius:12px;padding:40px;border:1px solid #334155;">
+              {celebration_banner}
               <!-- Title -->
               <p style="margin:0 0 8px 0;font-size:26px;font-weight:700;color:#f1f5f9;line-height:1.3;">
-                Your first drift report is ready
+                {title}
               </p>
               <!-- Subtitle -->
               <p style="margin:0 0 28px 0;font-size:15px;color:#94a3b8;line-height:1.5;">
@@ -166,6 +186,17 @@ def _is_first_completed_job(tenant_id: str) -> bool:
     return count == 1
 
 
+def is_first_drift_for_tenant(tenant_id: str, drift_score: float) -> bool:
+    """Return True when this is the first time drift was detected for the tenant.
+
+    Defined as: drift_score > 0 AND this is the first COMPLETED job for the
+    tenant (the most common onboarding scenario — first PR analysed has drift).
+    """
+    if drift_score <= 0:
+        return False
+    return _is_first_completed_job(tenant_id)
+
+
 def _get_admin_emails(tenant_id: str) -> list[str]:
     """Return email addresses of all ADMIN users for the tenant."""
     with SessionLocal() as session:
@@ -191,6 +222,7 @@ def maybe_send_first_analysis_email(
     drift_score: float,
     summary_text: str,
     correlation_id: str,
+    is_first_drift: bool = False,
 ) -> None:
     """Send the first-analysis email if this is the tenant's first completed job.
 
@@ -205,6 +237,7 @@ def maybe_send_first_analysis_email(
             drift_score=drift_score,
             summary_text=summary_text,
             correlation_id=correlation_id,
+            is_first_drift=is_first_drift,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning(
@@ -225,6 +258,7 @@ def _send_first_analysis_email(
     drift_score: float,
     summary_text: str,
     correlation_id: str,
+    is_first_drift: bool = False,
 ) -> None:
     """Internal implementation — may raise; callers must handle exceptions."""
     api_key: str | None = settings.resend_api_key
@@ -257,12 +291,18 @@ def _send_first_analysis_email(
         drift_score=drift_score,
         summary_text=summary_text,
         app_url=app_url,
+        is_first_drift=is_first_drift,
     )
 
+    subject = (
+        "🎉 First documentation drift detected — DocuGardener"
+        if is_first_drift and drift_score > 0
+        else "Your first drift report is ready — DocuGardener"
+    )
     payload = {
         "from": _FROM_ADDRESS,
         "to": admin_emails,
-        "subject": "Your first drift report is ready — DocuGardener",
+        "subject": subject,
         "html": html,
     }
 

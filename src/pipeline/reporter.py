@@ -88,6 +88,7 @@ def format_drift_report(
     template: str | None = None,
     job_id: str | None = None,
     tenant_id: str | None = None,
+    is_first_drift: bool = False,
 ) -> str:
     """
     Format a drift analysis result as Markdown for PR comments.
@@ -160,6 +161,16 @@ Please check the logs for more details.
         "## 🌱 DocuGardener Analysis",
         "",
     ]
+
+    # EPIC-01-GAP-05: first drift celebration banner
+    if is_first_drift and drift.drift_score and drift.drift_score > 0:
+        lines.extend(
+            [
+                "> 🎉 **Welcome!** This is the first documentation drift DocuGardener has detected in your repository.",
+                "> Your docs are now actively monitored on every PR.",
+                "",
+            ]
+        )
 
     # DOCPOL-01: prepend policy violations section when present
     raw_violations = getattr(result, "policy_violations", None) or []
@@ -421,6 +432,7 @@ class GitHubReporter:
         check_run_id: int | None = None,
         job_id: str | None = None,
         tenant_id: str | None = None,
+        is_first_drift: bool = False,
     ) -> dict[str, Any]:
         """
         Report analysis results to a Pull Request.
@@ -447,7 +459,9 @@ class GitHubReporter:
 
         # Post comment
         if post_comment:
-            comment = await self._post_comment(pr, result, job_id=job_id, tenant_id=tenant_id)
+            comment = await self._post_comment(
+                pr, result, job_id=job_id, tenant_id=tenant_id, is_first_drift=is_first_drift
+            )
             report_result["comment_id"] = comment.id
             report_result["comment_url"] = comment.html_url
 
@@ -486,6 +500,7 @@ class GitHubReporter:
         result: PRAnalysisResult,
         job_id: str | None = None,
         tenant_id: str | None = None,
+        is_first_drift: bool = False,
     ) -> Any:
         """Post or update the DocuGardener comment on a PR."""
         # Check for existing DocuGardener comment to update (re-run path)
@@ -504,6 +519,7 @@ class GitHubReporter:
             template=template,
             job_id=job_id,
             tenant_id=tenant_id,
+            is_first_drift=is_first_drift,
         )
 
         if existing_comment:

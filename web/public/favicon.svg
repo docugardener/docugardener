@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <title>DocuGardener favicon</title>
+  <path d="M12 52 L12 28 C 12 18, 22 12, 36 12 L52 12 L52 28 C 52 40, 42 52, 28 52 Z" stroke="#0B1220" stroke-width="3" stroke-linejoin="round" fill="none"></path>
+  <path d="M16 48 L44 20" stroke="#4E8C5E" stroke-width="3" stroke-linecap="round"></path>
+  <path d="M24 40 L34 40" stroke="#4E8C5E" stroke-width="2.5" stroke-linecap="round"></path>
+  <path d="M30 34 L40 34" stroke="#4E8C5E" stroke-width="2.5" stroke-linecap="round"></path>
+  <circle cx="16" cy="48" r="3" fill="#4E8C5E"></circle>
+  <circle cx="44" cy="20" r="3" fill="#4E8C5E"></circle>
+  <circle cx="34" cy="40" r="2.5" fill="#4E8C5E"></circle>
+  <circle cx="40" cy="34" r="2.5" fill="#4E8C5E"></circle>
+</svg>

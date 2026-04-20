@@ -1,6 +1,11 @@
-import { render, screen, fireEvent } from "@testing-library/react"
-import { describe, it, expect, vi, afterEach } from "vitest"
-import { PricingTeaser, PLANS } from "@/components/home/PricingTeaser"
+// SPDX-License-Identifier: AGPL-3.0-or-later
+/**
+ * PricingTeaser tests — updated for FEAT-021 (compact teaser, no toggle,
+ * blurred prices pending final confirmation).
+ */
+import { render, screen } from "@testing-library/react"
+import { describe, it, expect, vi } from "vitest"
+import { PricingTeaser } from "@/components/home/PricingTeaser"
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: any) => <a href={href}>{children}</a>,
@@ -20,38 +25,33 @@ describe("PricingTeaser — section header", () => {
   it("renders the section heading", () => {
     render(<PricingTeaser />)
     expect(
-      screen.getByRole("heading", { name: /simple, honest pricing/i })
+      screen.getByRole("heading", { name: /start free/i })
     ).toBeInTheDocument()
+  })
+
+  it("renders the pricing-TBA banner", () => {
+    render(<PricingTeaser />)
+    expect(screen.getByText(/pricing is being finalised/i)).toBeInTheDocument()
   })
 })
 
 describe("PricingTeaser — plan cards", () => {
   it("renders all three plan names", () => {
     render(<PricingTeaser />)
-    expect(screen.getByText("Free")).toBeInTheDocument()
-    expect(screen.getByText("Pro")).toBeInTheDocument()
-    expect(screen.getByText("Team")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: /^free$/i })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: /^pro$/i })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: /^team$/i })).toBeInTheDocument()
   })
 
-  it("renders FREE plan as $0", () => {
+  it("marks Pro as popular", () => {
     render(<PricingTeaser />)
-    expect(screen.getByTestId("price-free-monthly")).toHaveTextContent("0")
+    expect(screen.getByText(/popular/i)).toBeInTheDocument()
   })
 
-  it("renders PRO monthly price from PLANS constant", () => {
+  it("prices are blurred (TBA state)", () => {
     render(<PricingTeaser />)
-    const pro = PLANS.find((p) => p.id === "pro")!
-    expect(screen.getByTestId("price-pro-monthly")).toHaveTextContent(
-      String(pro.monthlyPrice)
-    )
-  })
-
-  it("renders TEAM monthly price from PLANS constant", () => {
-    render(<PricingTeaser />)
-    const team = PLANS.find((p) => p.id === "team")!
-    expect(screen.getByTestId("price-team-monthly")).toHaveTextContent(
-      String(team.monthlyPrice)
-    )
+    const tbaBadges = screen.getAllByText("TBA")
+    expect(tbaBadges.length).toBe(3)
   })
 
   it("renders AI Author Mode highlight in Free plan", () => {
@@ -61,7 +61,7 @@ describe("PricingTeaser — plan cards", () => {
 
   it("renders Bundled LLM highlight in Pro plan", () => {
     render(<PricingTeaser />)
-    expect(screen.getByText(/bundled llm/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/bundled llm/i).length).toBeGreaterThanOrEqual(1)
   })
 
   it("renders Agent Governance highlight in Pro plan", () => {
@@ -73,113 +73,37 @@ describe("PricingTeaser — plan cards", () => {
     render(<PricingTeaser />)
     expect(screen.getByText(/sso/i)).toBeInTheDocument()
   })
-
-  it("renders 'Get Started' CTA for Free plan", () => {
-    render(<PricingTeaser />)
-    expect(screen.getByRole("link", { name: /get started/i })).toBeInTheDocument()
-  })
-
-  // Billing disabled by default — paid CTAs show "Join waitlist"
-  it("renders 'Join waitlist' CTA for Pro when billing is disabled", () => {
-    render(<PricingTeaser />)
-    const waitlistLinks = screen.getAllByRole("link", { name: /join waitlist/i })
-    expect(waitlistLinks.length).toBeGreaterThanOrEqual(1)
-  })
-
-  it("renders 'Join waitlist' CTA for Team when billing is disabled", () => {
-    render(<PricingTeaser />)
-    const waitlistLinks = screen.getAllByRole("link", { name: /join waitlist/i })
-    expect(waitlistLinks.length).toBe(2) // Pro + Team
-  })
 })
 
-describe("PricingTeaser — plan cards (billing enabled)", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
+describe("PricingTeaser — CTAs", () => {
+  it("renders Get started CTA for Free plan linking to sign-in", () => {
+    render(<PricingTeaser />)
+    const link = screen.getByRole("link", { name: /get started/i })
+    expect(link).toBeInTheDocument()
+    expect(link.getAttribute("href")).toBe("/auth/signin?signup=1")
   })
 
-  it("renders 'Start Pro' CTA when NEXT_PUBLIC_BILLING_ENABLED=true", () => {
-    vi.stubEnv("NEXT_PUBLIC_BILLING_ENABLED", "true")
+  it("renders Start Pro CTA", () => {
     render(<PricingTeaser />)
     expect(screen.getByRole("link", { name: /start pro/i })).toBeInTheDocument()
   })
 
-  it("renders 'Start Team' CTA when NEXT_PUBLIC_BILLING_ENABLED=true", () => {
-    vi.stubEnv("NEXT_PUBLIC_BILLING_ENABLED", "true")
+  it("renders Start Team CTA", () => {
     render(<PricingTeaser />)
     expect(screen.getByRole("link", { name: /start team/i })).toBeInTheDocument()
   })
-})
 
-describe("PricingTeaser — billing toggle", () => {
-  it("renders 'Monthly' toggle button", () => {
+  it("renders no billing period toggle", () => {
     render(<PricingTeaser />)
-    expect(screen.getByRole("button", { name: /monthly/i })).toBeInTheDocument()
-  })
-
-  it("renders 'Annual' toggle button", () => {
-    render(<PricingTeaser />)
-    expect(screen.getByRole("button", { name: /annual/i })).toBeInTheDocument()
-  })
-
-  it("Monthly is selected by default (aria-pressed='true')", () => {
-    render(<PricingTeaser />)
-    expect(screen.getByRole("button", { name: /monthly/i })).toHaveAttribute(
-      "aria-pressed",
-      "true"
-    )
-  })
-
-  it("Annual is not selected by default (aria-pressed='false')", () => {
-    render(<PricingTeaser />)
-    expect(screen.getByRole("button", { name: /annual/i })).toHaveAttribute(
-      "aria-pressed",
-      "false"
-    )
-  })
-
-  it("clicking Annual shows annual PRO price", () => {
-    render(<PricingTeaser />)
-    const pro = PLANS.find((p) => p.id === "pro")!
-    fireEvent.click(screen.getByRole("button", { name: /annual/i }))
-    expect(screen.getByTestId("price-pro-annual")).toHaveTextContent(
-      String(pro.annualPrice)
-    )
-  })
-
-  it("clicking Annual switches Annual to aria-pressed='true'", () => {
-    render(<PricingTeaser />)
-    fireEvent.click(screen.getByRole("button", { name: /annual/i }))
-    expect(screen.getByRole("button", { name: /annual/i })).toHaveAttribute(
-      "aria-pressed",
-      "true"
-    )
-  })
-
-  it("clicking Annual switches Monthly to aria-pressed='false'", () => {
-    render(<PricingTeaser />)
-    fireEvent.click(screen.getByRole("button", { name: /annual/i }))
-    expect(screen.getByRole("button", { name: /monthly/i })).toHaveAttribute(
-      "aria-pressed",
-      "false"
-    )
-  })
-
-  it("clicking Monthly after Annual reverts PRO to monthly price", () => {
-    render(<PricingTeaser />)
-    const pro = PLANS.find((p) => p.id === "pro")!
-    fireEvent.click(screen.getByRole("button", { name: /annual/i }))
-    fireEvent.click(screen.getByRole("button", { name: /monthly/i }))
-    expect(screen.getByTestId("price-pro-monthly")).toHaveTextContent(
-      String(pro.monthlyPrice)
-    )
+    expect(screen.queryByRole("button", { name: /monthly/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /annual/i })).not.toBeInTheDocument()
   })
 })
 
-describe("PricingTeaser — footer links", () => {
-  it("renders 'See full comparison' link to /pricing", () => {
+describe("PricingTeaser — footer link", () => {
+  it("renders 'See full pricing' link to /pricing", () => {
     render(<PricingTeaser />)
-    const link = screen.getByRole("link", { name: /see full comparison/i })
+    const link = screen.getByRole("link", { name: /see full pricing/i })
     expect(link).toBeInTheDocument()
     expect(link.getAttribute("href")).toBe("/pricing")
   })

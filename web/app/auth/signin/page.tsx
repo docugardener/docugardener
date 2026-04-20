@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Github, Mail, ArrowRight, Loader2, Building2 } from "lucide-react"
+import { Logo } from "@/components/brand/Logo"
 
 const IS_DEV = process.env.NEXT_PUBLIC_DEV_LOGIN === "true"
 
@@ -101,9 +102,14 @@ function SignInInner() {
         <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-6">
             <div className="w-full max-w-sm space-y-8">
                 {/* Logo */}
-                <div className="text-center">
-                    <h1 className="text-4xl font-extrabold tracking-tight text-gray-900">DocuGardener</h1>
-                    <p className="mt-2 text-sm text-gray-500">Automated Documentation Drift Detection</p>
+                <div className="flex flex-col items-center gap-2">
+                    <div className="flex items-center justify-center gap-3">
+                        <Logo variant="mark" height={48} />
+                        <span className="text-4xl font-semibold tracking-tight text-gray-900">
+                            Docu<span className="font-bold text-green-600">Gardener</span>
+                        </span>
+                    </div>
+                    <p className="text-sm text-gray-500">Automated Documentation Drift Detection</p>
                 </div>
 
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 space-y-6">

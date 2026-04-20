@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useSession, signOut } from "next-auth/react"
 import { ThemeToggle } from "@/components/ui/ThemeToggle"
+import { Logo } from "@/components/brand/Logo"
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> { }
@@ -133,10 +134,11 @@ export function Sidebar({ className }: SidebarProps) {
         >
             <div className="space-y-4 py-8 px-6">
                 <div className="flex items-center gap-3 mb-10 pl-2">
-                    <div className="h-9 w-9 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-                        <span className="font-black text-white text-xs">DG</span>
-                    </div>
-                    <span className="text-xl font-bold tracking-tight text-foreground">DocuGardener</span>
+                    <Logo variant="mark" height={36} className="dark:hidden" />
+                    <Logo variant="mark" height={36} dark className="hidden dark:block" />
+                    <span className="text-xl font-semibold tracking-tight text-foreground">
+                        Docu<span className="font-bold text-green-600">Gardener</span>
+                    </span>
                 </div>
 
                 <div className="mb-6">

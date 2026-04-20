@@ -60,13 +60,24 @@ export default function EnvironmentPage() {
       </table>
 
       <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">GitHub App</h3>
-      <table className="w-full text-sm border-collapse mb-6">
+      <table className="w-full text-sm border-collapse mb-4">
         <tbody>
           <EnvVar name="GITHUB_APP_ID" required description="Numeric ID of your GitHub App. Found on the app's settings page." example="GITHUB_APP_ID=123456" />
           <EnvVar name="GITHUB_PRIVATE_KEY_PATH" required description="Path to the GitHub App private key PEM file." example="GITHUB_PRIVATE_KEY_PATH=./secrets/github-app.pem" />
           <EnvVar name="GITHUB_WEBHOOK_SECRET" required description="HMAC secret shared with GitHub for webhook signature verification. Must match the secret configured in the GitHub App settings." />
         </tbody>
       </table>
+
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900 mb-6">
+        <p className="font-semibold mb-1">⚠️ Dev / prod app isolation</p>
+        <p>
+          Never install both a dev GitHub App and the production GitHub App on the same repository simultaneously.
+          Each installation triggers its own independent webhook pipeline — both will analyze the same PR and each
+          will open its own fix PR, producing duplicates. Use a dedicated dev-only test repo
+          (e.g. <code className="bg-amber-100 px-1 rounded font-mono text-xs">your-org/your-repo-dev</code>) for
+          local sandbox work and keep the production app installed only on repos that should receive production analysis.
+        </p>
+      </div>
 
       <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">Database &amp; Queue</h3>
       <table className="w-full text-sm border-collapse mb-6">

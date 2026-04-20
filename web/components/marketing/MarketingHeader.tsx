@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Logo } from "@/components/brand/Logo"
 
 interface MarketingHeaderProps {
   activePage?: "features" | "faq" | "pricing" | "docs" | "trust" | null
@@ -17,7 +18,7 @@ export function MarketingHeader({ activePage }: MarketingHeaderProps) {
   return (
     <header className="px-6 h-16 flex items-center justify-between border-b border-gray-100">
       <Link href="/" className="flex items-center gap-2">
-        <span className="text-xl font-bold tracking-tight text-gray-900">DocuGardener</span>
+        <Logo variant="lockup" height={48} />
       </Link>
       <nav className="flex gap-4 items-center">
         <Link href="/features" className={linkClass("features")}>Features</Link>

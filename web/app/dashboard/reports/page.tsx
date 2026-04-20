@@ -20,6 +20,7 @@ import { DashboardShell } from "@/components/dashboard/DashboardShell"
 import { ReportsTabs } from "@/components/reports/ReportsTabs"
 import { TopRiskZones } from "@/components/reports/TopRiskZones"
 import { SEVERITY_CONFIG, normaliseSeverity } from "@/lib/severity"
+import { Logo } from "@/components/brand/Logo"
 
 export const dynamic = 'force-dynamic'
 
@@ -643,9 +644,8 @@ export default async function ReportsPage() {
 
                 <footer className="mt-28 py-16 border-t font-black flex flex-col md:flex-row justify-between items-center gap-8 opacity-40">
                     <div className="flex items-center gap-4">
-                        <div className="h-8 w-8 bg-foreground rounded-lg flex items-center justify-center shadow-lg">
-                            <span className="text-white text-[11px] font-black">DG</span>
-                        </div>
+                        <Logo variant="mark" height={32} />
+
                         <div className="flex flex-col">
                             <span className="text-[10px] font-black tracking-[0.2em] uppercase text-foreground">DocuGardener // Kernel v0.1</span>
                             <span className="text-[9px] font-bold text-muted-foreground">© 2026 SEMANTIC SYSTEMS INTL.</span>

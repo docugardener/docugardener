@@ -78,6 +78,7 @@ const PLANS = [
             "Unlimited PR analyses",
             "100 team seats",
             "Everything in Pro",
+            "Cross-repo drift detection (up to 3 sibling repos)",
             "SSO / SAML 2.0",
             "SCIM user provisioning",
             "Compliance templates",

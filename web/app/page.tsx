@@ -6,13 +6,9 @@ import { MarketingHeader } from "@/components/marketing/MarketingHeader"
 import { MarketingFooter } from "@/components/marketing/MarketingFooter"
 import { HeroSection } from "@/components/home/HeroSection"
 import { DemoSection } from "@/components/home/DemoSection"
-import { HowItWorks } from "@/components/home/HowItWorks"
-import { WhySaaS } from "@/components/home/WhySaaS"
+import { WhatYouGet } from "@/components/home/WhatYouGet"
 import { PricingTeaser } from "@/components/home/PricingTeaser"
-import { FeaturesTeaser } from "@/components/home/FeaturesTeaser"
-import { SelfHostedCallout } from "@/components/home/SelfHostedCallout"
-import { FAQTeaser } from "@/components/home/FAQTeaser"
-import { SocialProof } from "@/components/home/SocialProof"
+import { ClosingSection } from "@/components/home/ClosingSection"
 
 export default async function Home() {
   // Self-hosted instances have no SaaS marketing page — send unauthenticated
@@ -37,14 +33,10 @@ export default async function Home() {
       <MarketingHeader />
       <main className="flex-1">
         <HeroSection />
-        <SocialProof />
         <DemoSection />
-        <HowItWorks />
-        <WhySaaS />
+        <WhatYouGet />
         <PricingTeaser />
-        <FeaturesTeaser />
-        <SelfHostedCallout />
-        <FAQTeaser />
+        <ClosingSection />
       </main>
       <MarketingFooter />
     </div>
