@@ -191,7 +191,7 @@ export default function PrerequisitesPage() {
             <td className="px-3 py-2 border border-gray-200 text-gray-600 font-medium">Ollama</td>
             <td className="px-3 py-2 border border-gray-200">
               <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
-                OLLAMA_BASE_URL
+                OLLAMA_URL
               </code>
             </td>
             <td className="px-3 py-2 border border-gray-200 text-gray-600">

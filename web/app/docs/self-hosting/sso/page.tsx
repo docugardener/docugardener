@@ -34,7 +34,7 @@ export default function SsoPage() {
       {/* Prerequisites */}
       <h2 className="text-xl font-bold text-gray-900 mb-3">Prerequisites</h2>
       <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-8">
-        <li>DocuGardener on a <strong>TEAM</strong> or <strong>ENTERPRISE</strong> plan</li>
+        <li>DocuGardener on a <strong>TEAM</strong> plan</li>
         <li>Access to your IdP admin console (Okta, Entra, Google Workspace, etc.)</li>
         <li><code className="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">APP_URL</code> set to your public URL (required for SP metadata generation)</li>
       </ul>

@@ -71,9 +71,9 @@ pytest -s -v`}
       </table>
 
       <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800 mb-8">
-        <strong>Known pre-existing failures:</strong> ~42 tests require a running PostgreSQL or Redis instance, or use deprecated
-        Google GenAI SDK methods. These are infrastructure-only failures and do not indicate code regressions.
-        Run <code className="bg-blue-100 px-1.5 py-0.5 rounded text-xs">pytest -m "not integration"</code> to skip DB-dependent tests.
+        <strong>Infrastructure-dependent tests:</strong> Integration tests under <code className="bg-blue-100 px-1.5 py-0.5 rounded text-xs">tests/integration/</code> require
+        a running PostgreSQL instance. Run <code className="bg-blue-100 px-1.5 py-0.5 rounded text-xs">pytest tests/unit/ -q</code> to run only
+        self-contained unit tests with no external dependencies.
       </div>
 
       {/* ── Vitest ────────────────────────────────────────── */}

@@ -2,7 +2,7 @@
 
 > When your agents write the code, DocuGardener writes the docs. You just approve.
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 ## Overview
@@ -15,6 +15,7 @@ DocuGardener is the documentation safety net for AI-native engineering teams. As
 - 🚀 **CI-native drift detection**: Analyzes every PR diff; blocks merges when docs fall behind code. First scan in under 3 minutes with the bundled zero-config LLM key.
 - 📥 **Triage Inbox**: Centralized dashboard to review, accept, or ignore drift alerts across all repos. High-contrast semantic diffs, keyboard-driven (`j`/`k`, `a`, `i`).
 - 🤖 **Auto-Fix PR (`autoHeal`)**: Drafts the precise Markdown update and opens a PR. The developer just reviews and merges.
+- 🔗 **Cross-Repo Drift Detection**: Detects when a change in one repository has documentation implications in sibling repositories. Configurable per-repo in Settings (Team plan+).
 - 🔌 **VS Code Extension (Pre-push Check)**: Real-time drift diagnostics in the IDE via a stateless `/check` API — catch issues before code reaches CI.
 - 📊 **Nightly Rollup Reports**: Automated scheduler (02:00 UTC) creates GitHub Issues per repository summarizing average drift, peak scores, and high-drift PRs.
 - 🔌 **Slack & Jira Integrations**: Push drift alerts to Slack channels; auto-comment on existing Jira tickets at four lifecycle points (drift detected → fix PR created → no update required → fix PR merged). Pro+.
@@ -58,15 +59,15 @@ The chart ships with PSA `restricted`-compatible pod specs, NetworkPolicies, air
 
 ### Prerequisites
 
-- Python 3.11+
-- Docker & Docker Compose
+- Python 3.12+
+- Docker & Docker Compose (Compose V2)
 - GitHub App credentials
 
 ### Installation
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/docugardener.git
+git clone https://github.com/docugardener/docugardener.git
 cd docugardener
 
 # Create virtual environment
@@ -85,7 +86,7 @@ cp .env.example .env
 
 ```bash
 # Start with Docker Compose (includes Redis, Vector DB)
-docker-compose up -d
+docker compose up -d
 
 # Or run directly
 uvicorn src.main:app --reload --port 8000
@@ -93,20 +94,20 @@ uvicorn src.main:app --reload --port 8000
 
 ### Running Tests
 
-**626 Python unit tests** + **265 Vitest** + **37 Playwright E2E** — all passing.
+**1,700+ Python unit + integration tests** + **1,400+ Vitest component tests** + **Playwright E2E** — all passing.
 
 ```bash
-# Unit tests (no external services required)
-pytest tests/unit/ -v
+# Unit + integration tests
+.venv/bin/pytest tests/unit/ tests/integration/ -q
 
-# E2E integration tests (in-memory SQLite + mocked GitHub/LLM — no Docker required)
-pytest tests/integration/ -v
+# E2E tests (requires running stack)
+E2E_ENABLED=1 pytest tests/e2e/ -m e2e -v
 
-# Full suite
-pytest tests/ -v
+# Frontend (Vitest)
+cd web && npx vitest run
 
-# With coverage
-pytest --cov=src --cov-report=html
+# TypeScript check
+cd web && npx tsc --noEmit
 ```
 
 ## Architecture
@@ -130,8 +131,8 @@ pytest --cov=src --cov-report=html
 │         │               ▲                       │               │
 │         ▼               │                       ▼               │
 │  ┌──────────────┐  ┌──────────────┐      ┌──────────────────────┐  │
-│  │    Local     │  │   IDE /check │      │   OpenAI / Ollama    │  │
-│  │  Embeddings  │  │   (Stateless)│      │                      │  │
+│  │    Local     │  │   IDE /check │      │ Gemini/OpenAI/       │  │
+│  │  Embeddings  │  │   (Stateless)│      │ Anthropic/Ollama     │  │
 │  └──────────────┘  └──────────────┘      └──────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                            │
@@ -202,7 +203,7 @@ DocuGardener has three ways to run the AI analysis engine. Understanding this up
 | Mode | Who pays for LLM? | Cost to you | Notes |
 |---|---|---|---|
 | **Platform LLM (default)** | DocuGardener | Free up to limits | Uses a bundled Gemini Flash key. Shared €10/month operator budget (~8,000 PR analyses). Once the monthly budget is reached, analyses prompt users to configure their own API key. Self-hosters control this via `PLATFORM_LLM_MONTHLY_CAP_EUR`. |
-| **BYOK — Cloud API** | You (your API key) | $0 to DocuGardener | Bring your own Gemini / OpenAI key in Settings. No platform cost cap, but your key is billed by the provider. |
+| **BYOK — Cloud API** | You (your API key) | $0 to DocuGardener | Bring your own Gemini / OpenAI / Anthropic key in Settings. No platform cost cap, but your key is billed by the provider. |
 | **BYOK — Local (Ollama)** | You (CPU/GPU) | $0 to anyone | Run any Ollama model locally. Set `LLM_PROVIDER=ollama` and `OLLAMA_URL` in your `.env`. |
 
 ### What changes with BYOK?
@@ -220,7 +221,7 @@ BYOK users who self-host get full control of all features without restriction. T
 
 In **Settings → Intelligence tab**:
 
-1. Select your provider (Gemini, OpenAI, Ollama)
+1. Select your provider (Gemini, OpenAI, Anthropic, or Ollama)
 2. Enter your API key (stored encrypted with AES-256-GCM, never logged)
 3. Optionally run **Test Connection** to validate before saving
 
@@ -291,7 +292,7 @@ DocuGardener uses a **Tenant-based** architecture to support teams and organizat
 | **ADMIN** | All | Full access — manages LLM keys, prompts, team members, billing, and all settings. |
 | **AUDITOR** | Pro+ | Read-only access to the audit log, jobs, and reports. Cannot mutate data. |
 | **BILLING_ADMIN** | Pro+ | Manages billing settings and views usage dashboards. No access to code-related features. |
-| **VIEWER** | All | Read-only access to dashboards, inbox, and drift reports. |
+| **VIEWER** | All | Read-only access to dashboards, inbox, and drift reports. Displayed as "Developer" in the UI. |
 
 > AUDITOR and BILLING_ADMIN roles are available on Pro and Team plans only.
 
@@ -330,9 +331,11 @@ Key settings (root `.env` — Python backend):
 
 - `GITHUB_APP_ID`: Your GitHub App ID
 - `GITHUB_PRIVATE_KEY_PATH`: Path to GitHub App private key
-- `VECTOR_DB_PROVIDER`: `pinecone` or `weaviate`
-- `LLM_PROVIDER`: `gemini` or `ollama`
+- `VECTOR_DB_PROVIDER`: `weaviate` (recommended) or `pinecone`
+- `LLM_PROVIDER`: `gemini`, `openai`, `anthropic`, or `ollama`
 - `GEMINI_API_KEY`: Google Gemini API key (BYOK)
+- `OPENAI_API_KEY`: OpenAI API key (BYOK)
+- `ANTHROPIC_API_KEY`: Anthropic API key (BYOK)
 - `BUNDLED_GEMINI_KEY`: Operator-level fallback key for zero-config first run (optional)
 - `BUNDLED_GEMINI_MODEL`: Model used with the bundled key (default: `gemini-2.0-flash`)
 

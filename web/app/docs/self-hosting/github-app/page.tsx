@@ -67,7 +67,7 @@ export default function GitHubAppPage() {
               <tr>
                 <td className="px-3 py-2 border border-gray-200 text-gray-600 font-medium">Webhook URL</td>
                 <td className="px-3 py-2 border border-gray-200 text-gray-600">
-                  <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">https://&lt;your-host&gt;:8000/api/webhooks/github</code>
+                  <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">https://&lt;your-host&gt;/api/webhooks/github</code>
                 </td>
               </tr>
               <tr>
@@ -168,7 +168,7 @@ export default function GitHubAppPage() {
           <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">
 {`GITHUB_APP_ID=123456          # The App ID shown on the app page
 GITHUB_WEBHOOK_SECRET=...     # The secret you set in step 2
-GITHUB_APP_PRIVATE_KEY_PATH=./secrets/github-app.pem`}
+GITHUB_PRIVATE_KEY_PATH=./secrets/github-app.pem`}
           </pre>
         </div>
       </div>

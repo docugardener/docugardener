@@ -69,7 +69,7 @@ ufw status
 ## Step 2 — Clone and prepare
 
 ```bash
-git clone https://github.com/<your-org>/docugardener.git
+git clone https://github.com/docugardener/docugardener.git
 cd docugardener
 mkdir -p secrets
 ```
@@ -176,6 +176,8 @@ The `migrate` service runs on every `up`, applying any new Prisma migrations bef
 >                up -d --build --force-recreate
 > ```
 
+> **`NEXT_PUBLIC_DEV_LOGIN` (E2E / CI only):** This variable is baked into the Next.js image at build time. If it is set only as a runtime env var the dev-login button will never appear in the built image. When running E2E tests or CI smoke tests that require the dev-login path, set it on the `docker build` step, not just in the running container. For production deployments this variable should **not** be set (dev login is disabled by default).
+
 ---
 
 ## PgBouncer (connection pooler)
@@ -201,7 +203,7 @@ Post-deploy tests run automatically as part of the `deploy.yml` workflow — no 
 bash scripts/run-tests-vps.sh           # python + web (default)
 ```
 
-Runs 1500+ Python unit/integration tests and 1300+ Vitest component tests against the production Docker image with mocked services. Takes ~3 minutes.
+Runs 1,700+ Python unit/integration tests and 1,400+ Vitest component tests against the production Docker image with mocked services. Takes ~3 minutes.
 
 ### Pre-release QA sign-off — hits live production
 

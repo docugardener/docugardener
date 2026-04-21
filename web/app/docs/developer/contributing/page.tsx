@@ -86,7 +86,7 @@ export default function ContributingPage() {
 cd docugardener
 cp .env.example .env
 # Edit .env with your values
-docker-compose -f docker/docker-compose.yml up -d`}
+docker compose -f docker/docker-compose.yml up -d`}
       </pre>
 
       <h3 className="text-base font-bold text-gray-800 mt-6 mb-2">

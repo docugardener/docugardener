@@ -94,6 +94,8 @@ export default function EnvironmentPage() {
           <EnvVar name="LLM_PROVIDER" required description='Default LLM provider for tenants without BYOK configured. Options: "gemini", "openai", "anthropic", "ollama".' example='LLM_PROVIDER=gemini' />
           <EnvVar name="GEMINI_API_KEY" description="Google Gemini API key. Required when LLM_PROVIDER=gemini." />
           <EnvVar name="GEMINI_MODEL" description='Gemini model name. Default: "gemini-2.0-flash".' />
+          <EnvVar name="OPENAI_API_KEY" description="OpenAI API key. Required when LLM_PROVIDER=openai." />
+          <EnvVar name="ANTHROPIC_API_KEY" description="Anthropic API key. Required when LLM_PROVIDER=anthropic." />
           <EnvVar name="BUNDLED_GEMINI_KEY" description="Operator-supplied Gemini key used for FREE-tier tenants without BYOK. Separate from your own GEMINI_API_KEY." />
           <EnvVar name="BUNDLED_GEMINI_MODEL" description='Model for bundled (non-BYOK) analysis. Default: "gemini-2.0-flash".' />
           <EnvVar name="PLATFORM_LLM_MONTHLY_CAP_EUR" description="Operator-wide platform LLM cost ceiling in EUR across all tenants combined. Applies only when BUNDLED_GEMINI_KEY is set. Default: 10.0. Set to 0 to disable the cap." example="PLATFORM_LLM_MONTHLY_CAP_EUR=10.0" />
@@ -105,7 +107,7 @@ export default function EnvironmentPage() {
       <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-2">Vector Database</h3>
       <table className="w-full text-sm border-collapse mb-6">
         <tbody>
-          <EnvVar name="VECTOR_DB_PROVIDER" description='"pinecone" or "weaviate". Default: "pinecone".' />
+          <EnvVar name="VECTOR_DB_PROVIDER" description='"weaviate" (recommended) or "pinecone". Default: "weaviate" in Docker Compose deployments.' />
           <EnvVar name="PINECONE_API_KEY" description="Pinecone API key. Required when VECTOR_DB_PROVIDER=pinecone." />
           <EnvVar name="PINECONE_ENVIRONMENT" description='Pinecone environment. Default: "us-east-1".' />
           <EnvVar name="PINECONE_INDEX_NAME" description='Pinecone index name. Default: "docugardener".' />
@@ -119,6 +121,8 @@ export default function EnvironmentPage() {
           <EnvVar name="DRIFT_SCORE_THRESHOLD" description="Minimum drift score (0–100) that causes the check run to fail. Default: 70." example="DRIFT_SCORE_THRESHOLD=30" />
           <EnvVar name="MAX_PROCESSING_TIME" description="Maximum seconds a job may run before being marked stale by the sweeper. Default: 120." />
           <EnvVar name="TMPFS_PATH" description="Directory for temporary repository clones during analysis. Should be a tmpfs mount in production." example="TMPFS_PATH=/tmp/docugardener" />
+          <EnvVar name="CROSS_REPO_BETA" description='Enable cross-repository drift detection. Set to "true" to allow sibling-repo impact analysis. Default: false.' example="CROSS_REPO_BETA=true" />
+          <EnvVar name="SINGLE_TENANT_ID" description="Pin all backend writes to a single tenant. Required in self-hosted single-tenant mode to ensure deterministic tenant routing." example="SINGLE_TENANT_ID=your-tenant-id" />
         </tbody>
       </table>
 
