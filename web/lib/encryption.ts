@@ -3,18 +3,20 @@ import crypto from 'crypto'
 
 const ALGORITHM = 'aes-256-gcm'
 
-// SEC-06: Fail hard in production when ENCRYPTION_KEY is not set.
+// SEC-06: Fail hard when ENCRYPTION_KEY is not set — never fall back to a
+// hidden dev key. A silent fallback means credentials saved via the UI can't
+// be decrypted by the Python worker (they share the same key), and the failure
+// manifests far away as "Decryption failed" with no obvious cause.
 // Guard deferred to runtime (not module load) so Next.js build succeeds without env vars.
 function getSecretKey(): Buffer {
-    if (process.env.NODE_ENV === 'production' && !process.env.ENCRYPTION_KEY) {
+    if (!process.env.ENCRYPTION_KEY) {
         throw new Error(
-            'ENCRYPTION_KEY environment variable is required in production. ' +
+            'ENCRYPTION_KEY is not set in web/.env. ' +
+            'It must match the ENCRYPTION_KEY in your root .env. ' +
             'Generate with: openssl rand -hex 32'
         )
     }
-    return process.env.ENCRYPTION_KEY
-        ? Buffer.from(process.env.ENCRYPTION_KEY, 'hex')
-        : crypto.createHash('sha256').update('local-dev-secret-key-12345').digest()
+    return Buffer.from(process.env.ENCRYPTION_KEY, 'hex')
 }
 
 export function encrypt(text: string): string {

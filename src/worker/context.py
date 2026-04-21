@@ -90,14 +90,27 @@ def get_tenant_context(github_installation_id: str) -> TenantContext:
                         try:
                             decrypted_keys[provider] = decrypt_credential(encrypted_key)
                         except Exception:
-                            decrypted_keys[provider] = (
-                                encrypted_key  # pass through if not encrypted
+                            logger.error(
+                                "LLM API key decryption failed — key mismatch between "
+                                "web ENCRYPTION_KEY and backend ENCRYPTION_KEY. "
+                                "Re-save the key in Settings after ensuring both env files "
+                                "use the same ENCRYPTION_KEY.",
+                                provider=provider,
+                                tenant_id=tenant.id,
                             )
+                            decrypted_keys[provider] = ""
                 raw_config = dict(raw_config)
                 raw_config["keys"] = decrypted_keys
             # Legacy flat apiKey field (kept for backward compat)
             if raw_config.get("apiKey"):
-                raw_config["apiKey"] = decrypt_credential(raw_config["apiKey"])
+                try:
+                    raw_config["apiKey"] = decrypt_credential(raw_config["apiKey"])
+                except Exception:
+                    logger.error(
+                        "Legacy apiKey decryption failed — ENCRYPTION_KEY mismatch",
+                        tenant_id=tenant.id,
+                    )
+                    raw_config["apiKey"] = ""
             llm_config = raw_config
 
         notification_config = (

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 "use client"
 
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -27,7 +27,15 @@ export default function Onboarding() {
     const [webhookSecret, setWebhookSecret] = useState("")
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
+    const [encryptionKeyMissing, setEncryptionKeyMissing] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        fetch("/api/onboarding/env-check")
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data && !data.encryptionKeySet) setEncryptionKeyMissing(true) })
+            .catch(() => { })
+    }, [])
 
     // Generate a random 4-char hex string to avoid globally unique name collisions
     const randomHex = useRef(Math.floor(Math.random() * 65535).toString(16).padStart(4, '0')).current
@@ -139,6 +147,22 @@ export default function Onboarding() {
                         DocuGardener needs a GitHub App to watch pull requests and post drift analysis as check runs.
                     </p>
                 </div>
+
+                {/* Blocking warning: ENCRYPTION_KEY missing from web/.env */}
+                {encryptionKeyMissing && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800 space-y-1">
+                        <p className="font-semibold">Setup incomplete: <code>ENCRYPTION_KEY</code> not set in <code>web/.env</code></p>
+                        <p>
+                            All credentials you save here (GitHub App key, LLM API keys) are encrypted with this key.
+                            If it is missing or differs from your root <code>.env</code>, every job will fail with a
+                            silent &quot;Decryption failed&quot; error.
+                        </p>
+                        <p>
+                            Add <code>ENCRYPTION_KEY=&lt;same value as root .env&gt;</code> to <code>web/.env</code>,
+                            then restart the dev server before continuing.
+                        </p>
+                    </div>
+                )}
 
                 {/* Error from callback redirect */}
                 {errorParam && (

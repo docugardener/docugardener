@@ -6,18 +6,14 @@
  * import to exercise a fresh module instance with the desired env config.
  *
  * Covers:
- *   1. production + no ENCRYPTION_KEY → throws when encrypt() is called
- *   2. test env (default) + no ENCRYPTION_KEY → fallback, no throw
- *   3. development + no ENCRYPTION_KEY → fallback, no throw
- *   4. production + valid ENCRYPTION_KEY → module loads, encrypt/decrypt round-trips
+ *   1. no ENCRYPTION_KEY in any env → throws (no silent fallback)
+ *   2. valid ENCRYPTION_KEY in any env → encrypt/decrypt round-trips
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 
 const VALID_KEY = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
 
-// NODE_ENV is read-only in the standard TS types — use this helper to override
-// it safely in tests (vi.stubEnv handles restoration automatically).
 const setNodeEnv = (value: string) =>
     vi.stubEnv("NODE_ENV", value)
 
@@ -31,33 +27,28 @@ describe("SEC-06 TypeScript encryption guard (web/lib/encryption.ts)", () => {
         vi.resetModules()
     })
 
-    it("throws when NODE_ENV=production and ENCRYPTION_KEY is absent", async () => {
+    it("throws when ENCRYPTION_KEY is absent in production", async () => {
         setNodeEnv("production")
         vi.stubEnv("ENCRYPTION_KEY", "")
 
-        // Guard is lazy (inside getSecretKey), so the import succeeds but
-        // calling encrypt() must throw.
         const mod = await import("@/lib/encryption")
-        expect(() => mod.encrypt("test")).toThrow(
-            /ENCRYPTION_KEY environment variable is required in production/
-        )
+        expect(() => mod.encrypt("test")).toThrow(/ENCRYPTION_KEY is not set/)
     })
 
-    it("does NOT throw in test env (default) when ENCRYPTION_KEY is absent", async () => {
-        setNodeEnv("test")
-        vi.stubEnv("ENCRYPTION_KEY", "")
-
-        const mod = await import("@/lib/encryption")
-        expect(mod.encrypt).toBeDefined()
-        expect(mod.decrypt).toBeDefined()
-    })
-
-    it("does NOT throw in development when ENCRYPTION_KEY is absent", async () => {
+    it("throws when ENCRYPTION_KEY is absent in development", async () => {
         setNodeEnv("development")
         vi.stubEnv("ENCRYPTION_KEY", "")
 
         const mod = await import("@/lib/encryption")
-        expect(mod.encrypt).toBeDefined()
+        expect(() => mod.encrypt("test")).toThrow(/ENCRYPTION_KEY is not set/)
+    })
+
+    it("throws when ENCRYPTION_KEY is absent in test env", async () => {
+        setNodeEnv("test")
+        vi.stubEnv("ENCRYPTION_KEY", "")
+
+        const mod = await import("@/lib/encryption")
+        expect(() => mod.encrypt("test")).toThrow(/ENCRYPTION_KEY is not set/)
     })
 
     it("loads successfully in production with a valid ENCRYPTION_KEY", async () => {
@@ -69,9 +60,9 @@ describe("SEC-06 TypeScript encryption guard (web/lib/encryption.ts)", () => {
         expect(mod.decrypt).toBeDefined()
     })
 
-    it("encrypt/decrypt round-trip works with the dev fallback key", async () => {
+    it("encrypt/decrypt round-trip works with a supplied ENCRYPTION_KEY", async () => {
         setNodeEnv("test")
-        vi.stubEnv("ENCRYPTION_KEY", "")
+        vi.stubEnv("ENCRYPTION_KEY", VALID_KEY)
 
         const { encrypt, decrypt } = await import("@/lib/encryption")
         const plaintext = "super-secret-value"
@@ -80,8 +71,8 @@ describe("SEC-06 TypeScript encryption guard (web/lib/encryption.ts)", () => {
         expect(decrypt(ciphertext)).toEqual(plaintext)
     })
 
-    it("encrypt/decrypt round-trip works with a supplied ENCRYPTION_KEY", async () => {
-        setNodeEnv("test")
+    it("encrypt/decrypt round-trip works in development with a valid key", async () => {
+        setNodeEnv("development")
         vi.stubEnv("ENCRYPTION_KEY", VALID_KEY)
 
         const { encrypt, decrypt } = await import("@/lib/encryption")

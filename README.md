@@ -77,9 +77,18 @@ source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
 # Install dependencies
 pip install -e ".[dev]"
 
-# Copy environment template
+# Copy environment templates — both files are required
 cp .env.example .env
-# Edit .env with your configuration
+cp web/.env.example web/.env
+
+# Generate a shared encryption key and set it in BOTH files
+# (credentials saved via the UI are encrypted with this key; the backend
+# decrypts them at job runtime — they must be identical or every job fails)
+ENCRYPTION_KEY=$(openssl rand -hex 32)
+sed -i '' "s|ENCRYPTION_KEY=.*|ENCRYPTION_KEY=${ENCRYPTION_KEY}|" .env
+sed -i '' "s|ENCRYPTION_KEY=.*|ENCRYPTION_KEY=${ENCRYPTION_KEY}|" web/.env
+
+# Edit both files to fill in the remaining values
 ```
 
 ### Running Locally
