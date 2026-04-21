@@ -12,7 +12,7 @@ services:
       dockerfile: docker/Dockerfile
     container_name: docugardener
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       - APP_ENV=development
       - DEBUG=true
@@ -235,7 +235,7 @@ services:
     image: deltaprojects/smee-client:latest
     container_name: docugardener-smee
     restart: always
-    command: -u ${WEBHOOK_PROXY_URL} -t http://host.docker.internal:8000/webhooks/github
+    command: -u ${WEBHOOK_PROXY_URL} -t http://docugardener:8000/webhooks/github
     depends_on: []
     networks:
       - docugardener-network
