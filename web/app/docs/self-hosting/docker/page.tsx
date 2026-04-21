@@ -115,7 +115,7 @@ chmod 600 secrets/github-app.pem`}
         <div className="flex-1 min-w-0">
           <h2 className="text-base font-bold text-gray-900 mb-1">Start infrastructure services</h2>
           <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">
-            docker compose -f docker/docker-compose.yml up -d
+            docker compose --env-file .env -f docker/docker-compose.yml up -d
           </pre>
           <p className="text-gray-600 leading-relaxed mt-2">
             This starts PostgreSQL, Redis, Weaviate, the FastAPI analysis server, and the RQ
@@ -313,7 +313,7 @@ smee --url https://smee.io/YOUR_CHANNEL --target http://localhost:8000/api/webho
       <p className="text-gray-600 leading-relaxed mb-4">
         Check logs with{" "}
         <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
-          docker compose -f docker/docker-compose.yml logs -f
+          docker compose --env-file .env -f docker/docker-compose.yml logs -f
         </code>
         . Common issues: port conflicts (another service on 5433 or 6379), missing{" "}
         <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">

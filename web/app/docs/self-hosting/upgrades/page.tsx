@@ -103,8 +103,8 @@ npx prisma migrate deploy`}
           <h3 className="text-base font-bold text-gray-900 mb-1">Rebuild and restart services</h3>
           <p className="text-gray-600 leading-relaxed mb-2">With Docker Compose:</p>
           <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">
-{`docker compose -f docker/docker-compose.yml build
-docker compose -f docker/docker-compose.yml up -d`}
+{`docker compose --env-file .env -f docker/docker-compose.yml build
+docker compose --env-file .env -f docker/docker-compose.yml up -d`}
           </pre>
           <p className="text-gray-600 leading-relaxed mt-2 mb-2">For the Next.js web server:</p>
           <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">

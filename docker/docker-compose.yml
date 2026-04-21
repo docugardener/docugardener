@@ -227,7 +227,7 @@ services:
     image: deltaprojects/smee-client:latest
     container_name: docugardener-smee
     restart: always
-    command: -u ${WEBHOOK_PROXY_URL} -t http://host.docker.internal:8000/webhooks/github
+    command: -u ${WEBHOOK_PROXY_URL} -t http://host.docker.internal:8000/api/webhooks/github
     depends_on: []
     networks:
       - docugardener-network
