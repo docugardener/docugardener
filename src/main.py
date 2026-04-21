@@ -150,16 +150,19 @@ def create_app() -> FastAPI:
     )
 
     # CORS middleware
-    # SEC-11: Use explicit allowed_origins from config.
-    # In development (empty list) we fall back to ["*"] for convenience;
-    # production requires ALLOWED_ORIGINS to be set explicitly.
-    cors_origins = settings.allowed_origins if settings.allowed_origins else ["*"]
+    # Never use wildcard origins/methods/headers — even in dev.
+    # Fall back to localhost ports used by the dev Next.js server.
+    cors_origins = settings.allowed_origins or [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3003",
+    ]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization", "X-Tenant-ID", "X-Request-ID"],
     )
 
     # Prometheus HTTP instrumentation middleware
