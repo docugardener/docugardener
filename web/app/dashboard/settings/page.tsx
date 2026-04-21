@@ -31,6 +31,7 @@ export default async function SettingsPage() {
         redirect(session ? "/onboarding" : "/api/auth/signin")
     }
 
+    const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === "true"
     const tenantId = (session.user as any).tenantId
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
     if (!tenant) return <div>Tenant not found</div>
@@ -248,12 +249,14 @@ export default async function SettingsPage() {
                                         Current plan and usage limits for your DocuGardener workspace.
                                     </p>
                                 </div>
-                                <a
-                                    href="/pricing"
-                                    className="shrink-0 text-xs font-semibold text-primary hover:underline whitespace-nowrap"
-                                >
-                                    Compare plans →
-                                </a>
+                                {billingEnabled && (
+                                    <a
+                                        href="/pricing"
+                                        className="shrink-0 text-xs font-semibold text-primary hover:underline whitespace-nowrap"
+                                    >
+                                        Compare plans →
+                                    </a>
+                                )}
                             </div>
                             <div className="p-8 space-y-6">
                                 <div className="flex items-center gap-3">
@@ -279,10 +282,16 @@ export default async function SettingsPage() {
                                     ))}
                                 </div>
                                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                    <a href="/pricing" className="font-semibold text-primary hover:underline">
-                                        Upgrade / change plan →
-                                    </a>
-                                    {tenant.plan !== "FREE" && (
+                                    {billingEnabled ? (
+                                        <a href="/pricing" className="font-semibold text-primary hover:underline">
+                                            Upgrade / change plan →
+                                        </a>
+                                    ) : (
+                                        <a href="/docs/self-hosting/upgrades" className="font-semibold text-primary hover:underline">
+                                            Upgrade / change plan →
+                                        </a>
+                                    )}
+                                    {billingEnabled && tenant.plan !== "FREE" && (
                                         <a href="/dashboard/billing" className="hover:underline">
                                             Invoices &amp; cancellation →
                                         </a>

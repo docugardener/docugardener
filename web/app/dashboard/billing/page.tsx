@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 "use client"
-import { WaitlistForm } from "@/components/billing/WaitlistForm"
-
 import { useState, useEffect } from "react"
 import { Analytics } from "@/lib/posthog"
 import { useSession } from "next-auth/react"
@@ -76,7 +74,6 @@ const PLAN_LABELS: Record<string, string> = {
 
 export default function BillingPage() {
   const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === "true"
-  const [waitlistPlan, setWaitlistPlan] = useState<"pro" | "team" | null>(null)
 
   const { data: session } = useSession()
   const currentPlan = ((session?.user as any)?.plan as string | undefined) ?? "FREE"
@@ -179,9 +176,13 @@ export default function BillingPage() {
       const res = await fetch("/api/billing/portal", { method: "POST" })
       const body = await res.json()
       if (!res.ok) {
-        // No Stripe subscription exists — send them through checkout to create one
+        // No Stripe subscription exists — send SaaS users through checkout; self-hosters see an error
         if (res.status === 400 && typeof body.error === "string" && body.error.includes("No Stripe subscription")) {
-          window.location.href = "/pricing"
+          if (billingEnabled) {
+            window.location.href = "/pricing"
+          } else {
+            setStripeError("No billing subscription found. Update your plan directly in the database.")
+          }
           return
         }
         const msg = typeof body.error === "string" ? body.error : JSON.stringify(body.error)
@@ -323,30 +324,12 @@ export default function BillingPage() {
                         {checkoutLoading ? "Redirecting..." : "Upgrade to Team — $79/mo"}
                       </Button>
                     </>
-                  ) : waitlistPlan ? (
-                    <WaitlistForm plan={waitlistPlan} onSuccess={() => setWaitlistPlan(null)} />
                   ) : (
-                    <>
-                      <Button
-                        size="sm"
-                        onClick={() => setWaitlistPlan("pro")}
-                        className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
-                      >
-                        Reserve your spot — Pro →
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setWaitlistPlan("team")}
-                        className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
-                      >
-                        Reserve your spot — Team →
-                      </Button>
-                    </>
+                    <p className="text-xs text-muted-foreground max-w-xs">
+                      Self-hosted instance — update the <code className="bg-muted px-1 rounded text-[11px]">plan</code> column in your database to change tiers.{" "}
+                      <a href="/docs/self-hosting/upgrades" className="underline hover:text-foreground">Upgrade guide →</a>
+                    </p>
                   )}
-                  <a href="/pricing" className="text-xs text-muted-foreground hover:text-foreground underline shrink-0">
-                    Compare plans
-                  </a>
                 </>
               )}
               {(currentPlan === "PRO" || currentPlan === "TEAM") && (
@@ -362,17 +345,11 @@ export default function BillingPage() {
                       >
                         {checkoutLoading ? "Redirecting..." : "Upgrade to Team — $79/mo"}
                       </Button>
-                    ) : waitlistPlan === "team" ? (
-                      <WaitlistForm plan="team" onSuccess={() => setWaitlistPlan(null)} />
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setWaitlistPlan("team")}
-                        className="text-[10px] font-black uppercase tracking-widest h-9 px-4"
-                      >
-                        Reserve your spot — Team →
-                      </Button>
+                      <p className="text-xs text-muted-foreground max-w-xs">
+                        Self-hosted instance — update the <code className="bg-muted px-1 rounded text-[11px]">plan</code> column in your database to change tiers.{" "}
+                        <a href="/docs/self-hosting/upgrades" className="underline hover:text-foreground">Upgrade guide →</a>
+                      </p>
                     )
                   )}
                   <Button
