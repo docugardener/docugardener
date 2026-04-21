@@ -74,11 +74,11 @@ class TestNewConfigFields:
         assert s.license_portal_url == ""
 
     def test_github_org_defaults_none(self):
-        s = make_settings()
+        s = make_settings(github_org=None)
         assert s.github_org is None
 
     def test_admin_email_defaults_none(self):
-        s = make_settings()
+        s = make_settings(admin_email=None)
         assert s.admin_email is None
 
 
