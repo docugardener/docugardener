@@ -241,7 +241,7 @@ OLLAMA_MODEL=llama3.2
 | Seat count | 1 | 10 | 100 |
 | Private repos | — | ✅ | ✅ |
 | 14-day PRO trial | ✅ (once) | — | — |
-| Slack & Jira integrations | — | ✅ | ✅ |
+| Slack, Jira & Linear integrations | — | ✅ | ✅ |
 | Ignore-rate analytics | — | ✅ | ✅ |
 | Prompt engineering playground | — | ✅ (+ trial) | ✅ |
 | Nightly rollup digest | — | ✅ | ✅ |
@@ -251,6 +251,9 @@ OLLAMA_MODEL=llama3.2
 | Holistic scoring model | — | ✅ | ✅ |
 | BYOK (cloud or local) | ✅ | ✅ | ✅ |
 | SSO / SAML 2.0 | — | — | ✅ |
+| SCIM 2.0 user provisioning | — | — | ✅ |
+| Cross-repo drift detection | — | — | ✅ |
+| Compliance templates | — | — | ✅ |
 | Session idle timeout | — | — | ✅ |
 | On-premise Helm chart (K8s) | — | — | ✅ |
 | Priority support | — | — | ✅ |
