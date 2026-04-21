@@ -30,6 +30,10 @@ services:
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3003}
       # HYB-02: saas | client-installed | air-gap  (default: saas)
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      # HYB-04: air-gap single-tenant provisioning
+      - SINGLE_TENANT_ID=${SINGLE_TENANT_ID:-}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - GITHUB_ORG=${GITHUB_ORG:-}
       # GitHub App — needed for webhook validation + Rules Preview + outbound API calls
       - GITHUB_APP_ID=${GITHUB_APP_ID}
       - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH}
@@ -83,10 +87,12 @@ services:
       - APP_URL=${APP_URL:-http://localhost:8000}
       - FEEDBACK_HMAC_SECRET=${FEEDBACK_HMAC_SECRET:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash-lite}
       - GITHUB_APP_ID=${GITHUB_APP_ID}
       - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH}
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      - SINGLE_TENANT_ID=${SINGLE_TENANT_ID:-}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
       - CROSS_REPO_BETA=${CROSS_REPO_BETA:-false}
     volumes:
       - ../src:/app/src:ro
@@ -129,10 +135,12 @@ services:
       - APP_URL=${APP_URL:-http://localhost:8000}
       - FEEDBACK_HMAC_SECRET=${FEEDBACK_HMAC_SECRET:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash-lite}
       - GITHUB_APP_ID=${GITHUB_APP_ID}
       - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH}
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      - SINGLE_TENANT_ID=${SINGLE_TENANT_ID:-}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
       - CROSS_REPO_BETA=${CROSS_REPO_BETA:-false}
     volumes:
       - ../src:/app/src:ro
