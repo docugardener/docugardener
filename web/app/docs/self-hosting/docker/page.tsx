@@ -190,7 +190,7 @@ npm start`}
           <p className="text-gray-600 leading-relaxed">
             Navigate to{" "}
             <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
-              http://localhost:3003
+              http://localhost:3000
             </code>{" "}
             in your browser and complete the onboarding wizard.
           </p>
@@ -218,7 +218,7 @@ npm start`}
             <td className="px-3 py-2 border border-gray-200 text-gray-600 font-medium">
               Next.js (web)
             </td>
-            <td className="px-3 py-2 border border-gray-200 text-gray-600">3003</td>
+            <td className="px-3 py-2 border border-gray-200 text-gray-600">3000</td>
             <td className="px-3 py-2 border border-gray-200 text-gray-600">
               Dashboard, auth, settings, billing
             </td>
