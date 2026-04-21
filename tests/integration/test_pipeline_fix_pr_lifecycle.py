@@ -22,6 +22,7 @@ from tests.integration.conftest import (
     TestingSessionLocal,
     _webhook_headers,
     pr_merged_payload,
+    signed_body,
 )
 
 # ── DB helpers ────────────────────────────────────────────────────────────────
@@ -123,10 +124,11 @@ class TestFixPrLifecycle:
         → HTTP 200, status='resolved', job.triageStatus = RESOLVED.
         """
         with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal):
+            _body = signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc123"))
             response = await http_client.post(
                 "/webhooks/github",
-                json=pr_merged_payload(head_ref="docugardener-fix-42-abc123"),
-                headers=_webhook_headers(),
+                content=_body,
+                headers=_webhook_headers(body=_body),
             )
 
         assert response.status_code == 200
@@ -140,10 +142,11 @@ class TestFixPrLifecycle:
         → HTTP 200, status='skipped', triageStatus unchanged.
         """
         with patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal):
+            _body = signed_body(pr_merged_payload(head_ref="feature/my-feature"))
             response = await http_client.post(
                 "/webhooks/github",
-                json=pr_merged_payload(head_ref="feature/my-feature"),
-                headers=_webhook_headers(),
+                content=_body,
+                headers=_webhook_headers(body=_body),
             )
 
         # The closed + non-fix branch still returns skipped (no HMAC, no queue needed)
@@ -167,10 +170,11 @@ class TestFixPrLifecycle:
                 "src.notifications.dispatcher.NotificationDispatcher", return_value=mock_dispatcher
             ),
         ):
+            _body = signed_body(pr_merged_payload(head_ref="docugardener-fix-42-xyz"))
             response = await http_client.post(
                 "/webhooks/github",
-                json=pr_merged_payload(head_ref="docugardener-fix-42-xyz"),
-                headers=_webhook_headers(),
+                content=_body,
+                headers=_webhook_headers(body=_body),
             )
 
         assert response.status_code == 200

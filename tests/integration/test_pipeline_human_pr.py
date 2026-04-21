@@ -32,6 +32,7 @@ from tests.integration.conftest import (
     make_analysis_result,
     pipeline_patch_stack,
     pr_opened_payload,
+    signed_body,
 )
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -72,11 +73,11 @@ class TestHumanPrPipeline:
             patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
             patch("src.worker.queue.get_queue", return_value=mock_queue),
         ):
-            payload = pr_opened_payload()
+            _body = signed_body(pr_opened_payload())
             response = await http_client.post(
                 "/webhooks/github",
-                json=payload,
-                headers=_webhook_headers(),
+                content=_body,
+                headers=_webhook_headers(body=_body),
             )
 
         assert response.status_code == 200
@@ -96,10 +97,11 @@ class TestHumanPrPipeline:
             patch("src.pipeline.job_manager.SessionLocal", TestingSessionLocal),
             patch("src.worker.queue.get_queue", return_value=mock_queue),
         ):
+            _body = signed_body(pr_opened_payload())
             response = await http_client.post(
                 "/webhooks/github",
-                json=pr_opened_payload(),
-                headers=_webhook_headers(delivery_id="my-delivery-42"),
+                content=_body,
+                headers=_webhook_headers(delivery_id="my-delivery-42", body=_body),
             )
 
         assert response.json()["delivery_id"] == "my-delivery-42"

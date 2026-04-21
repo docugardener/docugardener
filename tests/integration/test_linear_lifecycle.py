@@ -25,6 +25,7 @@ from tests.integration.conftest import (
     TestingSessionLocal,
     _webhook_headers,
     pr_merged_payload,
+    signed_body,
 )
 
 # ── DB helpers ─────────────────────────────────────────────────────────────────
@@ -103,8 +104,8 @@ class TestLinearResolutionLifecycle:
         ):
             response = await http_client.post(
                 "/webhooks/github",
-                json=pr_merged_payload(head_ref="docugardener-fix-42-abc"),
-                headers=_webhook_headers(),
+                content=(_body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))),
+                headers=_webhook_headers(body=_body),
             )
 
         assert response.status_code == 200
@@ -132,8 +133,8 @@ class TestLinearResolutionLifecycle:
         ):
             response = await http_client.post(
                 "/webhooks/github",
-                json=pr_merged_payload(head_ref="docugardener-fix-42-abc"),
-                headers=_webhook_headers(),
+                content=(_body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))),
+                headers=_webhook_headers(body=_body),
             )
 
         assert response.status_code == 200
@@ -161,8 +162,8 @@ class TestLinearResolutionLifecycle:
         ):
             response = await http_client.post(
                 "/webhooks/github",
-                json=pr_merged_payload(head_ref="docugardener-fix-42-abc"),
-                headers=_webhook_headers(),
+                content=(_body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))),
+                headers=_webhook_headers(body=_body),
             )
 
         assert response.status_code == 200
@@ -194,8 +195,8 @@ class TestLinearResolutionLifecycle:
         ):
             response = await http_client.post(
                 "/webhooks/github",
-                json=pr_merged_payload(head_ref="docugardener-fix-42-abc"),
-                headers=_webhook_headers(),
+                content=(_body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))),
+                headers=_webhook_headers(body=_body),
             )
 
         assert response.status_code == 200
@@ -231,8 +232,8 @@ class TestLinearResolutionLifecycle:
         ):
             await http_client.post(
                 "/webhooks/github",
-                json=pr_merged_payload(head_ref="docugardener-fix-42-abc"),
-                headers=_webhook_headers(),
+                content=(_body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))),
+                headers=_webhook_headers(body=_body),
             )
 
         assert "granted_features" in captured_kwargs, (

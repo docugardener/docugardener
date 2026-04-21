@@ -16,6 +16,7 @@ Architecture:
 
 import hashlib
 import hmac
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -23,6 +24,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from src.core.config import settings
 from src.main import app
 from src.pipeline.analyzer import DocumentationDraft, DriftAnalysis, PRAnalysisResult
 from src.storage.sql_models import Base, Tenant
@@ -98,6 +100,18 @@ def make_signature(body: bytes, secret: str = WEBHOOK_SECRET) -> str:
     """Return a valid `sha256=<hex>` HMAC signature for a payload."""
     digest = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
     return f"sha256={digest}"
+
+
+def signed_body(payload: dict) -> bytes:
+    """JSON-encode payload into bytes ready for HMAC signing."""
+    return json.dumps(payload).encode()
+
+
+@pytest.fixture(autouse=True)
+def _patch_webhook_secret():
+    """Ensure all integration tests use a known secret for HMAC verification."""
+    with patch.object(settings, "github_webhook_secret", WEBHOOK_SECRET):
+        yield
 
 
 # ── Mock result factory ───────────────────────────────────────────────────────
@@ -242,6 +256,7 @@ def _webhook_headers(
     event: str = "pull_request",
     delivery_id: str | None = None,
     signature: str | None = None,
+    body: bytes | None = None,
 ) -> dict:
     import uuid as _uuid
 
@@ -254,6 +269,9 @@ def _webhook_headers(
         "X-GitHub-Event": event,
         "X-GitHub-Delivery": delivery_id,
     }
+    # Auto-sign if raw body bytes are provided
+    if body is not None and signature is None:
+        signature = make_signature(body)
     if signature:
         headers["X-Hub-Signature-256"] = signature
     return headers
