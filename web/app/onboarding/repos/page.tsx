@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Suspense } from "react"
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress"
 import { Button } from "@/components/ui/button"
-import { Loader2, AlertTriangle } from "lucide-react"
+import { Loader2, AlertTriangle, ExternalLink } from "lucide-react"
 import { Analytics } from "@/lib/posthog"
 
 interface Repo {
@@ -26,10 +26,12 @@ function ReposInner() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notInstalled, setNotInstalled] = useState(false)
   const [warnings, setWarnings] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
   const didSync = useRef(false)
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -63,6 +65,18 @@ function ReposInner() {
         const syncRes = await fetch("/api/repos", { method: "POST" })
         const syncBody = await syncRes.json()
         if (!syncRes.ok) {
+          if (syncBody.code === "APP_NOT_INSTALLED") {
+            setNotInstalled(true)
+            setLoading(false)
+            // Poll every 5s until the installation webhook arrives
+            pollRef.current = setTimeout(() => {
+              didSync.current = false
+              setLoading(true)
+              setNotInstalled(false)
+              run()
+            }, 5000)
+            return
+          }
           setError(syncBody.error ?? "Failed to sync repositories.")
           setLoading(false)
           return
@@ -88,6 +102,7 @@ function ReposInner() {
     }
 
     run()
+    return () => { if (pollRef.current) clearTimeout(pollRef.current) }
   }, [status, searchParams, router])
 
   const toggle = (id: string) => {
@@ -154,7 +169,27 @@ function ReposInner() {
             </div>
           )}
 
-          {!loading && error && (
+          {!loading && notInstalled && (
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-lg p-4">
+              <Loader2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5 animate-spin" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-amber-800">Waiting for GitHub App installation…</p>
+                <p className="text-xs text-amber-700">
+                  Install your GitHub App on at least one repository, then this page will update automatically.
+                </p>
+                <a
+                  href="https://github.com/settings/installations"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-amber-800 underline underline-offset-2 font-medium"
+                >
+                  Manage GitHub App installations <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </div>
+          )}
+
+          {!loading && !notInstalled && error && (
             <div className="flex items-start gap-2 bg-red-50 border border-red-100 rounded-lg p-4">
               <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
               <p className="text-sm text-red-700">{error}</p>

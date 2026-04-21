@@ -39,8 +39,14 @@ export async function POST(req: NextRequest) {
         where: { id: tenantId }
     })
 
-    if (!tenant || !tenant.appId || !tenant.privateKey || !tenant.installationId) {
+    if (!tenant || !tenant.appId || !tenant.privateKey) {
         return NextResponse.json({ error: "GitHub App not fully configured. Complete onboarding first." }, { status: 400 })
+    }
+    if (!tenant.installationId) {
+        return NextResponse.json({
+            error: "GitHub App is not installed on any repositories yet.",
+            code: "APP_NOT_INSTALLED",
+        }, { status: 400 })
     }
 
     try {
