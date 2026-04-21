@@ -108,12 +108,13 @@ async def _ensure_tenant(db: Session, settings: Settings) -> str:
     now = "NOW()"
     db.execute(
         text(
-            'INSERT INTO "Tenant" (id, name, plan, "createdAt", "updatedAt") '
-            "VALUES (:id, :name, :plan, NOW(), NOW()) "
+            'INSERT INTO "Tenant" (id, "githubOrgId", name, plan, "createdAt", "updatedAt") '
+            'VALUES (:id, :github_org_id, :name, :plan, NOW(), NOW()) '
             "ON CONFLICT (id) DO NOTHING"
         ),
         {
             "id": tenant_id,
+            "github_org_id": tenant_id,  # use tenant_id as placeholder; updated when App is connected
             "name": settings.github_org or "Self-hosted",
             "plan": "FREE",
         },
