@@ -4,11 +4,19 @@ DC = docker-compose --env-file .env -f docker/docker-compose.yml
 
 .PHONY: dev-up dev-down dev-restart dev-status
 
-## Start all background services (postgres, redis, worker, smee, grafana, prometheus)
+## Start all services (postgres, pgbouncer, redis, weaviate, worker, smee, docugardener, grafana, prometheus)
 dev-up:
-	$(DC) up -d postgres redis worker smee grafana prometheus
+	$(DC) up -d postgres pgbouncer redis weaviate worker smee grafana prometheus
 	@echo ""
-	@echo "Services started. Run 'make dev-check' to verify health."
+	@echo "Waiting for postgres to be healthy..."
+	@$(DC) exec -T postgres sh -c 'until pg_isready -U postgres; do sleep 1; done' 2>/dev/null || sleep 5
+	@echo "Running Prisma migrations..."
+	@cd web && npx prisma migrate deploy
+	@echo ""
+	@echo "Starting FastAPI backend..."
+	$(DC) up -d docugardener
+	@echo ""
+	@echo "All services started. Run 'make dev-check' to verify health."
 
 ## Stop all background services
 dev-down:

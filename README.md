@@ -94,11 +94,18 @@ sed -i '' "s|ENCRYPTION_KEY=.*|ENCRYPTION_KEY=${ENCRYPTION_KEY}|" web/.env
 ### Running Locally
 
 ```bash
-# Start with Docker Compose (includes Redis, Vector DB)
-docker compose up -d
+# Install Next.js dependencies (required once after clone)
+cd web && npm install && cd ..
 
-# Or run directly
-uvicorn src.main:app --reload --port 8000
+# Start all services: postgres, pgbouncer, redis, weaviate, worker, smee + FastAPI
+# Also runs Prisma migrations automatically on first start
+make dev-up
+
+# Check everything is healthy
+make dev-check
+
+# Start the Next.js dev server (separate terminal)
+cd web && npm run dev
 ```
 
 ### Running Tests
