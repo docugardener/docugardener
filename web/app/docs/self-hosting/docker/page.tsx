@@ -70,11 +70,23 @@ cd docugardener`}
             <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
               LLM_PROVIDER
             </code>{" "}
-            plus the corresponding API key, and{" "}
+            plus the corresponding API key,{" "}
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
+              ENCRYPTION_KEY
+            </code>{" "}
+            (generate with{" "}
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
+              openssl rand -hex 32
+            </code>
+            ), and{" "}
             <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
               NEXTAUTH_SECRET
+            </code>{" "}
+            (generate with{" "}
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
+              openssl rand -base64 32
             </code>
-            . See the{" "}
+            ). See the{" "}
             <Link
               href="/docs/self-hosting/environment"
               className="text-green-600 underline underline-offset-2 hover:text-green-700"

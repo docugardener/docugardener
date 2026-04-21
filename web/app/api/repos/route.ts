@@ -35,13 +35,37 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantId = (session.user as any).tenantId
-    const tenant = await prisma.tenant.findUnique({
+    let tenant = await prisma.tenant.findUnique({
         where: { id: tenantId }
     })
 
     if (!tenant || !tenant.appId || !tenant.privateKey) {
         return NextResponse.json({ error: "GitHub App not fully configured. Complete onboarding first." }, { status: 400 })
     }
+
+    const privateKey = decrypt(tenant.privateKey)
+
+    // If installationId is missing, try to discover it via the GitHub API.
+    // This handles the case where the app was already installed before onboarding completed.
+    if (!tenant.installationId) {
+        try {
+            const appOctokit = new Octokit({
+                authStrategy: createAppAuth,
+                auth: { appId: tenant.appId, privateKey }
+            })
+            const { data: installations } = await appOctokit.rest.apps.listInstallations({ per_page: 1 })
+            if (installations.length > 0) {
+                const discoveredId = String(installations[0].id)
+                tenant = await prisma.tenant.update({
+                    where: { id: tenantId },
+                    data: { installationId: discoveredId }
+                })
+            }
+        } catch {
+            // ignore — fall through to APP_NOT_INSTALLED below
+        }
+    }
+
     if (!tenant.installationId) {
         return NextResponse.json({
             error: "GitHub App is not installed on any repositories yet.",
@@ -50,7 +74,6 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const privateKey = decrypt(tenant.privateKey)
         const octokit = new Octokit({
             authStrategy: createAppAuth,
             auth: {
