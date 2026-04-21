@@ -95,8 +95,8 @@ class TestValidateProductionConfig:
         # Should not raise (github_org not required in saas mode)
         s.validate_production_config()
 
-    def test_client_installed_production_requires_github_org(self):
-        """client-installed production without GITHUB_ORG must raise."""
+    def test_client_installed_production_without_github_org_passes(self):
+        """GITHUB_ORG is optional — missing it no longer blocks startup."""
         s = make_settings(
             app_env="production",
             deployment_mode="client-installed",
@@ -105,8 +105,8 @@ class TestValidateProductionConfig:
             feedback_hmac_secret="x" * 32,
             github_org=None,
         )
-        with pytest.raises(RuntimeError, match="GITHUB_ORG"):
-            s.validate_production_config()
+        # Should NOT raise — GITHUB_ORG is a display name only
+        s.validate_production_config()
 
     def test_client_installed_production_with_github_org_passes(self):
         s = make_settings(

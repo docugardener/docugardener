@@ -194,7 +194,8 @@ class TestMalformedLicense:
 
 
 class TestValidateProductionConfigAirGap:
-    def test_air_gap_without_license_file_raises(self, tmp_path):
+    def test_air_gap_without_license_file_passes_config_check(self, tmp_path):
+        """Missing license file no longer blocks startup — AGPL self-hosters run without one."""
         from src.core.config import Settings
 
         s = Settings(
@@ -206,8 +207,8 @@ class TestValidateProductionConfigAirGap:
             feedback_hmac_secret="x" * 32,
             license_file_path=str(tmp_path / "nonexistent.json"),
         )
-        with pytest.raises(RuntimeError, match="LICENSE_FILE_PATH"):
-            s.validate_production_config()
+        # Should NOT raise — license file is optional in the AGPL build
+        s.validate_production_config()
 
     def test_air_gap_with_license_file_passes_config_check(self, tmp_path):
         lic_path = tmp_path / "license.json"

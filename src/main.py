@@ -45,31 +45,38 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # SEC-11: Validate CORS origins and DB URL are explicitly set in production.
     settings.validate_production_config()
 
-    # HYB-07: Air-gap offline license validation
+    # HYB-07: Air-gap license validation (optional — AGPL self-hosters skip this)
     if settings.deployment_mode in ("air-gap",):
+        from pathlib import Path
+
         from src.core.license import LicenseError, validate_license_file
 
-        try:
-            license_payload = validate_license_file(settings.license_file_path)
-            logger.info(
-                "HYB-07: Air-gap license validated",
-                org=license_payload.org_name,
-                plan=license_payload.plan,
-                expires=str(license_payload.expires_at.date()),
-            )
-            # Warn if LLM provider is not Ollama — only local LLM works in air-gap
-            if settings.llm_provider != "ollama":
-                logger.warning(
-                    "HYB-07: LLM provider is not 'ollama' in air-gap mode — "
-                    "bundled cloud LLM keys are ignored. Set LLM_PROVIDER=ollama.",
-                    llm_provider=settings.llm_provider,
+        if Path(settings.license_file_path).exists():
+            try:
+                license_payload = validate_license_file(settings.license_file_path)
+                logger.info(
+                    "HYB-07: Air-gap license validated",
+                    org=license_payload.org_name,
+                    plan=license_payload.plan,
+                    expires=str(license_payload.expires_at.date()),
                 )
-        except LicenseError as _lic_err:
-            logger.critical(
-                "HYB-07: Air-gap license validation failed — aborting startup",
-                error=str(_lic_err),
+                # Warn if LLM provider is not Ollama — only local LLM works in air-gap
+                if settings.llm_provider != "ollama":
+                    logger.warning(
+                        "HYB-07: LLM provider is not 'ollama' in air-gap mode — "
+                        "bundled cloud LLM keys are ignored. Set LLM_PROVIDER=ollama.",
+                        llm_provider=settings.llm_provider,
+                    )
+            except LicenseError as _lic_err:
+                logger.warning(
+                    "HYB-07: Air-gap license validation failed — continuing without license",
+                    error=str(_lic_err),
+                )
+        else:
+            logger.debug(
+                "HYB-07: No license file found — running as AGPL self-hosted",
+                license_file_path=settings.license_file_path,
             )
-            raise RuntimeError(str(_lic_err)) from _lic_err
 
     # HYB-04: Single-tenant auto-provisioning (client-installed / air-gap only)
     if settings.deployment_mode in ("client-installed", "air-gap"):

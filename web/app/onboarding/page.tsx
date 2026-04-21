@@ -19,6 +19,7 @@ export default function Onboarding() {
     const router = useRouter()
     const { update: updateSession, status } = useSession()
     const [showManual, setShowManual] = useState(false)
+    const prefillFetched = useRef(false)
 
     // Manual Form State — hooks must precede any early return
     const [appId, setAppId] = useState("")
@@ -38,6 +39,21 @@ export default function Onboarding() {
     }
     if (status === "loading") {
         return <div className="flex min-h-screen items-center justify-center text-sm text-gray-500">Loading…</div>
+    }
+
+    async function fetchPrefill() {
+        if (prefillFetched.current) return
+        prefillFetched.current = true
+        try {
+            const res = await fetch("/api/onboarding/github-app-prefill")
+            if (!res.ok) return
+            const data = await res.json()
+            if (data.appId && !appId) setAppId(data.appId)
+            if (data.webhookSecret && !webhookSecret) setWebhookSecret(data.webhookSecret)
+            if (data.privateKey && !privateKey) setPrivateKey(data.privateKey)
+        } catch {
+            // ignore — pre-fill is best-effort
+        }
     }
 
     function handlePemFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -175,7 +191,7 @@ export default function Onboarding() {
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <button
                         type="button"
-                        onClick={() => setShowManual((v) => !v)}
+                        onClick={() => { setShowManual((v) => !v); fetchPrefill() }}
                         className="w-full flex items-center justify-between px-5 py-3 text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
                         aria-expanded={showManual}
                     >

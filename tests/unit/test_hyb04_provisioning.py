@@ -60,18 +60,22 @@ class TestSaasNoOp:
 
 class TestRequiredEnvValidation:
     @pytest.mark.anyio
-    async def test_raises_when_github_org_missing_in_client_installed(self):
+    async def test_warns_but_continues_when_github_org_missing_in_client_installed(self):
+        """GITHUB_ORG is optional — missing it logs a warning but does not block startup."""
         settings = make_settings(deployment_mode="client-installed", github_org=None)
         db = MagicMock()
-        with pytest.raises(RuntimeError, match="GITHUB_ORG"):
-            await ensure_tenant_provisioned(db, settings)
+        db.execute.return_value.fetchone.return_value = ("default",)
+        # Should NOT raise
+        await ensure_tenant_provisioned(db, settings)
 
     @pytest.mark.anyio
-    async def test_raises_when_github_org_missing_in_air_gap(self):
+    async def test_warns_but_continues_when_github_org_missing_in_air_gap(self):
+        """GITHUB_ORG is optional — missing it logs a warning but does not block startup."""
         settings = make_settings(deployment_mode="air-gap", github_org=None)
         db = MagicMock()
-        with pytest.raises(RuntimeError, match="GITHUB_ORG"):
-            await ensure_tenant_provisioned(db, settings)
+        db.execute.return_value.fetchone.return_value = ("default",)
+        # Should NOT raise
+        await ensure_tenant_provisioned(db, settings)
 
 
 class TestTenantCreation:

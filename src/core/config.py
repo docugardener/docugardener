@@ -200,20 +200,7 @@ class Settings(BaseSettings):
                 "FEED-01: FEEDBACK_HMAC_SECRET must be set in production. "
                 "Generate with: openssl rand -hex 32"
             )
-        # HYB-02: non-SaaS modes require GITHUB_ORG for GitHub App integration
-        if self.deployment_mode != "saas" and not self.github_org:
-            raise RuntimeError(
-                f"HYB-02: GITHUB_ORG must be set when DEPLOYMENT_MODE={self.deployment_mode!r}."
-            )
-        # HYB-07: air-gap mode requires a license file at the configured path
-        if self.deployment_mode == "air-gap":
-            from pathlib import Path
-
-            if not Path(self.license_file_path).exists():
-                raise RuntimeError(
-                    f"HYB-07: LICENSE_FILE_PATH={self.license_file_path!r} does not exist. "
-                    "Mount the signed license file before starting in air-gap mode."
-                )
+        # GITHUB_ORG is a display name — warn if missing but do not block startup
 
     @property
     def is_production(self) -> bool:

@@ -67,12 +67,12 @@ async def ensure_tenant_provisioned(db: Session, settings: Settings) -> None:
 
 
 def _validate_required_env(settings: Settings) -> None:
-    """Raise RuntimeError for missing required env vars in non-SaaS modes."""
+    """Log a warning for missing optional env vars in non-SaaS modes."""
     if not settings.github_org:
-        raise RuntimeError(
-            f"HYB-04: GITHUB_ORG is required when DEPLOYMENT_MODE="
-            f"{settings.deployment_mode!r}. "
-            "Set it to your GitHub organization name (e.g. GITHUB_ORG=acme-corp)."
+        logger.warning(
+            "HYB-04: GITHUB_ORG not set — tenant will be named 'Self-hosted'. "
+            "Set GITHUB_ORG to your organization name (e.g. GITHUB_ORG=acme-corp).",
+            deployment_mode=settings.deployment_mode,
         )
 
 
@@ -114,7 +114,7 @@ async def _ensure_tenant(db: Session, settings: Settings) -> str:
         ),
         {
             "id": tenant_id,
-            "name": settings.github_org or "Default Organization",
+            "name": settings.github_org or "Self-hosted",
             "plan": "FREE",
         },
     )
