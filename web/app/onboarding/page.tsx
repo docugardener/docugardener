@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress"
+import { WebhookUrlWarning } from "@/components/onboarding/WebhookUrlWarning"
 import { Check, ArrowRight, Plug, Upload, ChevronDown } from "lucide-react"
 import { Analytics } from "@/lib/posthog"
 
@@ -152,7 +153,8 @@ export default function Onboarding() {
                             ))}
                         </div>
                     </CardContent>
-                    <CardFooter>
+                    <CardFooter className="flex-col gap-3">
+                        <WebhookUrlWarning />
                         <form
                             ref={formRef}
                             action="https://github.com/settings/apps/new"

@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from src.core.env_bootstrap import bootstrap_tenant_from_env
 from src.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -47,6 +48,8 @@ async def ensure_tenant_provisioned(db: Session, settings: Settings) -> None:
 
     tenant_id = await _ensure_tenant(db, settings)
     settings.single_tenant_id = tenant_id
+
+    bootstrap_tenant_from_env(tenant_id)
 
     if settings.admin_email:
         await _ensure_admin_user(db, tenant_id, settings.admin_email)
