@@ -15,7 +15,7 @@ DocuGardener is the documentation safety net for AI-native engineering teams. As
 - 🚀 **CI-native drift detection**: Analyzes every PR diff; blocks merges when docs fall behind code. First scan in under 3 minutes with the bundled zero-config LLM key.
 - 📥 **Triage Inbox**: Centralized dashboard to review, accept, or ignore drift alerts across all repos. High-contrast semantic diffs, keyboard-driven (`j`/`k`, `a`, `i`).
 - 🤖 **Auto-Fix PR (`autoHeal`)**: Drafts the precise Markdown update and opens a PR. The developer just reviews and merges.
-- 🔗 **Cross-Repo Drift Detection**: Detects when a change in one repository has documentation implications in sibling repositories. Configurable per-repo in Settings (Team plan+).
+- 🔗 **Cross-Repo Drift Detection** *(beta)*: Detects when a change in one repository has documentation implications in sibling repositories. Configurable per-repo in Settings (Team plan+).
 - 🔌 **VS Code Extension (Pre-push Check)**: Real-time drift diagnostics in the IDE via a stateless `/check` API — catch issues before code reaches CI.
 - 📊 **Nightly Rollup Reports**: Automated scheduler (02:00 UTC) creates GitHub Issues per repository summarizing average drift, peak scores, and high-drift PRs.
 - 🔌 **Slack & Jira Integrations**: Push drift alerts to Slack channels; auto-comment on existing Jira tickets at four lifecycle points (drift detected → fix PR created → no update required → fix PR merged). Pro+.
@@ -252,7 +252,7 @@ OLLAMA_MODEL=llama3.2
 | BYOK (cloud or local) | ✅ | ✅ | ✅ |
 | SSO / SAML 2.0 | — | — | ✅ |
 | SCIM 2.0 user provisioning | — | — | ✅ |
-| Cross-repo drift detection | — | — | ✅ |
+| Cross-repo drift detection *(beta)* | — | — | ✅ |
 | Compliance templates | — | — | ✅ |
 | Session idle timeout | — | — | ✅ |
 | On-premise Helm chart (K8s) | — | — | ✅ |
