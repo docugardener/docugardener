@@ -453,9 +453,9 @@ def set_merge_config(
     """Merge-patch the tenant's workflowConfig with auto-merge settings."""
     patch = json.dumps(
         {
-            "autoMergeEnabled": enabled,
-            "autoMergeMethod": method,  # key used by handler.py
-            "waitForCI": wait_for_ci,
+            "autoMergeAiDocs": enabled,     # key read by handler.py line 446
+            "autoMergeMethod": method,       # key read by handler.py line 880
+            "autoMergeWaitForCI": wait_for_ci,  # key read by handler.py line 881
         }
     )
     conn.execute(

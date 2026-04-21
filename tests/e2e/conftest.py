@@ -12,8 +12,9 @@ Requirements:
 
 Environment variables:
   E2E_ENABLED=1           Required to run (prevents accidental execution)
-  E2E_TEST_REPO           GitHub repo for test PRs  (default: alexeykopachev/docugardener-test)
-  E2E_TENANT_ID           Tenant ID in dev DB        (default: cmmjpxq3x0005bul35iu3viuv)
+  E2E_TEST_REPO           GitHub repo for test PRs  (default: docugardener/docugardener-test)
+  E2E_TENANT_ID           Tenant ID in dev DB        (auto-discovered from DB if not set)
+  E2E_REPO_ID             Repository ID in dev DB    (auto-discovered from DB if not set)
   SQL_DATABASE_URL        Postgres connection string  (default: localhost:5433)
   E2E_API_BASE            FastAPI backend URL          (default: http://localhost:8000)
   E2E_WEB_BASE            Next.js frontend URL         (default: http://localhost:3003)
@@ -27,6 +28,56 @@ import subprocess
 import pytest
 import requests
 from sqlalchemy import create_engine, text
+
+
+# ── Auto-discover tenant/repo IDs before test collection ──────────────────────
+# Runs in pytest_configure so that helpers.py reads the correct values at import
+# time (module-level constants are evaluated during collection, after this hook).
+
+
+def pytest_configure(config):
+    """Auto-discover E2E_TENANT_ID and E2E_REPO_ID from the DB when not set."""
+    if os.getenv("E2E_ENABLED", "0") != "1":
+        return
+    if os.getenv("E2E_TENANT_ID") and os.getenv("E2E_REPO_ID"):
+        return  # both already set explicitly — nothing to do
+
+    db_url = os.getenv(
+        "SQL_DATABASE_URL",
+        "postgresql://postgres:password@localhost:5433/docugardener-web",
+    )
+    try:
+        engine = create_engine(db_url)
+        with engine.connect() as conn:
+            if not os.getenv("E2E_TENANT_ID"):
+                row = conn.execute(
+                    text('SELECT id FROM "Tenant" ORDER BY "createdAt" LIMIT 1')
+                ).fetchone()
+                if row:
+                    os.environ["E2E_TENANT_ID"] = row[0]
+
+            if not os.getenv("E2E_REPO_ID"):
+                tenant_id = os.getenv("E2E_TENANT_ID")
+                if tenant_id:
+                    row = conn.execute(
+                        text(
+                            'SELECT id FROM "Repository" WHERE "tenantId" = :tid '
+                            'ORDER BY "createdAt" LIMIT 1'
+                        ),
+                        {"tid": tenant_id},
+                    ).fetchone()
+                    if row:
+                        os.environ["E2E_REPO_ID"] = row[0]
+        engine.dispose()
+        if os.getenv("E2E_TENANT_ID") and os.getenv("E2E_REPO_ID"):
+            print(
+                f"\n  [e2e] auto-discovered tenant={os.environ['E2E_TENANT_ID'][:12]}…  "
+                f"repo={os.environ['E2E_REPO_ID'][:12]}…"
+            )
+    except Exception as exc:
+        print(f"\n  [e2e] WARNING: could not auto-discover tenant/repo IDs: {exc}")
+        print("  [e2e] Set E2E_TENANT_ID and E2E_REPO_ID explicitly to override.")
+
 
 # ── Guard: skip unless explicitly enabled ─────────────────────────────────────
 

@@ -104,8 +104,8 @@ make dev-up
 # Check everything is healthy
 make dev-check
 
-# Start the Next.js dev server (separate terminal)
-cd web && npm run dev
+# Start the Next.js dev server (separate terminal) — uses PORT from web/.env
+make web-dev
 ```
 
 ### Running Tests

@@ -88,8 +88,6 @@ def test_beta16_github_issues_integration(db):
             pr_title=f"feat: add issue_refund_{uid} endpoint",
             uid=uid,
             branch_prefix="copilot",
-            target_file=f"src/refund_{uid}.py",
-            append=False,
         )
         print(f"         → PR #{pr_number}  branch: {branch}", flush=True)
 

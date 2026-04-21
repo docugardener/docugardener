@@ -1,8 +1,9 @@
 DC = docker-compose --env-file .env -f docker/docker-compose.yml
+WEB_PORT ?= $(shell grep '^PORT=' web/.env 2>/dev/null | cut -d= -f2 || echo 3000)
 
 # ── Dev startup / shutdown ────────────────────────────────────────────────────
 
-.PHONY: dev-up dev-down dev-restart dev-status
+.PHONY: dev-up dev-down dev-restart dev-status web-dev
 
 ## Start all services (postgres, pgbouncer, redis, weaviate, worker, smee, docugardener, grafana, prometheus)
 dev-up:
@@ -18,13 +19,17 @@ dev-up:
 	@echo ""
 	@echo "All services started. Run 'make dev-check' to verify health."
 
+## Start the Next.js dev server on the port defined in web/.env (PORT=)
+web-dev:
+	cd web && PORT=$(WEB_PORT) npm run dev
+
 ## Stop all background services
 dev-down:
 	$(DC) down
 
-## Restart worker + smee (quick fix for webhook / queue issues)
+## Restart app containers after .env changes (worker, docugardener, smee)
 dev-restart:
-	$(DC) restart worker smee
+	$(DC) restart worker docugardener smee
 	@sleep 3
 	@$(MAKE) dev-check
 
