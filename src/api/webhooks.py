@@ -122,19 +122,25 @@ async def handle_github_webhook(
     # Get raw payload for signature verification
     payload = await request.body()
 
-    # Verify webhook signature in production
-    if settings.github_webhook_secret and not settings.debug:
-        if not verify_github_signature(
-            payload, x_hub_signature_256 or "", settings.github_webhook_secret
-        ):
-            logger.warning(
-                "Invalid webhook signature",
-                delivery_id=x_github_delivery,
-                event_type=x_github_event,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature"
-            )
+    # Fail-closed: refuse all requests when secret is not configured
+    if not settings.github_webhook_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Webhook secret not configured",
+        )
+
+    # Always verify HMAC signature — no debug bypass
+    if not verify_github_signature(
+        payload, x_hub_signature_256 or "", settings.github_webhook_secret
+    ):
+        logger.warning(
+            "Invalid webhook signature",
+            delivery_id=x_github_delivery,
+            event_type=x_github_event,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature"
+        )
 
     # Parse JSON payload
     try:

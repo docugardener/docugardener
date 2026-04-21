@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 GAP-02: Tests for rate-limit headers on webhook responses.
 
@@ -9,11 +10,18 @@ Verifies that POST /webhooks/github:
   E. Remaining count decrements with each call
 """
 
+import hashlib
+import hmac
+import json
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
+from src.core.config import settings
+
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
+_RATE_TEST_SECRET = "rate-limit-test-secret-xyz"
 
 PING_PAYLOAD = {
     "action": None,
@@ -40,15 +48,29 @@ PR_PAYLOAD = {
     "sender": {"login": "human-user"},
 }
 
-HEADERS = {
+_BASE_HEADERS = {
     "X-GitHub-Event": "ping",
     "X-GitHub-Delivery": "test-delivery-001",
     "Content-Type": "application/json",
 }
 
 
+def _sign(body: bytes) -> str:
+    sig = hmac.new(_RATE_TEST_SECRET.encode(), body, hashlib.sha256).hexdigest()
+    return f"sha256={sig}"
+
+
+def _post(client: TestClient, payload: dict, extra_headers: dict | None = None) -> object:
+    """POST a signed webhook payload."""
+    body = json.dumps(payload).encode()
+    headers = {**_BASE_HEADERS, "X-Hub-Signature-256": _sign(body)}
+    if extra_headers:
+        headers.update(extra_headers)
+    return client.post("/webhooks/github", content=body, headers=headers)
+
+
 def _make_client(clear_limiters: bool = True) -> TestClient:
-    """Return a TestClient with debug mode (no signature check) and fresh limiters."""
+    """Return a TestClient with HMAC signing enabled and fresh limiters."""
     import src.api.webhooks as wh
     from src.main import create_app
 
@@ -56,11 +78,8 @@ def _make_client(clear_limiters: bool = True) -> TestClient:
         wh._webhook_rate_limiters.clear()
 
     app = create_app()
-    # Disable signature verification
-    from src.core.config import settings
-
-    settings.github_webhook_secret = ""
-    settings.debug = True
+    settings.github_webhook_secret = _RATE_TEST_SECRET
+    settings.debug = False
     return TestClient(app)
 
 
@@ -69,7 +88,7 @@ def _make_client(clear_limiters: bool = True) -> TestClient:
 
 def test_rate_limit_headers_present_on_ping():
     client = _make_client()
-    resp = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
+    resp = _post(client, PING_PAYLOAD)
     assert resp.status_code == 200
     assert "x-ratelimit-limit" in resp.headers
     assert "x-ratelimit-remaining" in resp.headers
@@ -79,20 +98,20 @@ def test_rate_limit_limit_header_equals_burst():
     from src.api.webhooks import _WEBHOOK_BURST
 
     client = _make_client()
-    resp = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
+    resp = _post(client, PING_PAYLOAD)
     assert int(resp.headers["x-ratelimit-limit"]) == _WEBHOOK_BURST
 
 
 def test_rate_limit_remaining_is_integer():
     client = _make_client()
-    resp = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
+    resp = _post(client, PING_PAYLOAD)
     remaining = resp.headers.get("x-ratelimit-remaining", "")
     assert remaining.isdigit(), f"Expected integer remaining, got: {remaining!r}"
 
 
 def test_rate_limit_remaining_not_negative():
     client = _make_client()
-    resp = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
+    resp = _post(client, PING_PAYLOAD)
     assert int(resp.headers["x-ratelimit-remaining"]) >= 0
 
 
@@ -101,8 +120,8 @@ def test_rate_limit_remaining_not_negative():
 
 def test_remaining_decrements_on_successive_calls():
     client = _make_client()
-    r1 = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
-    r2 = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
+    r1 = _post(client, PING_PAYLOAD)
+    r2 = _post(client, PING_PAYLOAD)
     rem1 = int(r1.headers["x-ratelimit-remaining"])
     rem2 = int(r2.headers["x-ratelimit-remaining"])
     assert rem2 <= rem1, "Remaining should not increase between calls"
@@ -113,16 +132,14 @@ def test_remaining_decrements_on_successive_calls():
 
 def test_429_when_rate_limited():
     """Exhausting the burst returns 429."""
-
     from src.api.webhooks import _get_rate_limiter, _webhook_rate_limiters
 
     _webhook_rate_limiters.clear()
-    # Pre-drain the global bucket
     limiter = _get_rate_limiter("global")
     limiter._tokens = 0.0  # fully exhausted
 
     client = _make_client(clear_limiters=False)
-    resp = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
+    resp = _post(client, PING_PAYLOAD)
     assert resp.status_code == 429
 
 
@@ -135,7 +152,7 @@ def test_retry_after_header_present_on_429():
     limiter._tokens = 0.0
 
     client = _make_client(clear_limiters=False)
-    resp = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
+    resp = _post(client, PING_PAYLOAD)
     assert resp.status_code == 429
     assert "retry-after" in resp.headers
     assert int(resp.headers["retry-after"]) >= 1
@@ -149,7 +166,7 @@ def test_429_body_indicates_rate_limit():
     limiter._tokens = 0.0
 
     client = _make_client(clear_limiters=False)
-    resp = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
+    resp = _post(client, PING_PAYLOAD)
     assert resp.status_code == 429
     body = resp.json()
     assert "rate" in body.get("detail", "").lower() or "limit" in body.get("detail", "").lower()
@@ -163,24 +180,16 @@ def test_per_installation_buckets_independent():
     from src.api.webhooks import _get_rate_limiter, _webhook_rate_limiters
 
     _webhook_rate_limiters.clear()
-    # Drain installation 1111
     lim1 = _get_rate_limiter("1111")
     lim1._tokens = 0.0
 
-    # Installation 2222 should still have a full bucket
     payload_2222 = dict(PR_PAYLOAD)
     payload_2222["installation"] = {"id": 2222}
 
-    # Mock the queue so the PR webhook doesn't actually try to enqueue
     with patch("src.api.webhooks.handle_pull_request", new_callable=AsyncMock) as mock_handler:
         mock_handler.return_value = {"status": "queued", "job_id": "x"}
         client = _make_client(clear_limiters=False)
-        resp = client.post(
-            "/webhooks/github",
-            json=payload_2222,
-            headers={**HEADERS, "X-GitHub-Event": "pull_request"},
-        )
-    # 2222 bucket is full — must not be 429
+        resp = _post(client, payload_2222, extra_headers={"X-GitHub-Event": "pull_request"})
     assert resp.status_code != 429
 
 
@@ -193,9 +202,8 @@ def test_new_installation_gets_full_bucket():
 
     _webhook_rate_limiters.clear()
     client = _make_client(clear_limiters=False)
-    resp = client.post("/webhooks/github", json=PING_PAYLOAD, headers=HEADERS)
+    resp = _post(client, PING_PAYLOAD)
     assert resp.status_code == 200
-    # After the first request, remaining should be burst - 1
     remaining = int(resp.headers["x-ratelimit-remaining"])
     assert remaining == _WEBHOOK_BURST - 1
 
