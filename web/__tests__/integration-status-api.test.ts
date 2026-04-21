@@ -37,6 +37,10 @@ vi.mock("@/lib/encryption", () => ({
     decrypt: (v: string) => v.replace(/^enc_/, ""),
 }))
 
+vi.mock("@/lib/ssrf", () => ({
+    isSafeUrl: vi.fn().mockResolvedValue(true),
+}))
+
 const mockFetch = vi.fn()
 vi.stubGlobal("fetch", mockFetch)
 

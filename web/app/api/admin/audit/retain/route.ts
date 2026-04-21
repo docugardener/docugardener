@@ -24,6 +24,7 @@ export const dynamic = "force-dynamic"
  *   { "dryRun": true }  — skips writes and deletes; only reports counts.
  */
 import { NextResponse } from "next/server"
+import { timingSafeEqual } from "node:crypto"
 import { prisma } from "@/lib/prisma"
 import fs from "fs"
 import path from "path"
@@ -42,15 +43,23 @@ function addDays(date: Date, days: number): Date {
 export async function POST(req: Request) {
     // ── Auth ───────────────────────────────────────────────────────────────────
     const cronSecret = process.env.CRON_SECRET
+    const allowUnauth = process.env.ALLOW_UNAUTHENTICATED_CRON === "true"
+
     if (!cronSecret) {
-        // In dev (no secret set), allow unauthenticated for local testing
-        if (process.env.NODE_ENV === "production") {
+        if (!allowUnauth) {
             return new NextResponse("CRON_SECRET not configured", { status: 500 })
         }
     } else {
         const authHeader = req.headers.get("authorization") ?? ""
         const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : ""
-        if (token !== cronSecret) {
+        const expected = Buffer.from(cronSecret, "utf8")
+        const received = Buffer.from(token, "utf8")
+        const maxLen = Math.max(expected.length, received.length)
+        const paddedExpected = Buffer.concat([expected, Buffer.alloc(maxLen - expected.length)])
+        const paddedReceived = Buffer.concat([received, Buffer.alloc(maxLen - received.length)])
+        const lengthOk = expected.length === received.length
+        const contentOk = timingSafeEqual(paddedExpected, paddedReceived)
+        if (!lengthOk || !contentOk) {
             return new NextResponse("Unauthorized", { status: 401 })
         }
     }

@@ -6,6 +6,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/encryption"
 import { getModelMeta, isOpenAIChatModel } from "@/lib/model-registry"
+import { isSafeUrl } from "@/lib/ssrf"
 
 // ---------------------------------------------------------------------------
 // LLM-04: Gemini model list cache (module-level TTL cache, 5 min)
@@ -239,6 +240,10 @@ async function handleAnthropic(tenantId: string, apiKeyOverride?: string) {
 
 async function handleOllama(baseUrl: string | null) {
     const serverUrl = (baseUrl || "http://localhost:11434").replace(/\/$/, "")
+
+    if (!(await isSafeUrl(serverUrl, { allowLocalhost: true }))) {
+        return NextResponse.json({ error: "URL not allowed" }, { status: 400 })
+    }
 
     // Try OpenAI-compatible /v1/models first (LM Studio, vLLM, etc.)
     try {

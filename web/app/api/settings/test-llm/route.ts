@@ -24,6 +24,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { decrypt } from "@/lib/encryption"
 import { migrateLlmConfig } from "@/lib/llm-config"
+import { isSafeUrl } from "@/lib/ssrf"
 
 type ErrorCode =
     | "missing_key"
@@ -158,6 +159,9 @@ export async function POST(req: Request) {
 
     if (provider === "ollama") {
         const serverUrl = (baseUrl || "http://localhost:11434").replace(/\/$/, "")
+        if (!(await isSafeUrl(serverUrl, { allowLocalhost: true }))) {
+            return fail("URL not allowed", "connection_error")
+        }
         let connected = false
         try {
             const r1 = await fetch(`${serverUrl}/v1/models`, { signal: AbortSignal.timeout(5000) })

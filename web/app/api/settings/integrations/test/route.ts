@@ -6,6 +6,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { canAccessTenant } from "@/lib/features"
 import { decrypt } from "@/lib/encryption"
+import { isSafeUrl } from "@/lib/ssrf"
 
 const VALID_TYPES = ["slack", "jira", "linear"] as const
 type IntegrationType = typeof VALID_TYPES[number]
@@ -97,6 +98,9 @@ async function pingSlack(wc: any): Promise<PingResult> {
     }
     try {
         const url = decrypt(wc.slack.webhookUrl)
+        if (!(await isSafeUrl(url))) {
+            return { ok: false, error: "URL not allowed" }
+        }
         const resp = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -114,6 +118,9 @@ async function pingJira(wc: any): Promise<PingResult> {
         return { ok: false, error: "Jira not configured" }
     }
     try {
+        if (!(await isSafeUrl(wc.jira.host))) {
+            return { ok: false, error: "URL not allowed" }
+        }
         const token = decrypt(wc.jira.apiToken)
         const credentials = Buffer.from(`${wc.jira.email}:${token}`).toString("base64")
         const resp = await fetch(`${wc.jira.host}/rest/api/2/myself`, {

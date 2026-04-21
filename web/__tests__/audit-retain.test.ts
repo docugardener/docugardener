@@ -72,9 +72,9 @@ describe("POST /api/admin/audit/retain — auth", () => {
         vi.unstubAllEnvs()
     })
 
-    it("returns 200 in dev even without auth header", async () => {
-        vi.stubEnv("NODE_ENV", "development")
+    it("returns 200 when CRON_SECRET unset and ALLOW_UNAUTHENTICATED_CRON=true", async () => {
         vi.stubEnv("CRON_SECRET", "")
+        vi.stubEnv("ALLOW_UNAUTHENTICATED_CRON", "true")
         mockFindMany.mockResolvedValue([])
         mockCount.mockResolvedValue(0)
         mockDeleteMany.mockResolvedValue({ count: 0 })
@@ -93,7 +93,7 @@ describe("POST /api/admin/audit/retain — auth", () => {
 // ── B. Dry-run ─────────────────────────────────────────────────────────────────
 
 describe("POST /api/admin/audit/retain — dry run", () => {
-    beforeEach(() => { vi.resetModules(); vi.resetAllMocks(); vi.stubEnv("CRON_SECRET", "") })
+    beforeEach(() => { vi.resetModules(); vi.resetAllMocks(); vi.stubEnv("CRON_SECRET", ""); vi.stubEnv("ALLOW_UNAUTHENTICATED_CRON", "true") })
 
     it("does not call deleteMany when dryRun=true", async () => {
         mockFindMany.mockResolvedValue(SAMPLE_LOGS)
@@ -112,7 +112,7 @@ describe("POST /api/admin/audit/retain — dry run", () => {
 // ── C. Deletion ────────────────────────────────────────────────────────────────
 
 describe("POST /api/admin/audit/retain — deletion", () => {
-    beforeEach(() => { vi.resetModules(); vi.resetAllMocks(); vi.stubEnv("CRON_SECRET", "") })
+    beforeEach(() => { vi.resetModules(); vi.resetAllMocks(); vi.stubEnv("CRON_SECRET", ""); vi.stubEnv("ALLOW_UNAUTHENTICATED_CRON", "true") })
 
     it("calls deleteMany with lt: deleteCutoff date", async () => {
         mockFindMany.mockResolvedValue([])
@@ -145,7 +145,7 @@ describe("POST /api/admin/audit/retain — deletion", () => {
 // ── D. Archive ─────────────────────────────────────────────────────────────────
 
 describe("POST /api/admin/audit/retain — archive", () => {
-    beforeEach(() => { vi.resetModules(); vi.resetAllMocks(); vi.stubEnv("CRON_SECRET", "") })
+    beforeEach(() => { vi.resetModules(); vi.resetAllMocks(); vi.stubEnv("CRON_SECRET", ""); vi.stubEnv("ALLOW_UNAUTHENTICATED_CRON", "true") })
 
     it("calls fs.writeFileSync with JSON when archive candidates exist", async () => {
         mockFindMany.mockResolvedValue(SAMPLE_LOGS)
