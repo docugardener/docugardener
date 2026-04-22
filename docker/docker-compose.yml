@@ -99,9 +99,12 @@ services:
       - ../scripts:/app/scripts:ro
       - ../secrets:/app/secrets:ro
     depends_on:
-      - redis
-      - weaviate
-      - pgbouncer
+      redis:
+        condition: service_healthy
+      weaviate:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
     networks:
       - docugardener-network
 
@@ -147,9 +150,12 @@ services:
       - ../scripts:/app/scripts:ro
       - ../secrets:/app/secrets:ro
     depends_on:
-      - redis
-      - weaviate
-      - pgbouncer
+      redis:
+        condition: service_healthy
+      weaviate:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
     networks:
       - docugardener-network
 
@@ -223,7 +229,8 @@ services:
       - ../src:/app/src:ro
       - ../secrets:/app/secrets:ro
     depends_on:
-      - pgbouncer
+      pgbouncer:
+        condition: service_healthy
     networks:
       - docugardener-network
     restart: unless-stopped
@@ -285,6 +292,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - docugardener-network
     restart: unless-stopped
