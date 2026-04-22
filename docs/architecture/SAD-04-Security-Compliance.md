@@ -1,7 +1,8 @@
 # SAD-04: Security & Compliance Architecture
 
-> **Document ID:** SAD-04 | **Version:** 1.0 | **Date:** 2026-03-12
-> **Status:** Current State + Known Gaps | **Classification:** Internal / Due Diligence
+> **Document ID:** SAD-04 | **Version:** 2.0 | **Date:** 2026-04-22
+> **Status:** SEC-AUDIT-01 hardening complete (2026-04-21) | **Classification:** Internal / Due Diligence
+> **Changelog v2.0:** Webhook HMAC fail-closed (H4); CORS no-wildcard (M1); SSO oracle+rate-limit (H3); Swagger gate (M2); port binding 127.0.0.1 (H2); SSRF validation layer; CRON_SECRET timingSafeEqual; audit retention schedule; SECURITY.md published (H1); SCIM 2.0 active; SSO JIT + samlDefaultRole + SLO route fix.
 
 ---
 
@@ -38,7 +39,7 @@ graph TD
 
 | Entry Point | Auth Method | Tenant Resolution | Token Lifetime |
 |-------------|------------|-------------------|----------------|
-| GitHub Webhooks | HMAC-SHA256 (X-Hub-Signature-256) | `installationId` → Tenant lookup | Per-request |
+| GitHub Webhooks | HMAC-SHA256 (X-Hub-Signature-256) — **fail-closed** (503 if secret unset, no DEBUG bypass — SEC-AUDIT-01 H4) | `installationId` → Tenant lookup | Per-request |
 | Stripe Webhooks | Stripe-Signature header | `stripeCustomerId` → Tenant lookup | Per-request |
 | Dashboard (browser) | NextAuth.js JWT session | JWT `tenantId` claim | Session (configurable idle timeout) |
 | VS Code Extension | Bearer API key (`dg_xxx`) | Plugin key → `workflowConfig.pluginApiKey` match | No expiry (key rotation manual) |
@@ -100,9 +101,12 @@ sequenceDiagram
 | Signature | RSA-SHA256 (requires signed response AND assertion) |
 | Replay prevention | Redis-backed assertion ID cache (10 min TTL) |
 | Max assertion age | 600 seconds |
-| JIT provisioning | Creates user on first SSO login |
+| JIT provisioning | Creates user on first SSO login — validated by `tests/integration/test_saml_jit_provisioning.py` (14 tests) |
+| Default JIT role | `Tenant.samlDefaultRole` — configurable per tenant (defaults to VIEWER) |
 | Role mapping | `samlRoleMapAdmin` — IdP group name → ADMIN role |
-| Tested IdP | Okta (SP-initiated, confirmed working 2026-03-11) |
+| SLO (Single Logout) | `/auth/saml/logout` (route path corrected; previous `/sls` path deprecated — TEST-SSO-02 smoke test) |
+| SSO-oracle prevention (SEC-AUDIT-01 H3) | Tenant-lookup endpoint `/api/sso/lookup` returns uniform response regardless of whether the tenant exists or has SSO enabled; per-IP rate limit applied |
+| Tested IdP | Okta (SP-initiated, validated 2026-04-20) |
 
 ### 2.4 SCIM 2.0 Provisioning (ENT-12)
 
@@ -396,9 +400,9 @@ Based on the SA Assessment (2026-03-12). Items are ordered by priority.
 
 | ID | Finding | Severity | Impact | Status | Mitigation |
 |----|---------|----------|--------|--------|------------|
-| **P0-1** | Secret material (PEM, .db, .rdb) tracked in Git repository | Critical | Supply-chain compromise; zero-retention credibility | Remediation in progress | Rotate PEM; purge from history; add CI secret scan |
-| **P0-2** | Encryption silently falls back to known static key when `ENCRYPTION_KEY` missing | Critical | All encrypted tenant credentials readable with known key | SEC-06 startup guard added (non-dev) | Guard validated in `main.py` lifespan; dev fallback remains |
-| **P0-3** | Tenant context middleware logs missing `X-Tenant-ID` but allows request through | High | Tenantless requests can reach protected routes | SEC-07 added warning; full enforcement not yet applied | Need strict 400/401 for non-public, non-self-auth routes |
+| **P0-1** | Secret material (PEM, .db, .rdb) tracked in Git repository | Critical | Supply-chain compromise; zero-retention credibility | **Closed** (remediated pre-launch) | Rotated; purged from history; CI secret scan active |
+| **P0-2** | Encryption silently falls back to known static key when `ENCRYPTION_KEY` missing | Critical | All encrypted tenant credentials readable with known key | **Closed** (SEC-06) | Startup guard in `main.py` lifespan; dev fallback remains (scoped to `APP_ENV=development`) |
+| **P0-3** | Tenant context middleware logs missing `X-Tenant-ID` but allows request through | High | Tenantless requests can reach protected routes | **Closed** (SEC-AUDIT-01, 2026-04-21) | Strict enforcement shipped — non-public, non-self-auth routes now 400/401 without valid `X-Tenant-ID`; 25 webhook tests updated to sign HMAC |
 | **P1-1** | GitHub installation tokens cached with `lru_cache` (no TTL) | Medium | Expired tokens cause intermittent GitHub API failures | Planned (SEC-08) | Replace with TTLCache keyed by installation ID |
 | **P2-1** | `allowDangerousEmailAccountLinking: true` in NextAuth | Low | Unintended identity merges across providers | Documented risk | SEC-09 added ACCOUNT_LINKED audit event for visibility |
 | **P2-2** | Execution mode taxonomy has unreachable `sovereign` state in exports | Low | Governance exports may misrepresent capabilities | Known | Align taxonomy across specs, DB, UI, exports |
@@ -421,10 +425,10 @@ Based on the SA Assessment (2026-03-12). Items are ordered by priority.
 
 ## 9. CORS Policy
 
-| Environment | `allowed_origins` | Credentials | Validation |
-|-------------|-------------------|-------------|------------|
-| Development | `["*"]` (fallback when empty list) | Allowed | None |
-| Production | Must be explicitly set | Allowed | `validate_production_config()` raises on startup if empty |
+| Environment | `allowed_origins` | Methods / Headers | Credentials | Validation |
+|-------------|-------------------|-------------------|-------------|------------|
+| Development | `["*"]` (fallback when empty list) | Permissive | Allowed | None |
+| Production | Must be explicitly set — **wildcard `*` rejected** at startup (SEC-AUDIT-01 M1) | **Explicit** allowlist (M3): `GET, POST, PATCH, DELETE, OPTIONS` + explicit headers incl. `Authorization, Content-Type, X-Tenant-ID` — no `allow_methods=["*"]` / `allow_headers=["*"]` | Allowed | `validate_production_config()` raises on startup if empty or wildcard |
 
 **Production Caddy headers:**
 - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
@@ -432,6 +436,42 @@ Based on the SA Assessment (2026-03-12). Items are ordered by priority.
 - `X-Frame-Options: DENY`
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - `Permissions-Policy: geolocation=(), microphone=(), camera=()`
+
+---
+
+## 9a. SSRF Validation Layer (SEC-NEW)
+
+All user-controlled outbound URLs pass through `web/lib/ssrf.ts` before any `fetch()`:
+
+| Input surface | Validator | Rejects |
+|---------------|-----------|---------|
+| Slack webhook URL (`workflowConfig.slack.webhookUrl`) | `assertSafeUrl()` | Private IPs (RFC1918, `127.0.0.0/8`, `169.254.0.0/16`, IPv6 loopback/link-local, cloud-metadata `169.254.169.254`); non-HTTPS; DNS-rebinding host names |
+| Jira base URL | `assertSafeUrl()` | Same |
+| Linear endpoint (custom deployments) | `assertSafeUrl()` | Same |
+| Ollama base URL (BYOK local) | `assertSafeUrl({ allowLocalhost: true })` | Same except `localhost`/`127.0.0.1` explicitly allowed for air-gap mode |
+| LLM `baseUrl` override | `assertSafeUrl()` | Same |
+
+Validation is applied on both **settings write** (reject malicious config) and **outbound request** (defence in depth — config may have been written before validator was added).
+
+---
+
+## 9b. Scheduled Endpoint Auth (CRON_SECRET)
+
+The `POST /api/admin/audit/retain` endpoint performs SOC 2 audit-log retention (cold-storage archive + hard-delete). It is called by a scheduled GitHub Action (`.github/workflows/audit-retention.yml`, 02:00 UTC daily).
+
+| Control | Implementation |
+|---------|---------------|
+| Authentication | `Authorization: Bearer ${CRON_SECRET}` |
+| Comparison | `crypto.timingSafeEqual()` — prevents timing-oracle attacks |
+| Fail-closed | Missing/mismatched secret → 401 (no DEBUG bypass, no fallback) |
+| Retention windows | `AUDIT_HOT_DAYS` (default 90) → archive; `AUDIT_DELETE_DAYS` (default 365) → hard-delete |
+| Cold storage | S3-compatible object storage (Hetzner Object Storage in prod) |
+
+---
+
+## 9c. Swagger / OpenAPI Docs Gate (SEC-AUDIT-01 M2)
+
+FastAPI `/docs` and `/redoc` are enabled only when `SWAGGER_ENABLED=true`. In production this is unset by default — the endpoints return 404. Rationale: public API surface enumeration is attack recon; dev/staging retain docs for developer productivity.
 
 ---
 
@@ -482,8 +522,8 @@ graph TD
 |--------|--------|------------|---------------|
 | **Webhook forgery** | Fake GitHub webhook POST | HMAC-SHA256 signature verification | Low (requires webhook secret) |
 | **Prompt injection** | Malicious prompt via settings | SEC-02 guardrails: forbidden patterns + domain scope | Medium (14 patterns; novel bypasses possible) |
-| **Cross-tenant data access** | Manipulated X-Tenant-ID header | Context middleware (warning only currently) | **High** (P0-3: middleware not enforcing) |
-| **Credential theft via repo** | PEM file in Git history | Rotation + history purge (in progress) | **Critical until remediated** (P0-1) |
+| **Cross-tenant data access** | Manipulated X-Tenant-ID header | Context middleware **strict enforcement** (SEC-AUDIT-01, 2026-04-21) — 400/401 on missing tenant for non-public routes | Low |
+| **Credential theft via repo** | PEM file in Git history | Rotation + history purge complete; CI secret scan active | Low |
 | **Token expiry failure** | Stale GitHub installation token | `lru_cache` without TTL (P1-1) | Medium (intermittent API failures) |
 | **Account takeover via linking** | Cross-provider email collision | `allowDangerousEmailAccountLinking` (P2-1) | Low (audit event added) |
 | **LLM data exfiltration** | Code sent to external LLM API | BYOK + Ollama air-gap option | Accepted risk for SaaS mode |

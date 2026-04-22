@@ -225,6 +225,15 @@ export default function SelfHostingPage() {
           </h3>
           <p className="text-sm text-gray-500">Step-by-step local deployment guide.</p>
         </Link>
+        <Link
+          href="/docs/self-hosting/observability"
+          className="group block border border-gray-200 rounded-lg p-4 hover:border-green-300 hover:shadow-sm transition-all"
+        >
+          <h3 className="text-base font-bold text-gray-900 group-hover:text-green-600 transition-colors mb-1">
+            Observability
+          </h3>
+          <p className="text-sm text-gray-500">Prometheus metrics, Grafana dashboards, and alert rules.</p>
+        </Link>
       </div>
     </>
   )

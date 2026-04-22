@@ -1,7 +1,8 @@
 # SAD-03: Deployment & Operations
 
-> **Document ID:** SAD-03 | **Version:** 1.1 | **Date:** 2026-03-13
-> **Status:** Current State + Known Gaps + Hetzner Scaling Roadmap | **Classification:** Internal / Due Diligence
+> **Document ID:** SAD-03 | **Version:** 2.0 | **Date:** 2026-04-22
+> **Status:** Current State + Production LIVE + Hetzner Scaling Roadmap | **Classification:** Internal / Due Diligence
+> **Changelog v2.0:** worker-2 added to prod compose; PgBouncer in dev+prod; KEDA ScaledObject template in Helm; audit-retention scheduled job; prod LIVE on docugardener.dev (2026-04-15); metrics port bound to 127.0.0.1; manual-SSH deploy is current workflow (GitHub Actions budget exhausted).
 
 ---
 
@@ -29,6 +30,7 @@ graph LR
             WRK["worker<br/>RQ Worker"]
             SCH["scheduler<br/>APScheduler"]
             RED["redis (valkey)<br/>:6379"]
+            PGB["pgbouncer<br/>:6432 (tx-pool)"]
             PG["postgres<br/>:5433"]
             WV["weaviate<br/>:8080 / :50051"]
             SMEE["smee-client<br/>webhook proxy"]
@@ -43,10 +45,10 @@ graph LR
     API --> RED
     RED --> WRK
     WRK --> WV
-    WRK --> PG
-    API --> PG
-    WEB --> PG
-    SCH --> PG
+    WRK --> PGB --> PG
+    API --> PGB
+    WEB --> PGB
+    SCH --> PGB
     PROM --> API
 ```
 
@@ -56,6 +58,7 @@ graph LR
 |---------|-----------|----------------|-------|
 | FastAPI | 8000 | 8000 | Analysis Plane API |
 | Next.js | 3001 | 3000 | Control Plane (avoids SkillSeal conflict) |
+| PgBouncer | 6432 | 6432 | Transaction pooler (front of PostgreSQL) |
 | PostgreSQL | 5433 | 5432 | Non-standard to avoid SkillSeal conflict |
 | Valkey/Redis | 6379 | 6379 | Job queue |
 | Weaviate | 8080, 50051 | 8080, 50051 | REST + gRPC |
@@ -107,8 +110,10 @@ graph TD
             WEB_P["web<br/>Next.js standalone<br/>:3001 internal"]
             API_P["docugardener<br/>FastAPI<br/>:8000 internal"]
             WRK_P["worker<br/>RQ Worker"]
+            WRK_P2["worker-2<br/>RQ Worker (HA)"]
             SCH_P["scheduler<br/>APScheduler"]
-            RED_P["redis (valkey)<br/>password-protected"]
+            RED_P["valkey<br/>password-protected"]
+            PGB_P["pgbouncer<br/>tx-pool"]
             PG_P["postgres<br/>password-protected"]
             WV_P["weaviate<br/>internal only"]
             MIG["migrate<br/>prisma migrate deploy<br/>(run-once)"]
@@ -120,11 +125,16 @@ graph TD
     STRIPE -->|HTTPS| CADDY
     CADDY -->|/* → :3001| WEB_P
     CADDY -->|/webhooks/*, /health → :8000| API_P
-    API_P --> RED_P --> WRK_P
+    API_P --> RED_P
+    RED_P --> WRK_P
+    RED_P --> WRK_P2
     WRK_P --> WV_P
-    WRK_P --> PG_P
-    WEB_P --> PG_P
-    MIG -->|one-shot| PG_P
+    WRK_P2 --> WV_P
+    WRK_P --> PGB_P --> PG_P
+    WRK_P2 --> PGB_P
+    API_P --> PGB_P
+    WEB_P --> PGB_P
+    MIG -->|one-shot, DIRECT_URL| PG_P
 ```
 
 ### 3.2 Key Production Differences
@@ -139,8 +149,13 @@ graph TD
 | Webhook proxy | smee-client | Direct GitHub webhook delivery |
 | Next.js mode | `npm run dev` (hot reload) | `standalone` output (optimized) |
 | Database migration | `prisma migrate dev` | `prisma migrate deploy` (run-once container) |
-| CORS | `["*"]` fallback | Explicit `ALLOWED_ORIGINS` required |
+| CORS | `["*"]` fallback | Explicit `ALLOWED_ORIGINS` required; wildcard rejected at startup (SEC-AUDIT-01 M1) |
 | Encryption key | Fallback to dev key | Must be set or startup fails |
+| Swagger / OpenAPI docs | `/docs` open | Gated by `SWAGGER_ENABLED=true` env (SEC-AUDIT-01 M2) |
+| Metrics port binding | `0.0.0.0` | `127.0.0.1` only (SEC-AUDIT-01 H2) — Caddy fronts; no host exposure |
+| Webhook HMAC secret missing | 200 OK w/ DEBUG log | 503 fail-closed (SEC-AUDIT-01 H4) — no bypass path |
+| DB connections | Direct to Postgres | Through PgBouncer (tx-pool) — `DATABASE_URL` points to :6432 |
+| Worker replicas | 1 | 2 (`worker` + `worker-2`) |
 
 ### 3.3 Caddy Reverse Proxy Configuration
 
@@ -197,6 +212,7 @@ helm/docugardener/
 │   ├── deployment-worker.yaml # RQ Worker Deployment
 │   ├── deployment-scheduler.yaml # APScheduler (Recreate strategy)
 │   ├── hpa.yaml            # HorizontalPodAutoscaler (optional)
+│   ├── scaledobject.yaml   # KEDA ScaledObject (opt-in, keda.enabled=false default)
 │   ├── ingress.yaml        # Ingress (optional)
 │   ├── networkpolicy.yaml  # Default-deny + component allowlists
 │   ├── pdb.yaml            # PodDisruptionBudgets
@@ -224,6 +240,8 @@ All pods enforce:
 | Web | 2 | 200m | 256Mi | 1000m | 1Gi | 70% CPU |
 
 **Scheduler singleton:** Uses `strategy: Recreate` to prevent duplicate nightly rollup jobs.
+
+**KEDA (opt-in):** A `ScaledObject` template is shipped at `helm/docugardener/templates/scaledobject.yaml` behind `keda.enabled=false`. When enabled on clusters with the KEDA operator installed, the worker Deployment scales on RQ queue depth instead of CPU — better suited to bursty PR-analysis workloads than CPU-based HPA. When disabled (default), the stock HPA applies.
 
 ### 4.4 Network Policies
 
@@ -315,7 +333,7 @@ flowchart LR
 | **docker** | After lint + test | BuildKit image build (no push) | Build succeeds |
 | **e2e** | Push/PR to main | Prisma migrate + seed + Playwright (37/51 passing) | Soft gate (report artifact) |
 | **security-scan** | Push/PR + weekly Monday | Trivy CRITICAL/HIGH CVE scan | SARIF upload to GitHub Security |
-| **audit-retention** | Daily 02:00 UTC | POST to `/api/admin/audit/retain` | 200 OK |
+| **audit-retention** | Daily 02:00 UTC (`.github/workflows/audit-retention.yml`) | POST to `/api/admin/audit/retain` with `Authorization: Bearer ${CRON_SECRET}` — archives events older than `AUDIT_HOT_DAYS` (90d default) to cold storage and hard-deletes past `AUDIT_DELETE_DAYS` (365d) | 200 OK |
 | **helm-publish** | Git tag `v*` | Helm package + push to OCI registry | Cosign signature |
 
 ### 5.3 Test Suite Summary
@@ -333,10 +351,26 @@ flowchart LR
 
 | Gap | Impact | Status |
 |-----|--------|--------|
-| No automated production deploy workflow | Manual SSH deployment | Blocked on ORGA-01 (entity registration) |
+| GitHub Actions billing exhausted | Scheduled workflows (incl. audit-retention, security-scan) fail until budget resets or paid tier activated | **Active** — manual SSH deploy is current workflow (see §5.5) |
 | No IaC scanning (Terraform, Helm lint) | Helm chart validation not gated | Not started |
-| E2E not blocking (37/51 passing) | UI regressions can ship | Needs test stabilization |
-| Production compose still uses `redis:7-alpine` | Valkey migration incomplete in prod | Planned (OPS-02) |
+| E2E not blocking | UI regressions can ship | Needs stabilisation |
+
+### 5.5 Production Deploy (LIVE since 2026-04-15)
+
+Production is live at **docugardener.dev** on a Hetzner VPS. Current deploy workflow:
+
+```
+code → local tests → ruff/tsc → commit → git push origin main
+     → ssh docugardener@vps "cd /opt/docugardener && git pull && docker compose --env-file /opt/docugardener/.env up -d --build --force-recreate"
+```
+
+Key deploy constraints (captured in operational memory):
+- **`NEXT_PUBLIC_*` vars bake at build time** — setting at runtime is too late; must be passed to the Next.js build stage
+- **`docker compose restart` preserves stale env** — always use `--force-recreate` after `.env` changes
+- **`--env-file` (not `--project-directory`)** — project-directory breaks `context: ..` build sections
+- **nginx/Caddy rule** — when the backend container is recreated, restart the web container immediately
+
+CI (`ci.yml`) and E2E (`e2e.yml`) are run **manually** before a release or after a sprint — not on every push. This is a deliberate Actions-minutes budget policy (see root `CLAUDE.md`).
 
 ---
 
@@ -346,13 +380,15 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    API["FastAPI<br/>/metrics"] -->|scrape| PROM["Prometheus<br/>:9090"]
-    PROM --> GRAF["Grafana<br/>:3002"]
+    API["FastAPI<br/>/metrics (127.0.0.1 in prod)"] -->|scrape| PROM["Prometheus<br/>:9090"]
+    RQX["rq-exporter<br/>:9726"] -->|scrape| PROM
+    PROM --> GRAF["Grafana<br/>:3002 (dev) / :3004 (prod)"]
 ```
 
 **Prometheus Configuration** (`docker/prometheus.yml`):
 - Scrape interval: 15s
-- Target: `docugardener:8000/metrics`
+- Targets: `docugardener:8000/metrics`, `rq-exporter:9726`
+- In prod, `/metrics` is bound to `127.0.0.1` (SEC-AUDIT-01 H2). Caddy reverse-proxies metrics internally; Prometheus scrapes over the docker-compose network. No host-port exposure.
 
 **Key Dashboard Panels** (Grafana):
 - Webhook ingestion rate by event type

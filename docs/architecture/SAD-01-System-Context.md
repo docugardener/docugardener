@@ -1,8 +1,9 @@
 # SAD-01: System Context & Architecture Overview
 
-> **Document ID:** SAD-01 | **Version:** 1.0 | **Date:** 2026-03-12
+> **Document ID:** SAD-01 | **Version:** 2.0 | **Date:** 2026-04-22
 > **Status:** Current State + Known Gaps | **Classification:** Internal / Due Diligence
 > **Author:** Solution Architecture | **Supersedes:** `docs/DocuGardener_Software_Architecture_Specification.md` (V1 draft)
+> **Changelog v2.0:** Added Anthropic LLM provider; cross-repo drift detection (EPIC-11); SCIM 2.0 active; SEC-AUDIT-01 hardening reflected in ADRs + gap register.
 
 ---
 
@@ -119,7 +120,7 @@ C4Context
     System(dg, "DocuGardener Platform", "CI-native documentation drift detection & remediation")
 
     System_Ext(github, "GitHub", "Source code hosting, PRs, Check Runs, App installations")
-    System_Ext(llm, "LLM Provider", "Gemini, OpenAI, Anthropic, or Ollama (local)")
+    System_Ext(llm, "LLM Provider", "Gemini, OpenAI, Anthropic (Claude Opus/Sonnet/Haiku), or Ollama (local)")
     System_Ext(stripe, "Stripe", "Subscription billing, checkout, webhooks")
     System_Ext(slack, "Slack", "Drift alert notifications via webhook")
     System_Ext(jira, "Jira", "Ticket comments for drift lifecycle")
@@ -200,6 +201,16 @@ The system is split into two independent planes:
 Both planes share the same PostgreSQL instance. The Control Plane owns the schema (Prisma migrations); the Analysis Plane reads/writes via SQLAlchemy models that mirror the Prisma schema.
 
 **Why two planes?** Python dominates the AI/ML ecosystem (tree-sitter bindings, LLM SDKs, embedding models). Next.js provides superior DX for the dashboard UI and integrates natively with NextAuth.js and Prisma. The planes communicate via shared database state rather than inter-service APIs — a deliberate simplicity decision for a solo-founder product.
+
+### 7.3 Cross-Repo Drift Detection (EPIC-11, beta)
+
+As of v2.0, the analysis pipeline can fan out document search across multiple repositories within the same tenant. When a code change lands in repo A, DocuGardener also searches embeddings in sibling repos B, C, … to surface drift in upstream/downstream documentation owned by the same tenant. Key guardrails:
+
+- **Feature flag:** `cross_repo_beta` (env `CROSS_REPO_BETA`) — kill switch (`src/core/config.py`).
+- **Namespacing:** each repo has a sub-namespace `{tenant_id}__{owner}__{repo_name}`; tenant isolation preserved (no cross-tenant search).
+- **Sibling selection:** tenant configures explicit sibling list per repo via PATCH `/api/repos/[id]` (TEAM/ENTERPRISE plan gate).
+- **LLM guardrails:** `valid_pairs` injection defence in `analyze_cross_repo_impact()`; confidence gate suppresses low-signal findings.
+- **Plan gate:** Multi-Repo group on pricing matrix (TEAM+).
 
 ### 7.2 Data Flow Summary
 
@@ -337,17 +348,55 @@ flowchart LR
 
 ---
 
+### ADR-07: Cross-Repo Drift as Feature-Flagged Beta (EPIC-11)
+
+**Context:** Tenants hosting microservices have documentation spread across repos. A change to `payments-api` may invalidate docs in `payments-docs` or `client-sdk`.
+
+**Decision:** Implement multi-namespace Weaviate fan-out behind `CROSS_REPO_BETA` kill switch, gated to TEAM+ plans, with explicit tenant-controlled sibling lists.
+
+**Rationale:**
+- Kill switch allows emergency disable without deploy
+- Explicit sibling opt-in prevents surprise cross-repo noise
+- `valid_pairs` injection defence in the verifier blocks prompt-injection escalations across repo boundaries
+- Hard stop on tenants whose namespace collection is empty (prevents silent leakage attempts)
+
+**Status:** Accepted (2026-04-19, shipped 2026-04-20). Pending GA promotion post-beta feedback.
+
+---
+
+### ADR-08: Anthropic as Third Managed LLM Provider
+
+**Context:** Customers in regulated industries increasingly standardise on Claude for compliance reasons (Anthropic's usage policies, constitutional-AI framing).
+
+**Decision:** Add Anthropic as a first-class provider alongside Gemini and OpenAI, with full BYOK support (Claude Opus 4.7, Sonnet 4.6, Haiku 4.5).
+
+**Rationale:**
+- Regulated-industry preference and MSA alignment
+- Transient-error handling (HTTP 529) already codified in `_TRANSIENT_HTTP_CODES`
+- Provider-agnostic `LLMProvider` enum required zero pipeline refactor — only a new `AnthropicClient` in `src/agents/llm.py`
+
+**Status:** Accepted (2026-03-28).
+
+---
+
 ## 9. Known Gaps & Planned Work
 
-Based on the SA Assessment (2026-03-12) and current backlog.
+Based on SA Assessment (2026-03-12) + SEC-AUDIT-01 (2026-04-21) sprint.
 
 | ID | Gap | Severity | Status | Reference |
 |----|-----|----------|--------|-----------|
 | GAP-SEC-08 | GitHub installation tokens use `lru_cache` without TTL awareness | P1 | Planned | Backlog SEC-08 |
-| GAP-OPS-02 | Production compose still uses `redis:7-alpine` instead of Valkey | P1 | Planned | Backlog OPS-02 |
-| GAP-OPS-03 | No automated deploy workflow in GitHub Actions | P2 | Blocked on ORGA-01 | Backlog OPS-03 |
-| GAP-SEC-P0-1 | Secret material (PEM, .db files) tracked in repository | P0 | Remediation in progress | SA Assessment P0-1 |
-| GAP-SEC-P2-1 | `allowDangerousEmailAccountLinking: true` in NextAuth | P2 | Documented risk | SA Assessment P2-1 |
+| GAP-OPS-03 | No automated deploy workflow in GitHub Actions | P2 | Workaround: manual SSH deploy | Backlog OPS-03 |
+| GAP-SEC-P2-1 | `allowDangerousEmailAccountLinking: true` in NextAuth | P2 | Documented risk; `ACCOUNT_LINKED` audit event added | SA Assessment P2-1 |
+| GAP-MKTG-01 | VS Code Marketplace listing pending | P2 | Blocks public gate | MKTG-01 |
+| GAP-QA-INSTALL-01 | Install QA ~70% complete | P2 | Blocks public gate | QA-INSTALL-01 |
+
+**Closed since v1.0:**
+- P0-1 (secret material in Git) — remediated
+- P0-2 (encryption fallback) — startup guard enforced
+- P0-3 (tenant middleware logging only) — strict enforcement shipped in SEC-AUDIT-01
+- OPS-02 (Valkey in prod) — superseded by Valkey adoption + PgBouncer introduction
+- SEC-AUDIT-01 (8 items: H1 SECURITY.md, H2 port-binding, H3 SSO oracle+rate-limit, H4 webhook fail-closed, M1 CORS no-wildcard, M2 Swagger gate, M3 CORS explicit headers, M5 stray file)
 
 See [SAD-04](SAD-04-Security-Compliance.md) for detailed security gap analysis.
 

@@ -40,6 +40,7 @@ const NAV = [
       { label: "Kubernetes / Helm", href: "/docs/self-hosting/kubernetes" },
       { label: "SSO / SAML 2.0", href: "/docs/self-hosting/sso" },
       { label: "Upgrading", href: "/docs/self-hosting/upgrades" },
+      { label: "Observability", href: "/docs/self-hosting/observability" },
     ],
   },
   {

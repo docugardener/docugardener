@@ -1,7 +1,8 @@
 # SAD-02: Component & Data Architecture
 
-> **Document ID:** SAD-02 | **Version:** 1.0 | **Date:** 2026-03-12
+> **Document ID:** SAD-02 | **Version:** 2.0 | **Date:** 2026-04-22
 > **Status:** Current State + Known Gaps | **Classification:** Internal / Due Diligence
+> **Changelog v2.0:** PgBouncer data-layer addition; Anthropic client in LLM factory; cross-repo storage (`search_multi_namespace`, `_repo_sub_namespace`); SSRF validation layer; SCIM catalog entries expanded; audit retention endpoint documented.
 
 ---
 
@@ -129,7 +130,11 @@ graph TD
 | **Pipeline Handler** | `src/pipeline/handler.py` | Orchestrates full PR analysis flow | All analysis components |
 | **Semantic Diff** | `src/analysis/semantic_diff.py` | AST-based change detection using tree-sitter | tree-sitter grammars |
 | **Verification Agent** | `src/agents/verifier.py` | Two-stage LLM pipeline (Generator + Verifier) | LLM Client, Weaviate |
-| **LLM Client Factory** | `src/agents/llm.py` | Provider-agnostic LLM invocation (Gemini, OpenAI, Anthropic, Ollama) | Provider SDKs |
+| **LLM Client Factory** | `src/agents/llm.py` | Provider-agnostic LLM invocation. `LLMProvider` enum: GEMINI, OPENAI, ANTHROPIC, OLLAMA. `AnthropicClient` uses `anthropic.AsyncAnthropic`; `system` passed as top-level param; `end_turn` mapped to `stop`; HTTP 529 included in `_TRANSIENT_HTTP_CODES`. | Provider SDKs (`google-generativeai`, `openai`, `anthropic>=0.49.0`) |
+| **Model Registry** | `src/agents/model_registry.py` | Whitelist of benchmarked models per provider; Claude Opus 4.7 / Sonnet 4.6 / Haiku 4.5 registered under `("anthropic", ...)` | — |
+| **Cross-Repo Search** | `src/storage/weaviate_db.py` `search_multi_namespace()` | EPIC-11 — fan-out vector search across sibling repo sub-namespaces using `asyncio.gather`; `source_namespace` injected into metadata | weaviate-client, asyncio |
+| **Cross-Repo Indexer** | `src/storage/indexer.py` | `_repo_sub_namespace(tenant_id, repo)` → `{tenant_id}__{owner}__{repo_name}`; `find_cross_repo_docs()` sibling-aware helper | — |
+| **Cross-Repo Verifier** | `src/agents/verifier.py` `analyze_cross_repo_impact()` | EPIC-11 LLM verifier with `valid_pairs` injection defence; confidence gate rejects low-signal findings | LLM client |
 | **Notification Dispatcher** | `src/notifications/dispatcher.py` | Fan-out to Slack, Jira, Linear, GitHub Issues | httpx, GitHub API |
 | **Quota Enforcement** | `src/billing/quota.py` | Plan-based PR/repo limits with trial awareness | SQLAlchemy |
 | **Crypto Module** | `src/security/crypto.py` | AES-256-GCM encrypt/decrypt for tenant secrets | cryptography lib |
@@ -154,6 +159,8 @@ graph TD
 | **Encryption Module** | `web/lib/encryption.ts` | AES-256-GCM (mirrors Python implementation) |
 | **Billing Logic** | `web/lib/billing.ts` | Plan limit constants, `canAddUser()` checks |
 | **Middleware** | `web/middleware.ts` | JWT-based route guards per role |
+| **SSRF Validator** | `web/lib/ssrf.ts` | URL validation layer applied to all user-controlled outbound URLs (Slack webhooks, Jira base URL, Ollama URL). Blocks private-IP ranges (RFC1918, loopback, link-local, metadata IP), non-HTTPS schemes (except explicit localhost allowlist for Ollama dev), and DNS-rebinding vectors. |
+| **Owner Console APIs** | `web/app/api/admin/owner/*` | Owner-only KPI + tenant-override surface; gated on `OWNER_EMAIL`; reads Stripe API live for revenue/event feed |
 
 ---
 
@@ -277,18 +284,33 @@ erDiagram
 
 **Important:** The Prisma schema (`web/prisma/schema.prisma`) is the single source of truth. The SQLAlchemy models (`src/storage/sql_models.py`) must be kept in sync manually when schema changes occur.
 
+#### 3.2.1 PgBouncer Connection Pooling (added v2.0)
+
+Both dev and prod docker-compose stacks now front PostgreSQL with **PgBouncer** (transaction pooling mode). Both planes connect to PgBouncer rather than directly to PostgreSQL:
+
+| Client | Pool mode | Notes |
+|--------|-----------|-------|
+| Next.js (Prisma) | Transaction | `pgbouncer=true` query string required in `DATABASE_URL`; disables prepared statements |
+| FastAPI (SQLAlchemy) | Transaction | Engine configured with `pool_pre_ping=True` and `NullPool` to defer pooling to PgBouncer |
+| RQ Worker (SQLAlchemy) | Transaction | Same as FastAPI — pool-per-worker avoided to keep connection count bounded |
+| Prisma `migrate deploy` | Direct | Uses `DIRECT_URL` bypassing PgBouncer (migrations need session-mode features) |
+
+**Why:** at 2+ workers + multi-uvicorn + Next.js standalone, direct pooling exhausted PostgreSQL `max_connections`. PgBouncer caps PG-side connections at ~20 while each client sees an unbounded pool.
+
 ### 3.3 Key JSON Column Schemas
 
 #### `Tenant.llmConfig`
 ```json
 {
   "provider": "gemini | openai | anthropic | ollama",
-  "apiKey": "encrypted-string",
-  "baseUrl": "https://...",
-  "modelName": "gemini-2.0-flash",
+  "keys":    { "gemini": "enc", "openai": "enc", "anthropic": "enc" },
+  "models":  { "gemini": "gemini-2.0-flash", "openai": "gpt-4o-mini", "anthropic": "claude-sonnet-4-6" },
+  "baseUrls": { "ollama": "http://ollama:11434" },
   "promptTone": "strict | helpful | neutral"
 }
 ```
+
+> Nested `keys/models/baseUrls.{provider}` shape is authoritative (BYOK). `src/pipeline/analyzer.py` extracts the active provider's credentials from this structure; `src/worker/context.py::get_tenant_context()` passes the full `llmConfig` dict to the handler.
 
 #### `Tenant.workflowConfig`
 ```json
@@ -355,7 +377,10 @@ erDiagram
 | GET | `/auth/saml/metadata` | Public | SP metadata XML |
 | GET | `/auth/saml/login` | Public | Initiate SSO |
 | POST | `/auth/saml/callback` | SAML assertion | ACS endpoint |
-| GET/POST/PUT/PATCH/DELETE | `/scim/v2/*` | Bearer token | User provisioning (RFC 7644) |
+| GET/POST/PUT/PATCH/DELETE | `/scim/v2/Users[/{id}]` | Bearer token | User provisioning (RFC 7644) |
+| GET/POST/PUT/PATCH/DELETE | `/scim/v2/Groups[/{id}]` | Bearer token | Group sync (RFC 7644) |
+| GET | `/scim/v2/ServiceProviderConfig` | Bearer token | SCIM capability advertisement |
+| GET | `/scim/v2/Schemas` | Bearer token | SCIM schema discovery |
 
 ### 4.2 Control Plane Endpoints (Next.js API Routes)
 
@@ -385,6 +410,12 @@ erDiagram
 | GET | `/api/stats/activity` | Any | Activity timeline |
 | POST | `/api/simulation` | ADMIN | Dry-run drift analysis |
 | GET/POST/DELETE | `/api/plugin-key` | ADMIN | IDE plugin key management |
+| POST | `/api/admin/audit/retain` | `CRON_SECRET` bearer | Scheduled audit cold-storage archive + hard-delete (SOC 2 retention) |
+| PATCH | `/api/repos/[id]` | ADMIN | Cross-repo sibling list update (`crossRepoSiblings`) — TEAM/ENTERPRISE only |
+| GET | `/api/admin/owner/kpis` | `OWNER_EMAIL` session | MRR, plan distribution, usage (live Stripe read) |
+| GET | `/api/admin/owner/tenants` | `OWNER_EMAIL` session | Tenant health table |
+| GET/PATCH | `/api/admin/owner/tenants/[id]/overrides` | `OWNER_EMAIL` session | Feature + quota ceiling overrides (writes `OWNER_FEATURE_OVERRIDE` audit) |
+| GET | `/api/admin/owner/events` | `OWNER_EMAIL` session | Live Stripe event feed (last 100) |
 
 ---
 
@@ -556,6 +587,16 @@ sequenceDiagram
 - **Shard creation:** Lazy — first write creates tenant shard
 - **Query scoping:** `collection.with_tenant(tenant_id)` ensures namespace isolation
 - **Embedding model:** `all-MiniLM-L6-v2` (local, no external API dependency)
+
+### 7.3 Cross-Repo Sub-Namespaces (EPIC-11)
+
+Each indexed repo is further sharded under the tenant namespace using a deterministic sub-namespace:
+
+```
+_repo_sub_namespace(tenant_id, repo) = "{tenant_id}__{owner}__{repo_name}"
+```
+
+`search_multi_namespace(query_vector, namespaces, top_k_per_ns)` issues parallel queries across the configured sibling list via `asyncio.gather` and returns results with `source_namespace` metadata stamped on each hit. HR (human-resources) namespace serves as an integration-test hard-stop assertion — any query against a tenant without an HR sibling must not leak results from another tenant's HR data. Feature gated by `cross_repo_beta` (env `CROSS_REPO_BETA`).
 
 ---
 
