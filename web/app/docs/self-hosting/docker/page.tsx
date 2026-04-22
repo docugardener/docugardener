@@ -122,6 +122,34 @@ chmod 600 secrets/github-app.pem`}
           4
         </div>
         <div className="flex-1 min-w-0">
+          <h2 className="text-base font-bold text-gray-900 mb-1">Install web dependencies</h2>
+          <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">
+{`cd web && npm install && cd ..`}
+          </pre>
+          <p className="text-gray-600 leading-relaxed mt-2">
+            Installs Node.js dependencies. This must run before{" "}
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
+              make dev-up
+            </code>{" "}
+            — the Makefile runs Prisma migrations via{" "}
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
+              npx prisma migrate deploy
+            </code>{" "}
+            which requires{" "}
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
+              node_modules
+            </code>{" "}
+            to be present.
+          </p>
+        </div>
+      </div>
+
+      {/* ── Step 5 ───────────────────────────────────────── */}
+      <div className="flex gap-4 mb-8">
+        <div className="flex-none w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-bold mt-0.5">
+          5
+        </div>
+        <div className="flex-1 min-w-0">
           <h2 className="text-base font-bold text-gray-900 mb-1">Start infrastructure services</h2>
           <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">
             make dev-up
@@ -140,34 +168,6 @@ chmod 600 secrets/github-app.pem`}
               export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
             </code>
           </div>
-        </div>
-      </div>
-
-      {/* ── Step 5 ───────────────────────────────────────── */}
-      <div className="flex gap-4 mb-8">
-        <div className="flex-none w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-bold mt-0.5">
-          5
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-base font-bold text-gray-900 mb-1">Install web dependencies</h2>
-          <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">
-{`cd web && npm install && cd ..`}
-          </pre>
-          <p className="text-gray-600 leading-relaxed mt-2">
-            Installs Node.js dependencies. Run this before{" "}
-            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
-              make dev-up
-            </code>{" "}
-            — the Makefile runs Prisma migrations via{" "}
-            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
-              npx prisma migrate deploy
-            </code>{" "}
-            and requires{" "}
-            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
-              node_modules
-            </code>{" "}
-            to be present.
-          </p>
         </div>
       </div>
 
