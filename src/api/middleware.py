@@ -64,6 +64,7 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
             "/scim/v2",
             "/metrics",
             "/api/feedback",
+            "/environment",  # ENV-DUP-01: internal token auth, no tenant header needed
         ]
 
         path = request.url.path

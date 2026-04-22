@@ -1,19 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * UX-ONBOARD-02: Pre-fill the manual GitHub App form with values already set
- * in the server environment, so self-hosters don't have to re-enter credentials
- * that are already in their .env file.
- *
- * Returns only to authenticated users. Never returns PEM content — the private
- * key path is resolved and the file is read server-side, then returned so the
- * form can auto-populate the textarea.
+ * ENV-DUP-01: Proxy GitHub App credentials from the FastAPI backend so
+ * self-hosters don't need to duplicate GITHUB_APP_ID / GITHUB_WEBHOOK_SECRET /
+ * GITHUB_PRIVATE_KEY_PATH in web/.env — the backend is the single source of truth.
  */
 export const dynamic = "force-dynamic"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import fs from "fs"
-import path from "path"
+
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
 
 export async function GET() {
     const session = await getServerSession(authOptions)
@@ -21,21 +17,22 @@ export async function GET() {
         return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const appId = process.env.GITHUB_APP_ID ?? ""
-    const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET ?? ""
-    const pemPath = process.env.GITHUB_PRIVATE_KEY_PATH ?? ""
-
-    let privateKey = ""
-    if (pemPath) {
-        try {
-            const resolved = path.isAbsolute(pemPath)
-                ? pemPath
-                : path.resolve(process.cwd(), pemPath)
-            privateKey = fs.readFileSync(resolved, "utf-8")
-        } catch {
-            // PEM file unreadable — caller gets empty string; user uploads manually
-        }
+    const token = process.env.ENCRYPTION_KEY
+    if (!token) {
+        return NextResponse.json({ appId: "", webhookSecret: "", privateKey: "" })
     }
 
-    return NextResponse.json({ appId, webhookSecret, privateKey })
+    try {
+        const res = await fetch(`${BACKEND_URL}/environment/github-app-profile`, {
+            headers: { "x-internal-token": token },
+            cache: "no-store",
+        })
+        if (!res.ok) {
+            return NextResponse.json({ appId: "", webhookSecret: "", privateKey: "" })
+        }
+        const data = await res.json()
+        return NextResponse.json(data)
+    } catch {
+        return NextResponse.json({ appId: "", webhookSecret: "", privateKey: "" })
+    }
 }

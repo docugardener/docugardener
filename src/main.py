@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app as make_metrics_app
 
 from src.api.billing import router as billing_router
+from src.api.environment import router as environment_router
 from src.api.check import router as check_router
 from src.api.diagnostics import router as diagnostics_router
 from src.api.feedback import router as feedback_router
@@ -190,6 +191,7 @@ def create_app() -> FastAPI:
 
     # Register routers
     app.include_router(health_router, tags=["Health"])
+    app.include_router(environment_router, tags=["Environment"])
     app.include_router(diagnostics_router, tags=["Diagnostics"])
     app.include_router(webhooks_router, prefix="/webhooks", tags=["Webhooks"])
     # HYB-05: Only mount Stripe webhook router in SaaS mode.
