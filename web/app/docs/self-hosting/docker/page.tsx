@@ -223,6 +223,15 @@ npm start`}
             </code>{" "}
             in your browser and complete the onboarding wizard.
           </p>
+          <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-sm text-red-800 mt-3">
+            <strong>⚠️ GitHub App isolation:</strong> never install your local dev GitHub App and
+            a production GitHub App on the same repository simultaneously. Each installation
+            fires its own webhook independently — both will analyse the same PR and each will
+            open a separate fix PR, resulting in duplicates. Use a dedicated dev-only test
+            repository (e.g. <code className="bg-red-100 px-1 rounded">my-org/sandbox-dev</code>)
+            and keep the production app installed only on repositories that should receive
+            production analysis.
+          </div>
         </div>
       </div>
 
