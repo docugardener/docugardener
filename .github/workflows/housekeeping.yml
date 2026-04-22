@@ -4,7 +4,7 @@ name: VPS Housekeeping
 # Also available as a manual trigger for on-demand cleanup.
 on:
   schedule:
-    - cron: "0 2 * * 0"   # every Sunday 02:00 UTC
+    - cron: "0 3 * * *"   # every day 03:00 UTC
   workflow_dispatch:        # manual trigger
 
 jobs:
