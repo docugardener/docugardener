@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import path from "path";
 import type { NextConfig } from "next";
 
 // In production Docker containers the FastAPI backend is reachable as
@@ -21,6 +22,19 @@ const nextConfig: NextConfig = {
   // Prevent Next.js from attempting to bundle it for the browser.
   // nodemailer is Node.js-only; @octokit/auth-app is ESM-only (no CJS build) — skip bundling
   serverExternalPackages: ["nodemailer", "@octokit/auth-app"],
+
+  // Tailwind v4 uses `@import "tailwindcss"` at CSS level. When Next.js
+  // processes that import the enhanced-resolve context can be the repo root
+  // (which has no package.json), causing "Can't resolve 'tailwindcss'" on
+  // fresh clones. Prepending the web/ node_modules path anchors resolution
+  // correctly without touching the repo root.
+  webpack(config) {
+    config.resolve.modules = [
+      path.resolve(__dirname, "node_modules"),
+      "node_modules",
+    ];
+    return config;
+  },
 
   async rewrites() {
     return [
