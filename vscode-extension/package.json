@@ -91,5 +91,8 @@
         "mocha": "^10.4.0",
         "sinon": "^17.0.1",
         "typescript": "^5.3.0"
+    },
+    "overrides": {
+        "serialize-javascript": "^7.0.0"
     }
 }
