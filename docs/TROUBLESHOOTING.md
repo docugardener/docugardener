@@ -681,3 +681,13 @@ tail -f worker.log
 
 *Last updated: 2026-02-22 (Bug 2.8 added — TEST-01 phase)*
 *Document covers issues from WORK-01 and TEST-01 development phases*
+
+## Extended Health Check
+
+If the service appears unresponsive, check the extended health endpoint:
+
+```bash
+curl http://localhost:8000/health/extended
+```
+
+Expected response includes `db` and `queue` status fields.
