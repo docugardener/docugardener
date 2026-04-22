@@ -10,8 +10,8 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-COPY web/package.json web/package-lock.json ./
-RUN npm ci --legacy-peer-deps
+COPY web/package.json web/package-lock.json web/.npmrc ./
+RUN npm ci
 
 # -----------------------------------------------------------------------------
 # Stage 2: Build
