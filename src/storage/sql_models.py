@@ -67,7 +67,7 @@ class Tenant(Base):
 
     id = Column(String, primary_key=True)
     githubOrgId = Column(String, unique=True, nullable=False)
-    installationId = Column(String, nullable=True)
+    installationId = Column(String, nullable=True, unique=True)
     name = Column(String, nullable=False)
     plan = Column(String, default="FREE")
 

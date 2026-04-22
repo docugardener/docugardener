@@ -16,7 +16,7 @@ datasource db {
 model Tenant {
   id             String   @id @default(cuid())
   githubOrgId    String   @unique
-  installationId String?
+  installationId String? @unique
   name           String
   plan           PlanType @default(FREE)
 

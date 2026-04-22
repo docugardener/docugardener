@@ -55,9 +55,11 @@ def _make_db_session(tenant: MagicMock) -> MagicMock:
 
     tenant_chain = MagicMock()
     tenant_chain.filter.return_value.first.return_value = tenant
+    tenant_chain.filter.return_value.all.return_value = [tenant]
 
     no_result_chain = MagicMock()
     no_result_chain.filter.return_value.first.return_value = None
+    no_result_chain.filter.return_value.all.return_value = []
 
     session = MagicMock()
     session.query.side_effect = lambda model: tenant_chain if model is Tenant else no_result_chain

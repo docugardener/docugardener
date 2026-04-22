@@ -166,6 +166,8 @@ def _make_model_aware_session(tenant_mock, job_mock=None):
             return None
 
         def all(self):
+            if self._model is _Tenant:
+                return [tenant_mock]
             return []
 
         def update(self, *args, **kwargs):

@@ -87,6 +87,7 @@ def _make_db_session(tenant: MagicMock, jobs: list[MagicMock]) -> MagicMock:
     tenant_query = MagicMock()
     tenant_filter = MagicMock()
     tenant_filter.first.return_value = tenant
+    tenant_filter.all.return_value = [tenant]
     tenant_query.filter.return_value = tenant_filter
 
     # Mock Repository query: query(Repository).filter(...).first()

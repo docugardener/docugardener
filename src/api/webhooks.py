@@ -24,6 +24,28 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
+def _get_tenant_by_installation_id(db: Any, installation_id: str | int) -> Any:
+    """Return the tenant matching installation_id, preferring non-default tenants.
+
+    With @unique on installationId there can only ever be one match, but during
+    the migration window (or on instances that skipped it) a stale 'default'
+    auto-provisioned tenant may share the same ID. The tiebreaker ensures the
+    real tenant always wins.
+    """
+    from src.storage.sql_models import Tenant
+
+    iid = str(installation_id)
+    rows = db.query(Tenant).filter(Tenant.installationId == iid).all()
+    if not rows:
+        return None
+    if len(rows) == 1:
+        return rows[0]
+    # Multiple rows — prefer the one that is NOT the auto-provisioned default.
+    # provisioning.py sets id="default" and githubOrgId="default" as placeholders.
+    real = [t for t in rows if not (t.id == "default" and t.githubOrgId == "default")]
+    return real[0] if real else rows[0]
+
+
 async def _post_quota_exceeded_check_run(
     installation_id: int,
     owner: str,
@@ -410,9 +432,7 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
 
             _db = SessionLocal()
             try:
-                _tenant = (
-                    _db.query(Tenant).filter(Tenant.installationId == str(installation_id)).first()
-                )
+                _tenant = _get_tenant_by_installation_id(_db, installation_id)
                 if _tenant and _tenant.workflowConfig:
                     ignored_actors: list[str] = (
                         dict(_tenant.workflowConfig).get("ignoredActors") or []
@@ -443,9 +463,7 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
 
             _db2 = SessionLocal()
             try:
-                _tenant2 = (
-                    _db2.query(Tenant).filter(Tenant.installationId == str(installation_id)).first()
-                )
+                _tenant2 = _get_tenant_by_installation_id(_db2, installation_id)
                 if _tenant2:
                     _repo = (
                         _db2.query(Repository)
@@ -486,11 +504,7 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
 
             _db_ai = SessionLocal()
             try:
-                _t = (
-                    _db_ai.query(_Tenant)
-                    .filter(_Tenant.installationId == str(installation_id))
-                    .first()
-                )
+                _t = _get_tenant_by_installation_id(_db_ai, installation_id)
                 if _t and _t.workflowConfig:
                     _tenant_patterns = dict(_t.workflowConfig).get("aiAuthorPatterns") or None
             finally:
@@ -529,11 +543,7 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
 
             _db_budget = SessionLocal()
             try:
-                _bt = (
-                    _db_budget.query(_BudgetTenant)
-                    .filter(_BudgetTenant.installationId == str(installation_id))
-                    .first()
-                )
+                _bt = _get_tenant_by_installation_id(_db_budget, installation_id)
                 if _bt:
                     # Operator-wide platform LLM cap — PH15-01
                     _llm_cfg = dict(_bt.llmConfig) if _bt.llmConfig else {}
@@ -590,11 +600,7 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
 
             _db_quota = SessionLocal()
             try:
-                _qt = (
-                    _db_quota.query(_QuotaTenant)
-                    .filter(_QuotaTenant.installationId == str(installation_id))
-                    .first()
-                )
+                _qt = _get_tenant_by_installation_id(_db_quota, installation_id)
                 if _qt:
                     # Shared data for GAP-D check run annotation
                     _quota_owner = repository.get("owner", {}).get("login", "")
@@ -727,11 +733,7 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
             _idem_db = _IdemSession()
             try:
                 # Resolve tenant first so the guard is properly scoped
-                _idem_tenant = (
-                    _idem_db.query(_IdemTenant)
-                    .filter(_IdemTenant.installationId == str(installation_id))
-                    .first()
-                )
+                _idem_tenant = _get_tenant_by_installation_id(_idem_db, installation_id)
                 if _idem_tenant:
                     _existing = (
                         _idem_db.query(_IdemJob)
@@ -772,11 +774,7 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
 
             _g4_db = _G4Session()
             try:
-                _g4_tenant = (
-                    _g4_db.query(_G4Tenant)
-                    .filter(_G4Tenant.installationId == str(installation_id))
-                    .first()
-                )
+                _g4_tenant = _get_tenant_by_installation_id(_g4_db, installation_id)
             finally:
                 _g4_db.close()
             if _g4_tenant:
@@ -916,7 +914,7 @@ async def handle_fix_pr_merged(data: dict[str, Any], head_ref: str) -> dict[str,
 
         db = SessionLocal()
         try:
-            tenant = db.query(Tenant).filter(Tenant.installationId == str(installation_id)).first()
+            tenant = _get_tenant_by_installation_id(db, installation_id)
             if not tenant:
                 logger.warning(
                     "handle_fix_pr_merged: tenant not found", installation_id=installation_id
@@ -1096,7 +1094,7 @@ async def handle_fix_pr_closed(data: dict, head_ref: str) -> dict:
 
         db = SessionLocal()
         try:
-            tenant = db.query(Tenant).filter(Tenant.installationId == str(installation_id)).first()
+            tenant = _get_tenant_by_installation_id(db, installation_id)
             if not tenant:
                 logger.warning(
                     "handle_fix_pr_closed: tenant not found", installation_id=installation_id
