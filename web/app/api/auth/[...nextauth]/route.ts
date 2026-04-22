@@ -9,9 +9,12 @@ import { prisma } from "@/lib/prisma"
 import { writeAuditLog, AuditEvent } from "@/lib/audit"
 import { sendMagicLink } from "@/lib/email"
 
-// E2E_DEV_CREDENTIALS=1 enables the dev login provider in CI without
-// requiring NODE_ENV=development (which breaks Turbopack static builds).
-const isDev = process.env.NODE_ENV !== "production" || process.env.E2E_DEV_CREDENTIALS === "1"
+// allowDevCredentials: enables the passwordless dev-login provider in CI
+// without requiring NODE_ENV=development (which breaks Turbopack builds).
+const allowDevCredentials = process.env.NODE_ENV !== "production" || process.env.E2E_DEV_CREDENTIALS === "1"
+// debugMode: NextAuth verbose logging — dev only, never when E2E_DEV_CREDENTIALS
+// runs against a production build (would leak JWTs and session data to CI logs).
+const debugMode = process.env.NODE_ENV !== "production"
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000"
 
 /**
@@ -69,7 +72,7 @@ const devCredentialsProvider = CredentialsProvider({
     },
     // @ts-expect-error — NextAuth User type doesn't include role/tenantId; extended via next-auth.d.ts
     async authorize(credentials, _req) {
-        if (!isDev) return null
+        if (!allowDevCredentials) return null
         if (!credentials?.email) return null
 
         const user = await prisma.user.findUnique({
@@ -112,7 +115,7 @@ export const authOptions: AuthOptions = {
         }),
         emailProvider,
         samlSsoProvider,
-        ...(isDev ? [devCredentialsProvider] : []),
+        ...(allowDevCredentials ? [devCredentialsProvider] : []),
     ],
     session: {
         strategy: "jwt",
@@ -120,7 +123,7 @@ export const authOptions: AuthOptions = {
     pages: {
         signIn: "/auth/signin",
     },
-    debug: isDev,
+    debug: debugMode,
     events: {
         async signIn({ user }) {
             if (user?.id) {
