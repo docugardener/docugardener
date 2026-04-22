@@ -28,7 +28,7 @@ import { UpgradeContextCard } from "@/components/billing/UpgradeContextCard"
 export default async function SettingsPage() {
     const session = await getServerSession(authOptions)
     if (!session?.user || !(session.user as any).tenantId) {
-        redirect(session ? "/onboarding" : "/api/auth/signin")
+        redirect(session?.user ? "/onboarding" : "/api/auth/signin")
     }
 
     const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === "true"

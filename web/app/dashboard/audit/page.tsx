@@ -28,7 +28,7 @@ export default async function AuditPage({
     const user = session?.user as any
 
     if (!session || !user?.tenantId) {
-        redirect(session ? "/onboarding" : "/api/auth/signin")
+        redirect(session?.user ? "/onboarding" : "/api/auth/signin")
     }
 
     if (user.role !== "ADMIN" && user.role !== "AUDITOR") {

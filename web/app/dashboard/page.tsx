@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export default async function Dashboard() {
     const session = await getServerSession(authOptions)
     if (!session?.user || !(session.user as any).tenantId) {
-        redirect(session ? "/onboarding" : "/api/auth/signin")
+        redirect(session?.user ? "/onboarding" : "/api/auth/signin")
     }
     const role = (session.user as any).role
     if (role === "AUDITOR") redirect("/dashboard/audit")

@@ -129,7 +129,7 @@ export default async function JobsPage({
     const { q: rawQ, page: rawPage, status: rawStatus } = await searchParams
     const session = await getServerSession(authOptions)
     if (!session?.user || !(session.user as any).tenantId) {
-        redirect(session ? "/onboarding" : "/api/auth/signin")
+        redirect(session?.user ? "/onboarding" : "/api/auth/signin")
     }
 
     const tenantId = (session.user as any).tenantId

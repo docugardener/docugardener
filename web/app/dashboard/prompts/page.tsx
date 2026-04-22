@@ -10,7 +10,7 @@ import { Cpu } from "lucide-react"
 export default async function PromptsPage() {
     const session = await getServerSession(authOptions)
     if (!session?.user || !(session.user as any).tenantId) {
-        redirect(session ? "/onboarding" : "/api/auth/signin")
+        redirect(session?.user ? "/onboarding" : "/api/auth/signin")
     }
 
     return (

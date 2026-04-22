@@ -48,6 +48,17 @@ describe('/dashboard page routing', () => {
         expect(mockRedirect).toHaveBeenCalledWith('/api/auth/signin')
     })
 
+    it('redirects to /api/auth/signin when session object exists but user is undefined (revoked/expired JWT)', async () => {
+        // This is the BUG-ONBOARD-01 scenario: idle timeout or session revocation
+        // causes the session callback to return { ...session, user: undefined }.
+        // The session object is truthy but user is gone — must go to sign-in, not onboarding.
+        mockGetServerSession.mockResolvedValue({ user: undefined })
+
+        const { default: Dashboard } = await import('../app/dashboard/page')
+        await expect(Dashboard()).rejects.toThrow('NEXT_REDIRECT:/api/auth/signin')
+        expect(mockRedirect).toHaveBeenCalledWith('/api/auth/signin')
+    })
+
     it('redirects to /onboarding when session exists but tenantId is missing', async () => {
         mockGetServerSession.mockResolvedValue({
             user: { email: 'test@example.com' }, // no tenantId

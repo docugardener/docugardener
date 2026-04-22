@@ -19,7 +19,7 @@ export const metadata = {
 export default async function TeamPage() {
     const session = await getServerSession(authOptions)
     if (!session?.user || !(session.user as any).tenantId) {
-        redirect(session ? "/onboarding" : "/auth/signin")
+        redirect(session?.user ? "/onboarding" : "/auth/signin")
     }
 
     const tenantId = (session.user as any).tenantId
