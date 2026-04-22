@@ -92,6 +92,26 @@ cp web/.env.example web/.env`}
             </Link>{" "}
             for details.
           </p>
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-sm text-amber-800 mt-3">
+            <strong>DEPLOYMENT_MODE:</strong> The correct value for all self-hosted installs is{" "}
+            <code className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded text-sm font-mono">saas</code>.
+            {" "}Do not change this to{" "}
+            <code className="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded text-sm font-mono">air-gap</code>
+            {" "}— that mode is for fully offline enterprise environments with no GitHub connectivity.
+            {" "}If you copy values from an existing instance, double-check this setting.
+          </div>
+          <p className="text-gray-600 leading-relaxed mt-2">
+            <strong>GitHub App params</strong> (
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">GITHUB_APP_ID</code>
+            ,{" "}
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">GITHUB_WEBHOOK_SECRET</code>
+            ,{" "}
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">GITHUB_PRIVATE_KEY_PATH</code>
+            ) go in root{" "}
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">.env</code>
+            {" "}only — the web frontend reads them via the backend API. Do not add them to{" "}
+            <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">web/.env</code>.
+          </p>
         </div>
       </div>
 
@@ -178,14 +198,17 @@ chmod 600 secrets/github-app.pem`}
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-base font-bold text-gray-900 mb-1">Start the web server</h2>
-          <p className="text-gray-600 leading-relaxed mb-2">For development:</p>
+          <p className="text-gray-600 leading-relaxed mb-2">For development (recommended):</p>
           <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono mb-2">
-            npm run dev
+            make web-dev
+          </pre>
+          <p className="text-gray-600 leading-relaxed mb-2">Or directly:</p>
+          <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono mb-2">
+            cd web &amp;&amp; npm run dev
           </pre>
           <p className="text-gray-600 leading-relaxed mb-2">For production:</p>
           <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">
-{`npm run build
-npm start`}
+{`cd web && npm run build && npm start`}
           </pre>
         </div>
       </div>
@@ -345,6 +368,43 @@ smee --url https://smee.io/YOUR_CHANNEL --target http://localhost:8000/api/webho
 
       {/* ── Troubleshooting ──────────────────────────────── */}
       <h2 className="text-xl font-bold text-gray-900 mt-10 mb-3">Troubleshooting</h2>
+      <h3 className="text-base font-bold text-gray-800 mt-6 mb-2">
+        Stale containers from a previous installation
+      </h3>
+      <p className="text-gray-600 leading-relaxed mb-2">
+        If you&rsquo;re reinstalling on the same machine, container name conflicts from a previous
+        instance will cause{" "}
+        <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
+          make dev-up
+        </code>{" "}
+        to fail. Remove the old containers first:
+      </p>
+      <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono mb-4">
+{`docker rm -f docugardener docugardener-worker docugardener-smee \\
+             docugardener-weaviate docugardener-postgres docugardener-redis`}
+      </pre>
+      <h3 className="text-base font-bold text-gray-800 mt-6 mb-2">
+        Inbox is empty after first PR
+      </h3>
+      <p className="text-gray-600 leading-relaxed mb-4">
+        If jobs appear in the Jobs list but the Inbox stays empty, the most common cause is{" "}
+        <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
+          DEPLOYMENT_MODE=air-gap
+        </code>{" "}
+        in your{" "}
+        <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">.env</code>.
+        This creates a{" "}
+        <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">default</code>
+        {" "}tenant at startup that intercepts webhooks before your real tenant is set up. Set{" "}
+        <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">
+          DEPLOYMENT_MODE=saas
+        </code>
+        {" "}in both{" "}
+        <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">.env</code>
+        {" "}and{" "}
+        <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">web/.env</code>,
+        restart all containers, and re-open the PR.
+      </p>
       <h3 className="text-base font-bold text-gray-800 mt-6 mb-2">
         Container fails to start
       </h3>

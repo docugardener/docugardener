@@ -88,7 +88,13 @@ ENCRYPTION_KEY=$(openssl rand -hex 32)
 sed -i '' "s|ENCRYPTION_KEY=.*|ENCRYPTION_KEY=${ENCRYPTION_KEY}|" .env
 sed -i '' "s|ENCRYPTION_KEY=.*|ENCRYPTION_KEY=${ENCRYPTION_KEY}|" web/.env
 
-# Edit both files to fill in the remaining values
+# Edit both files to fill in the remaining values.
+# NOTE: DEPLOYMENT_MODE=saas is correct for all self-hosted installs.
+#       Only use air-gap for fully offline enterprise environments.
+#       Do not copy this value from another instance — always use the .env.example default.
+# NOTE: GitHub App params (GITHUB_APP_ID, GITHUB_WEBHOOK_SECRET, GITHUB_PRIVATE_KEY_PATH)
+#       go in root .env only — the web frontend reads them via the backend API.
+#       Do NOT add them to web/.env.
 ```
 
 ### Running Locally
@@ -100,6 +106,8 @@ cd web && npm install && cd ..
 # Start all services: postgres, pgbouncer, redis, weaviate, worker, smee + FastAPI
 # Also runs Prisma migrations automatically on first start
 make dev-up
+# Re-installing on the same machine? Remove stale containers first if you see name conflicts:
+# docker rm -f docugardener docugardener-worker docugardener-smee docugardener-weaviate docugardener-postgres docugardener-redis
 
 # Check everything is healthy
 make dev-check
@@ -362,8 +370,10 @@ Key settings (`web/.env` — Next.js frontend):
 
 - `DATABASE_URL`: PostgreSQL connection string
 - `NEXTAUTH_SECRET`: Random secret for session signing
-- `GITHUB_ID` / `GITHUB_SECRET`: GitHub OAuth App credentials
+- `ENCRYPTION_KEY`: Must be identical to root `.env` — used to call the backend credential API
+- `GITHUB_ID` / `GITHUB_SECRET`: GitHub OAuth App credentials (distinct from the GitHub App)
 - `BUNDLED_GEMINI_KEY`: Must match the root `.env` value — controls "Platform Default" card visibility in Settings
+- GitHub App params (`GITHUB_APP_ID`, `GITHUB_WEBHOOK_SECRET`, `GITHUB_PRIVATE_KEY_PATH`) are **backend-only** — set them in root `.env` only. The web frontend reads them via the backend API.
 
 ## Contributing
 

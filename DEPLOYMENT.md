@@ -99,6 +99,12 @@ nano .env.production
 chmod 600 .env.production
 ```
 
+> **`DEPLOYMENT_MODE`:** Always use `saas` for standard self-hosted and managed deployments.
+> `air-gap` is for fully offline, no-GitHub-connectivity enterprise environments only.
+> Never copy this value from another `.env` — use the `.env.production.example` default.
+> Using `air-gap` on a standard install auto-creates a `default` tenant that intercepts webhooks
+> and causes the Inbox to remain empty.
+
 ### GitHub OAuth callback URL
 
 In your GitHub OAuth App settings, set the callback URL to:
@@ -382,3 +388,4 @@ Browsers will show an "untrusted certificate" warning until you add Caddy's loca
 - [ ] `OWNER_EMAIL` set to a real address (gates the `/admin/owner` console — leave unset to disable)
 - [ ] Stripe keys (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_TEAM`) set if billing is enabled
 - [ ] `ufw status` shows only 22/80/443 open
+- [ ] `DEPLOYMENT_MODE=saas` (not `air-gap`) unless running a fully offline enterprise deployment

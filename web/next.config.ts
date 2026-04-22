@@ -36,6 +36,12 @@ const nextConfig: NextConfig = {
     return config;
   },
 
+  // Next.js 16 enables Turbopack by default. The webpack() override above is
+  // intentional (module resolution fix) and not yet migrated to turbopack config.
+  // Declaring an empty turbopack config silences the "webpack config without
+  // turbopack config" error and keeps the dev server on webpack mode.
+  turbopack: {},
+
   async rewrites() {
     return [
       {
