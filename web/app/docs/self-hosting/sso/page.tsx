@@ -91,8 +91,7 @@ ACS URL:       https://your-domain.example.com/auth/saml/callback`}
         <li>In DocuGardener Settings, paste the values and save. The <strong>Email attribute</strong> field can be left as <code className="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">email</code> — the attribute fallback chain handles the full claim URI automatically.</li>
       </ol>
       <p className="text-sm text-gray-500 mb-8">
-        {/* TODO: add screenshot */}
-        {/* Screenshot placeholder: Entra attribute mapping screen */}
+        Screenshot of the Entra ID attribute mapping screen coming soon.
       </p>
 
       {/* Attribute mapping reference */}

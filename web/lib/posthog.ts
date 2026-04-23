@@ -38,12 +38,6 @@ export const Analytics = {
     upgradePromptShown:     (p?: Record<string, unknown>) => captureEvent("upgrade_prompt_shown", p),
     upgradeClicked:         (p?: Record<string, unknown>) => captureEvent("upgrade_clicked", p),
     subscriptionStarted:    (p?: Record<string, unknown>) => captureEvent("subscription_started", p),
-    /**
-     * first_fix_pr_merged is best fired server-side the moment the fix PR is
-     * auto-merged.  The Python handler already logs "fix PR auto-merged" in
-     * src/pipeline/handler.py (search for "fix PR merged").
-     * TODO: fire this via PostHog's Python SDK in src/pipeline/handler.py once
-     * the posthog Python SDK is added to pyproject.toml (EPIC-02 follow-up).
-     */
+    /** FEAT-EPIC-02-followup: move to Python SDK server-side once posthog added to pyproject.toml */
     firstFixPrMerged:       (p?: Record<string, unknown>) => captureOnce("first_fix_pr_merged", p),
 } as const

@@ -80,7 +80,7 @@ export function ScimConfigSection({
 
     return (
         <div className="space-y-6">
-            {/* TODO(Q2-A): remove when PH15-03 Stage 1+2 complete (Okta smoke-test + Entra validated) */}
+            {/* FEAT-PH15-03: remove banner when Okta smoke-test + Entra ID validation complete */}
             <div className="flex items-start gap-3 p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
                 <InfoIcon className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                 <div className="text-sm">

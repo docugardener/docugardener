@@ -35,10 +35,7 @@ async def readiness_check() -> dict[str, Any]:
     """
     checks: dict[str, bool] = {}
 
-    # TODO: Add dependency checks
-    # - Redis connection
-    # - Vector DB connection
-    # - GitHub App credentials validity
+    # Dependency checks tracked in FEAT-024 (health deep-checks)
 
     all_ready = all(checks.values()) if checks else True
 
