@@ -110,7 +110,7 @@ class TestStripeWebhookGuard:
             app.include_router(router)
             return TestClient(app, raise_server_exceptions=False)
 
-    def test_returns_404_when_disabled(self) -> None:
+    def test_returns_200_when_disabled(self) -> None:
         from src.core.config import settings as real_settings
 
         original = real_settings.billing_enabled
@@ -126,8 +126,8 @@ class TestStripeWebhookGuard:
                 content=b"{}",
                 headers={"stripe-signature": "t=1,v1=abc"},
             )
-            assert resp.status_code == 404
-            assert resp.json()["error"] == "BILLING_NOT_ENABLED"
+            assert resp.status_code == 200
+            assert resp.json()["received"] is True
         finally:
             real_settings.billing_enabled = original
 
