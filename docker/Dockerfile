@@ -13,7 +13,9 @@ FROM python:3.13-slim as builder
 WORKDIR /build
 
 # Install build dependencies (including SAML C libs for python3-saml)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# apt-get upgrade pulls Debian security patches for base-image OS packages
+# (e.g. libunbound8, linux-libc-dev) that ship stale in python:3.13-slim.
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     libxmlsec1-dev \
@@ -42,12 +44,18 @@ RUN useradd --create-home --shell /bin/bash docugardener
 WORKDIR /app
 
 # Install runtime dependencies (including SAML C libs for python3-saml)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# apt-get upgrade pulls Debian security patches (libunbound8, linux-libc-dev, etc.).
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     git \
     libxmlsec1-dev \
     libxml2-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
+
+# Patch the base-image system pip (CVE-2026-3219, CVE-2026-6357).
+# Runs before the PATH switch below, so `pip` resolves to /usr/local/bin/pip
+# (system pip), not the venv's already-patched pip.
+RUN pip install --no-cache-dir --upgrade "pip>=26.1"
 
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
