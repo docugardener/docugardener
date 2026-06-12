@@ -31,7 +31,7 @@
     "framer-motion": "^12.29.2",
     "ignore": "^7.0.5",
     "lucide-react": "^0.563.0",
-    "next": "^16.2.3",
+    "next": "^16.2.6",
     "next-auth": "^4.24.13",
     "next-themes": "^0.4.6",
     "nodemailer": "^8.0.5",
@@ -75,6 +75,9 @@
     "vitest": "^4.0.18"
   },
   "overrides": {
-    "uuid": "^10.0.0"
+    "uuid": "^11.1.1",
+    "protobufjs": "^7.5.8",
+    "@protobufjs/utf8": "^1.1.1",
+    "postcss": "^8.5.10"
   }
 }
