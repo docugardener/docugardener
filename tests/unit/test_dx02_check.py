@@ -250,3 +250,67 @@ async def test_check_aggregates_changes_across_multiple_files():
     assert data["files_analyzed"] == 2
     entities = {c["entity"] for c in data["entity_changes"]}
     assert entities == {"func_a", "func_b", "func_c"}
+
+
+# ── Observability: structured log line per call (tenant_id + status) ───────────
+
+
+@pytest.mark.asyncio
+async def test_check_logs_rejection_on_invalid_key():
+    """A 401 emits a 'Plugin check rejected' warning with status=unauthorized (no key material)."""
+    app.dependency_overrides[get_db] = _empty_db_override()
+    try:
+        with patch("src.api.check.logger") as mock_log:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+                res = await ac.post(
+                    "/check",
+                    json={"files": []},
+                    headers={"Authorization": f"Bearer {VALID_KEY}"},
+                )
+            assert res.status_code == 401
+            assert any(
+                c.args[:1] == ("Plugin check rejected",)
+                and c.kwargs.get("status") == "unauthorized"
+                and c.kwargs.get("reason") == "invalid_key"
+                for c in mock_log.warning.call_args_list
+            ), f"expected rejection log, got {mock_log.warning.call_args_list}"
+            # Ensure no key material is ever logged
+            for c in mock_log.warning.call_args_list:
+                assert VALID_KEY not in str(c)
+    finally:
+        del app.dependency_overrides[get_db]
+
+
+@pytest.mark.asyncio
+async def test_check_logs_completion_with_tenant_and_status():
+    """A successful call emits 'Plugin check complete' with tenant_id + status=ok."""
+    tenant = _make_tenant({"pluginApiKey": VALID_KEY})
+    changes = [_make_entity_change()]
+    drift = _make_drift_analysis()
+
+    app.dependency_overrides[get_db] = _db_override(tenant)
+    try:
+        with (
+            patch("src.api.check.SemanticDiff.diff_files", return_value=changes),
+            patch(
+                "src.api.check.VerificationAgent.analyze_drift", new=AsyncMock(return_value=drift)
+            ),
+            patch("src.api.check.logger") as mock_log,
+        ):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+                res = await ac.post(
+                    "/check",
+                    json={
+                        "files": [{"path": "src/utils.py", "old_content": "o", "new_content": "n"}]
+                    },
+                    headers={"Authorization": f"Bearer {VALID_KEY}"},
+                )
+            assert res.status_code == 200
+            assert any(
+                c.args[:1] == ("Plugin check complete",)
+                and c.kwargs.get("status") == "ok"
+                and c.kwargs.get("tenant_id") == TENANT_ID
+                for c in mock_log.info.call_args_list
+            ), f"expected completion log, got {mock_log.info.call_args_list}"
+    finally:
+        del app.dependency_overrides[get_db]

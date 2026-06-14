@@ -76,6 +76,9 @@ def _get_tenant_by_api_key(authorization: str | None, db: Session) -> Tenant:
     uniquely identifies the tenant.
     """
     if not authorization or not authorization.startswith("Bearer "):
+        # Observability: every rejected call is logged (no key material) so the
+        # operator can see install→attempt traffic in `docker logs docugardener`.
+        logger.warning("Plugin check rejected", status="unauthorized", reason="missing_bearer")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid Authorization header",
@@ -91,6 +94,7 @@ def _get_tenant_by_api_key(authorization: str | None, db: Session) -> Tenant:
         if stored_key and secrets.compare_digest(provided_key, stored_key):
             return tenant
 
+    logger.warning("Plugin check rejected", status="unauthorized", reason="invalid_key")
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid API key",
@@ -179,6 +183,15 @@ async def check_drift(
         all_changes.extend(changes)
 
     if not all_changes:
+        logger.info(
+            "Plugin check complete",
+            tenant_id=tenant.id,
+            status="ok",
+            files=len(body.files),
+            total_changes=0,
+            severity="none",
+            drift_score=0,
+        )
         return CheckResponse(
             severity="none",
             drift_score=0,
@@ -224,6 +237,7 @@ async def check_drift(
     logger.info(
         "Plugin check complete",
         tenant_id=tenant.id,
+        status="ok",
         files=len(body.files),
         total_changes=len(all_changes),
         severity=drift.severity,
