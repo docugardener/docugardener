@@ -2,7 +2,7 @@
     "name": "docugardener",
     "displayName": "DocuGardener",
     "description": "Pre-push documentation drift detection — know before you push",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "homepage": "https://docugardener.dev",
     "bugs": {
         "url": "https://github.com/docugardener/docugardener/issues"
@@ -36,6 +36,10 @@
             {
                 "command": "docugardener.enterApiKey",
                 "title": "DocuGardener: Enter API Key"
+            },
+            {
+                "command": "docugardener.clearApiKey",
+                "title": "DocuGardener: Clear API Key"
             }
         ],
         "configuration": {
@@ -43,14 +47,8 @@
             "properties": {
                 "docugardener.backendUrl": {
                     "type": "string",
-                    "default": "https://app.docugardener.dev",
+                    "default": "https://docugardener.dev",
                     "description": "DocuGardener backend URL. Leave as default for SaaS; change only for self-hosted instances."
-                },
-                "docugardener.apiKey": {
-                    "type": "string",
-                    "default": "",
-                    "description": "API key for the DocuGardener VS Code extension. Use the 'DocuGardener: Enter API Key' command to set it securely.",
-                    "secret": true
                 },
                 "docugardener.enabled": {
                     "type": "boolean",
@@ -71,6 +69,9 @@
                 },
                 {
                     "command": "docugardener.enterApiKey"
+                },
+                {
+                    "command": "docugardener.clearApiKey"
                 }
             ]
         }

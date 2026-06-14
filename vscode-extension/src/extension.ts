@@ -10,17 +10,12 @@ let statusBar: StatusBarManager
 let output: OutputChannelManager
 let checker: DriftChecker
 
-async function promptForApiKey(checker: DriftChecker): Promise<void> {
-    const key = await vscode.window.showInputBox({
-        prompt: "Paste your DocuGardener API key (generated in Settings → VS Code Plugin)",
-        password: true,
-        placeHolder: "dg_...",
-        validateInput: (v) => v.startsWith("dg_") ? null : "Key must start with dg_",
-    })
-    if (key) {
-        await checker.storeApiKey(key)
-        vscode.window.showInformationMessage("DocuGardener: API key saved. You're ready to go!")
-    }
+/** Web-app base URL — derived from the configured backend URL. */
+function webAppBase(): string {
+    return vscode.workspace
+        .getConfiguration("docugardener")
+        .get("backendUrl", "https://docugardener.dev")
+        .replace(/\/$/, "")
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -42,15 +37,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         "docugardener.createAndOpenDoc",
         async (docUri: vscode.Uri, diagMessage: string) => {
             const dirPath = path.dirname(docUri.fsPath)
-            if (!fs.existsSync(dirPath)) {
-                fs.mkdirSync(dirPath, { recursive: true })
-            }
+            await fs.promises.mkdir(dirPath, { recursive: true })
             // Write a minimal scaffold based on the diagnostic message
             const filename = path.basename(docUri.fsPath)
             const scaffold = `# ${filename.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ")}\n\n` +
                 `<!-- DocuGardener suggested: ${diagMessage} -->\n\n` +
                 `## Overview\n\n_Add documentation here._\n`
-            fs.writeFileSync(docUri.fsPath, scaffold, "utf-8")
+            await fs.promises.writeFile(docUri.fsPath, scaffold, "utf-8")
             await vscode.commands.executeCommand("vscode.open", docUri)
         },
     )
@@ -65,7 +58,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Register command: DocuGardener: Enter API Key — lets users re-enter their key anytime
     const enterKeyCmd = vscode.commands.registerCommand(
         "docugardener.enterApiKey",
-        () => promptForApiKey(checker),
+        () => checker.promptForApiKey(),
+    )
+
+    // Register command: DocuGardener: Clear API Key — removes the stored key
+    const clearKeyCmd = vscode.commands.registerCommand(
+        "docugardener.clearApiKey",
+        async () => {
+            await checker.clearApiKey()
+            vscode.window.showInformationMessage("DocuGardener: API key cleared.")
+        },
     )
 
     // Optional: run check automatically on git pre-push hook substitute.
@@ -73,7 +75,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // for "user just committed staged changes" — no reliable pre-push hook
     // from within VS Code, so the command is the primary trigger.
 
-    context.subscriptions.push(checkCmd, createDocCmd, codeActionProvider, enterKeyCmd, statusBar, output)
+    context.subscriptions.push(
+        checkCmd, createDocCmd, codeActionProvider, enterKeyCmd, clearKeyCmd, statusBar, output,
+    )
 
     // Show onboarding if no API key is configured
     const existingKey = await context.secrets.get("docugardener.apiKey")
@@ -84,9 +88,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             "Open Web App",
         ).then(async (choice) => {
             if (choice === "Enter Key") {
-                await promptForApiKey(checker)
+                await checker.promptForApiKey()
             } else if (choice === "Open Web App") {
-                vscode.env.openExternal(vscode.Uri.parse("https://app.docugardener.dev/dashboard/settings?tab=integrations"))
+                vscode.env.openExternal(
+                    vscode.Uri.parse(`${webAppBase()}/dashboard/settings?tab=integrations`),
+                )
             }
         })
     }

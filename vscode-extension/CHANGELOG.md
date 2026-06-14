@@ -1,5 +1,19 @@
 # Change Log
 
+## [0.1.1] — 2026-06-14
+
+### Fixed
+- **Security:** git is now invoked with argument arrays (`execFile`, no shell), so staged file paths can never be interpreted as shell syntax (command-injection hardening).
+- Corrected the default `backendUrl` to `https://docugardener.dev` (the previous `app.` subdomain did not resolve).
+
+### Changed
+- File reads during a check are now fully async (no synchronous I/O on the extension host).
+- API key prompt unified into a single flow; key is stored only in SecretStorage.
+- Removed the `docugardener.apiKey` **setting** — it lived in plaintext `settings.json` and was a security trap. Use the "Enter API Key" command (SecretStorage) instead.
+
+### Added
+- **"DocuGardener: Clear API Key"** command to remove a stored key.
+
 ## [0.1.0] — 2026-04-19
 
 ### Added

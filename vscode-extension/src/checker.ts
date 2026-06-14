@@ -4,11 +4,35 @@ import * as fs from "fs"
 import * as path from "path"
 import * as http from "http"
 import * as https from "https"
-import { promisify } from "util"
 import { StatusBarManager } from "./statusBar"
 import { OutputChannelManager } from "./outputChannel"
 
-const execAsync = promisify(cp.exec)
+// Staged blobs can be large; allow up to 10 MB of git stdout before erroring.
+const GIT_MAX_BUFFER = 10 * 1024 * 1024
+
+/**
+ * Injection-safe git invocation. Uses execFile with an argument **array** (no
+ * shell), so file paths and refs are passed verbatim as argv entries and can
+ * never be interpreted as shell syntax (backticks, ;, $(), …). Reads
+ * `child_process.execFile` at call time so tests can substitute it.
+ */
+function execFileAsync(
+    file: string,
+    args: string[],
+    opts: cp.ExecFileOptions,
+): Promise<{ stdout: string; stderr: string }> {
+    return new Promise((resolve, reject) => {
+        cp.execFile(file, args, opts, (err, stdout, stderr) => {
+            if (err) {
+                reject(err)
+                return
+            }
+            const toStr = (v: string | Buffer): string =>
+                typeof v === "string" ? v : v.toString("utf-8")
+            resolve({ stdout: toStr(stdout), stderr: toStr(stderr) })
+        })
+    })
+}
 
 interface FileInput {
     path: string
@@ -90,28 +114,23 @@ export class DriftChecker {
             return
         }
 
-        const backendUrl: string = config.get("backendUrl", "https://app.docugardener.dev").replace(/\/$/, "")
+        const backendUrl: string = config.get("backendUrl", "https://docugardener.dev").replace(/\/$/, "")
         const apiKey: string = await this.context.secrets.get("docugardener.apiKey") ?? ""
         const blockOnCritical: boolean = config.get("blockOnCritical", false)
 
         if (!apiKey) {
-            vscode.window.showWarningMessage(
+            const choice = await vscode.window.showWarningMessage(
                 "DocuGardener: No API key configured.",
                 "Enter Key",
                 "Open Web App",
-            ).then(async (choice) => {
-                if (choice === "Enter Key") {
-                    const key = await vscode.window.showInputBox({
-                        prompt: "Paste your DocuGardener API key",
-                        password: true,
-                        placeHolder: "dg_...",
-                        validateInput: (v) => v.startsWith("dg_") ? null : "Key must start with dg_",
-                    })
-                    if (key) await this.context.secrets.store("docugardener.apiKey", key)
-                } else if (choice === "Open Web App") {
-                    vscode.env.openExternal(vscode.Uri.parse("https://app.docugardener.dev/dashboard/settings?tab=integrations"))
-                }
-            })
+            )
+            if (choice === "Enter Key") {
+                await this.promptForApiKey()
+            } else if (choice === "Open Web App") {
+                vscode.env.openExternal(
+                    vscode.Uri.parse(`${backendUrl}/dashboard/settings?tab=integrations`),
+                )
+            }
             return
         }
 
@@ -185,10 +204,19 @@ export class DriftChecker {
         }
     }
 
+    /**
+     * Run a git subcommand with an argument array (no shell) and return stdout.
+     * Centralises the injection-safe invocation; stubbable in tests.
+     */
+    private async git(args: string[], cwd: string): Promise<string> {
+        const { stdout } = await execFileAsync("git", args, { cwd, maxBuffer: GIT_MAX_BUFFER })
+        return stdout
+    }
+
     // IDE-01 AC-2: extract "owner/repo" from git remote URL
     private async getRepoSlug(repoRoot: string): Promise<string | undefined> {
         try {
-            const remoteUrl = (await execAsync("git remote get-url origin", { cwd: repoRoot })).stdout.trim()
+            const remoteUrl = (await this.git(["remote", "get-url", "origin"], repoRoot)).trim()
             // Handles https://github.com/owner/repo.git and git@github.com:owner/repo.git
             const match = remoteUrl.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?$/)
             return match ? match[1] : undefined
@@ -198,7 +226,10 @@ export class DriftChecker {
     }
 
     private async getStagedFiles(repoRoot: string): Promise<FileInput[]> {
-        const stagedOutput = (await execAsync("git diff --cached --name-only --diff-filter=ACMR", { cwd: repoRoot })).stdout.trim()
+        const stagedOutput = (await this.git(
+            ["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+            repoRoot,
+        )).trim()
 
         if (!stagedOutput) return []
 
@@ -213,14 +244,15 @@ export class DriftChecker {
 
             let newContent = ""
             try {
-                newContent = fs.readFileSync(absPath, "utf-8")
+                newContent = await fs.promises.readFile(absPath, "utf-8")
             } catch {
                 continue
             }
 
             let oldContent = ""
             try {
-                oldContent = (await execAsync(`git show HEAD:${relPath}`, { cwd: repoRoot })).stdout
+                // Arg array → `HEAD:<path>` is one argv entry; path can't inject shell.
+                oldContent = await this.git(["show", `HEAD:${relPath}`], repoRoot)
             } catch {
                 // New file — old_content stays ""
             }
@@ -374,6 +406,30 @@ export class DriftChecker {
 
     async storeApiKey(key: string): Promise<void> {
         await this.context.secrets.store("docugardener.apiKey", key)
+    }
+
+    /** Remove the stored API key from SecretStorage. */
+    async clearApiKey(): Promise<void> {
+        await this.context.secrets.delete("docugardener.apiKey")
+    }
+
+    /**
+     * Single source of truth for the API-key input flow. Stores into
+     * SecretStorage (never settings.json). Returns true if a key was saved.
+     */
+    async promptForApiKey(): Promise<boolean> {
+        const key = await vscode.window.showInputBox({
+            prompt: "Paste your DocuGardener API key (generated in Settings → VS Code Plugin)",
+            password: true,
+            placeHolder: "dg_...",
+            validateInput: (v) => (v.startsWith("dg_") ? null : "Key must start with dg_"),
+        })
+        if (key) {
+            await this.storeApiKey(key)
+            vscode.window.showInformationMessage("DocuGardener: API key saved. You're ready to go!")
+            return true
+        }
+        return false
     }
 
     dispose(): void {

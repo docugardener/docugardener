@@ -28,12 +28,13 @@ Generate a plugin API key under **Settings → Integrations → VS Code Plugin**
 |---|---|
 | `DocuGardener: Check Drift Now` | Run a drift check against your staged changes |
 | `DocuGardener: Enter API Key` | Store your API key securely in the OS keychain |
+| `DocuGardener: Clear API Key` | Remove the stored API key from the OS keychain |
 
 ## Configuration
 
 | Setting | Default | Description |
 |---|---|---|
-| `docugardener.backendUrl` | `https://app.docugardener.dev` | Backend URL (change for self-hosted) |
+| `docugardener.backendUrl` | `https://docugardener.dev` | Backend URL (change for self-hosted) |
 | `docugardener.enabled` | `true` | Enable or disable drift analysis |
 | `docugardener.blockOnCritical` | `false` | Show a blocking modal on critical drift |
 
