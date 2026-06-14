@@ -124,7 +124,7 @@ export default function DocsOverview() {
           <tr>
             <td className="px-3 py-2 border border-gray-200 text-gray-600 font-medium">Cost</td>
             <td className="px-3 py-2 border border-gray-200 text-gray-600">
-              Free / $29 / $79 per month
+              Free tier (managed plans later)
             </td>
             <td className="px-3 py-2 border border-gray-200 text-gray-600">
               Free forever (your infra costs only)

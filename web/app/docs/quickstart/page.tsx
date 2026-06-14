@@ -123,16 +123,13 @@ export default function QuickStartPage() {
         </li>
       </ol>
 
-      <h2 className="text-xl font-bold text-gray-900 mt-10 mb-3">Upgrading Your Plan</h2>
+      <h2 className="text-xl font-bold text-gray-900 mt-10 mb-3">Open Source &amp; Self-Hosting</h2>
       <p className="text-gray-600 leading-relaxed mb-4">
-        The Free plan is a great starting point. When you need more repositories, seats, or higher
-        analysis limits, upgrade to <strong>Pro</strong> ($29/month — 500 analyses, 5 repos, 10
-        seats) or <strong>Team</strong> ($79/month — unlimited analyses, repos, and up to 100 seats)
-        from <strong>Settings &rarr; Billing</strong>. For organisations that require a dedicated
-        instance, air-gapped deployment, 7-year audit retention, or a contractual SLA,{" "}
-        <a href="mailto:sales@docugardener.dev" className="underline font-medium hover:text-gray-900">
-          contact us about Enterprise
-        </a>.
+        DocuGardener is open source under the AGPL-3.0 licence. You can{" "}
+        <a href="/docs/self-hosting" className="underline font-medium hover:text-gray-900">
+          self-host the full feature set for free
+        </a>{" "}
+        on your own infrastructure — no licence keys, no gates.
       </p>
     </>
   )

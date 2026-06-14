@@ -79,7 +79,7 @@ export default function SelfHostingPage() {
               Free (your infra costs only)
             </td>
             <td className="px-3 py-2 border border-gray-200 text-gray-600">
-              Free / $29 / $79 per month
+              Free tier (managed plans later)
             </td>
           </tr>
           <tr>

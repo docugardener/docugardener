@@ -106,7 +106,7 @@ const PLANS = [
             "Custom contract, MSA & DPA",
             "Dedicated onboarding & support",
         ],
-        cta: "Contact sales",
+        cta: "Self-host free",
         ctaVariant: "outline" as const,
     },
 ]
@@ -341,10 +341,10 @@ export default function PricingPage() {
                                         </Button>
                                     ) : isEnterprise ? (
                                         <a
-                                            href="mailto:sales@docugardener.dev"
+                                            href="/docs/self-hosting"
                                             className="w-full inline-flex items-center justify-center rounded-md border border-gray-600 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-gray-800 transition-colors"
                                         >
-                                            Contact sales →
+                                            Self-host free →
                                         </a>
                                     ) : plan.id === "free" ? (
                                         <Button
