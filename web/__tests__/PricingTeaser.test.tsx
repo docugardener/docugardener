@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * PricingTeaser tests — updated for FEAT-021 (compact teaser, no toggle,
- * blurred prices pending final confirmation).
+ * PricingTeaser tests — updated for the 2026-06 de-commercialisation
+ * (compact teaser, no toggle, no prices/TBA badges; paid tiers route to the
+ * self-hosting docs instead of waitlist/checkout).
  */
 import { render, screen } from "@testing-library/react"
 import { describe, it, expect, vi } from "vitest"
@@ -25,13 +26,15 @@ describe("PricingTeaser — section header", () => {
   it("renders the section heading", () => {
     render(<PricingTeaser />)
     expect(
-      screen.getByRole("heading", { name: /start free/i })
+      screen.getByRole("heading", { name: /free to start/i })
     ).toBeInTheDocument()
   })
 
-  it("renders the pricing-TBA banner", () => {
+  it("renders the open-source self-host subhead", () => {
     render(<PricingTeaser />)
-    expect(screen.getByText(/pricing is being finalised/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/self-host the full feature set for free/i)
+    ).toBeInTheDocument()
   })
 })
 
@@ -48,10 +51,10 @@ describe("PricingTeaser — plan cards", () => {
     expect(screen.getByText(/popular/i)).toBeInTheDocument()
   })
 
-  it("prices are blurred (TBA state)", () => {
+  it("shows no TBA badges and a real $0 for the Free tier", () => {
     render(<PricingTeaser />)
-    const tbaBadges = screen.getAllByText("TBA")
-    expect(tbaBadges.length).toBe(3)
+    expect(screen.queryAllByText("TBA").length).toBe(0)
+    expect(screen.getByText("$0")).toBeInTheDocument()
   })
 
   it("renders AI Author Mode highlight in Free plan", () => {
@@ -83,14 +86,16 @@ describe("PricingTeaser — CTAs", () => {
     expect(link.getAttribute("href")).toBe("/auth/signin?signup=1")
   })
 
-  it("renders Start Pro CTA", () => {
+  it("renders 'Self-host free' CTAs for the two paid tiers", () => {
     render(<PricingTeaser />)
-    expect(screen.getByRole("link", { name: /start pro/i })).toBeInTheDocument()
+    const ctas = screen.getAllByRole("link", { name: /^self-host free →$/i })
+    expect(ctas.length).toBe(2)
   })
 
-  it("renders Start Team CTA", () => {
+  it("paid-tier CTAs route to the self-hosting docs", () => {
     render(<PricingTeaser />)
-    expect(screen.getByRole("link", { name: /start team/i })).toBeInTheDocument()
+    const ctas = screen.getAllByRole("link", { name: /^self-host free →$/i })
+    ctas.forEach((c) => expect(c.getAttribute("href")).toBe("/docs/self-hosting"))
   })
 
   it("renders no billing period toggle", () => {
@@ -101,10 +106,10 @@ describe("PricingTeaser — CTAs", () => {
 })
 
 describe("PricingTeaser — footer link", () => {
-  it("renders 'See full pricing' link to /pricing", () => {
+  it("renders 'Self-host for free' link to the self-hosting docs", () => {
     render(<PricingTeaser />)
-    const link = screen.getByRole("link", { name: /see full pricing/i })
+    const link = screen.getByRole("link", { name: /self-host for free/i })
     expect(link).toBeInTheDocument()
-    expect(link.getAttribute("href")).toBe("/pricing")
+    expect(link.getAttribute("href")).toBe("/docs/self-hosting")
   })
 })

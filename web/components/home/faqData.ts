@@ -34,7 +34,7 @@ export const faqGroups: FAQGroup[] = [
       },
       {
         id: "q4",
-        question: "Why pay for it if the team already uses docs-as-code?",
+        question: "Why use it if the team already uses docs-as-code?",
         answer:
           "Docs-as-code solves versioning. It does not automatically solve truth. DocuGardener adds the missing control: verifying that the documentation still matches what the code now does.",
       },
@@ -176,19 +176,19 @@ export const faqGroups: FAQGroup[] = [
         id: "q15",
         question: "What plans are available?",
         answer:
-          "Free ($0): 1 public repo, 50 PR analyses/month — drift detection, triage inbox, AI Author Mode, and BYOK. Pro ($29/mo): 5 repos (public + private), 500 analyses/month, bundled LLM (no API key needed), Slack/Jira/Linear integrations, Agent Governance, analytics, and audit log. Team ($79/mo): unlimited repos and analyses, 100 seats, SSO/SAML, SCIM provisioning, audit evidence export, compliance templates, and DPA on request. Annual billing saves 20%.",
+          "DocuGardener is open source (AGPL-3.0) and free to self-host — the full feature set, with no gates or license checks. The tiers describe capability bundles. Free: 1 public repo, 50 PR analyses/month — drift detection, triage inbox, AI Author Mode, and BYOK. Pro: 5 repos (public + private), 500 analyses/month, bundled LLM (no API key needed), Slack/Jira/Linear integrations, Agent Governance, analytics, and audit log. Team: unlimited repos and analyses, 100 seats, SSO/SAML, SCIM provisioning, audit evidence export, compliance templates, and DPA on request. A managed hosted option may come later.",
       },
       {
         id: "q15b",
-        question: "Why pay for hosted when self-hosting is free?",
+        question: "What would a managed hosted option add over self-hosting?",
         answer:
-          "Self-hosting is genuinely free and always will be under the AGPL license — no feature gates, no license checks. The SaaS plan charges for three things self-hosters must provide themselves: zero-ops infrastructure (no server to configure, patch, or monitor), a bundled LLM (no API key or spend to manage), and a one-click GitHub Marketplace install. If your team is comfortable running Docker and managing an LLM API key, self-hosting is the right call. If you want to be in production in three minutes with no infrastructure work, the hosted plan is worth it.",
+          "Self-hosting is genuinely free and always will be under the AGPL license — no feature gates, no license checks. A future managed option would handle three things self-hosters provide themselves: zero-ops infrastructure (no server to configure, patch, or monitor), a bundled LLM (no API key or spend to manage), and a one-click GitHub Marketplace install. For now, self-hosting is the way to run DocuGardener: if your team is comfortable running Docker and managing an LLM API key, you have everything you need today.",
       },
       {
         id: "q16",
         question: "Is there a way to try it on a private repository?",
         answer:
-          "Yes. A 14-day Pro trial is available for one private repo with limited seats, so teams can evaluate the workflow on real internal code before purchasing.",
+          "Yes. Self-host DocuGardener and connect a private repository directly — the full feature set runs on your own infrastructure, so you can evaluate the workflow on real internal code with no time limit.",
       },
       {
         id: "q17",
@@ -218,7 +218,7 @@ export const faqGroups: FAQGroup[] = [
         id: "q20b",
         question: "Do you have a DPA for enterprise procurement?",
         answer:
-          "Yes. A Data Processing Agreement is available on request for Team plan customers \u2014 email legal@docugardener.dev. The DPA covers GDPR Article 28 processor obligations, transient code processing, subprocessor controls, and our no-training-on-customer-content commitment.",
+          "Yes. A Data Processing Agreement is available on request \u2014 email legal@docugardener.dev. The DPA covers GDPR Article 28 processor obligations, transient code processing, subprocessor controls, and our no-training-on-customer-content commitment.",
       },
     ],
   },

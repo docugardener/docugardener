@@ -39,8 +39,6 @@ const PLANS = [
         id: "pro" as const,
         name: "Pro",
         monthlyPrice: 29,
-        annualMonthlyPrice: 24, // $290/yr = $24.17/mo
-        annualPrice: 290,
         period: "/ month",
         description: "For growing teams that ship documentation quality at scale.",
         icon: Zap,
@@ -66,8 +64,6 @@ const PLANS = [
         id: "team" as const,
         name: "Team",
         monthlyPrice: 79,
-        annualMonthlyPrice: 66, // $790/yr = $65.83/mo
-        annualPrice: 790,
         period: "/ month",
         description: "For engineering orgs with compliance and governance requirements.",
         icon: Building2,
@@ -181,7 +177,7 @@ const FEATURE_MATRIX: { group: string; rows: { label: string; free: CellValue; p
 const FAQS = [
     {
         q: "Do I need a credit card to start?",
-        a: "No. The Free plan requires no credit card. You can upgrade to Pro or Team at any time.",
+        a: "No. DocuGardener is open source and free to self-host — no credit card, no license keys.",
     },
     {
         q: "What counts as a PR analysis?",
@@ -196,12 +192,8 @@ const FAQS = [
         a: "Yes. Plan changes take effect immediately. Upgrades are prorated; downgrades apply at the next renewal. You can cancel with one click — no lock-in.",
     },
     {
-        q: "Is there an annual discount?",
-        a: "Yes — 20% off when billed annually. Pro drops to $24/mo ($290/yr) and Team to $66/mo ($790/yr).",
-    },
-    {
-        q: "Can I self-host instead of using SaaS?",
-        a: "DocuGardener is open-source (AGPL-3.0) and fully self-hostable. The SaaS tier pays for hosted infrastructure, automatic upgrades, and support — but self-hosting is always free.",
+        q: "Can I self-host?",
+        a: "Yes — DocuGardener is open source (AGPL-3.0) and fully self-hostable: the full feature set, free, with no gates or license checks. A managed hosted option may come later.",
     },
 ]
 
@@ -281,39 +273,9 @@ export default function PricingPage() {
                         Keep your docs in sync,<br />at any scale.
                     </h1>
                     <p className="text-gray-500 max-w-xl mx-auto text-sm leading-relaxed mb-8">
-                        Start free. Upgrade when your team grows. No credit card required.
+                        Open source (AGPL-3.0). Self-host the full feature set for free, forever.
                     </p>
-
-                    {/* Annual toggle */}
-                    <div className="inline-flex items-center gap-3 bg-gray-100 rounded-full p-1">
-                        <button
-                            onClick={() => setIsAnnual(false)}
-                            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
-                                !isAnnual ? "bg-white shadow text-gray-900" : "text-gray-500"
-                            }`}
-                        >
-                            Monthly
-                        </button>
-                        <button
-                            onClick={() => setIsAnnual(true)}
-                            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${
-                                isAnnual ? "bg-white shadow text-gray-900" : "text-gray-500"
-                            }`}
-                        >
-                            Annual
-                            <span className="bg-green-100 text-green-700 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full">
-                                Save 20%
-                            </span>
-                        </button>
-                    </div>
                 </div>
-
-                {!billingEnabled && (
-                    <div className="mb-8 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800 text-center">
-                        <span className="font-semibold">Paid plans are launching soon.</span>{" "}
-                        Reserve your spot for early access — no credit card required.
-                    </div>
-                )}
 
                 {error && (
                     <div className="mb-8 p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 text-center">
@@ -331,16 +293,12 @@ export default function PricingPage() {
                             ? "Custom"
                             : plan.monthlyPrice === 0
                                 ? "$0"
-                                : isAnnual && (plan as any).annualMonthlyPrice
-                                    ? `$${(plan as any).annualMonthlyPrice}`
-                                    : `$${plan.monthlyPrice}`
+                                : "Free"
                         const periodLabel = plan.monthlyPrice === null
                             ? "pricing"
                             : plan.monthlyPrice === 0
                                 ? "forever"
-                                : isAnnual
-                                    ? "/ mo, billed annually"
-                                    : "/ month"
+                                : "to self-host"
 
                         return (
                             <Card
@@ -358,14 +316,9 @@ export default function PricingPage() {
                                     <div className="flex items-center gap-2 mb-3">
                                         <Icon className={`h-5 w-5 ${isEnterprise ? "text-gray-300" : "text-green-600"}`} />
                                         <span className={`text-sm font-black uppercase tracking-widest ${isEnterprise ? "text-white" : "text-gray-900"}`}>{plan.name}</span>
-                                        {!billingEnabled && plan.monthlyPrice !== null && plan.monthlyPrice > 0 && (
-                                            <span className="ml-auto text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-                                                Coming soon
-                                            </span>
-                                        )}
                                     </div>
                                     <div className="flex items-baseline gap-1">
-                                        <span className={`text-4xl font-black ${isEnterprise ? "text-white" : "text-gray-900"} ${!billingEnabled && plan.monthlyPrice !== null && plan.monthlyPrice > 0 ? "blur-sm select-none" : ""}`}>
+                                        <span className={`text-4xl font-black ${isEnterprise ? "text-white" : "text-gray-900"}`}>
                                             {displayPrice}
                                         </span>
                                         <span className={`text-sm ${isEnterprise ? "text-gray-400" : "text-gray-500"}`}>{periodLabel}</span>
@@ -401,22 +354,13 @@ export default function PricingPage() {
                                         >
                                             {session ? "Go to Dashboard" : plan.cta}
                                         </Button>
-                                    ) : billingEnabled ? (
-                                        <Button
-                                            variant={plan.ctaVariant}
-                                            className="w-full text-[10px] font-black uppercase tracking-widest bg-green-600 hover:bg-green-700"
-                                            disabled={loading === plan.id}
-                                            onClick={() => handleUpgrade(plan.id as "pro" | "team")}
-                                        >
-                                            {loading === plan.id ? "Redirecting..." : plan.cta}
-                                        </Button>
                                     ) : (
                                         <Button
                                             variant={plan.ctaVariant}
                                             className="w-full text-[10px] font-black uppercase tracking-widest bg-green-600 hover:bg-green-700"
-                                            onClick={handleWaitlist}
+                                            onClick={() => router.push("/docs/self-hosting")}
                                         >
-                                            Reserve your spot →
+                                            Self-host free →
                                         </Button>
                                     )}
                                 </CardContent>
@@ -488,11 +432,7 @@ export default function PricingPage() {
 
                 {/* ── Footer note ──────────────────────────────────────────── */}
                 <p className="text-center text-xs text-gray-400">
-                    All prices in USD. Monthly subscriptions renew monthly; annual subscriptions renew yearly. Cancel anytime.{" "}
-                    Payments processed securely by{" "}
-                    <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 transition-colors">
-                        Stripe
-                    </a>.
+                    DocuGardener is open source (AGPL-3.0). Self-host the full feature set for free — no credit card, no license keys.
                 </p>
             </main>
 

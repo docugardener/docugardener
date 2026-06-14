@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * PricingTeaser — FEAT-021 Pass 1
+ * PricingTeaser — FEAT-021 Pass 1 (de-commercialised 2026-06)
  *
- * Compact 3-card pricing teaser. No monthly/annual toggle (lives on /pricing).
- * Reduced from 220 lines to < 100.
- *
- * Prices shown are indicative monthly rates and are blurred pending final
- * price confirmation. Full pricing page retains the toggle, annual discount,
- * and plan comparison table.
+ * Compact 3-card pricing teaser. DocuGardener is pre-revenue and open source:
+ * billing is off, so paid tiers show NO price amount and route to self-hosting
+ * rather than a waitlist/checkout. The Free tier remains "$0 / forever" and
+ * routes to free signup. The standalone /pricing page is intentionally NOT
+ * linked from the landing while billing is disabled.
  */
 
 import Link from "next/link"
@@ -16,20 +15,26 @@ import { Check } from "lucide-react"
 interface Plan {
   id: string
   name: string
-  price: string
-  period: string
+  /** Neutral price line. Free shows a real "$0"; paid tiers show no currency figure. */
+  priceLabel: string
+  /** Period suffix — only rendered for the Free tier. */
+  period?: string
   description: string
   highlights: string[]
   cta: string
   ctaHref: string
+  /** External (GitHub / docs) link opens in a new tab. */
+  ctaExternal?: boolean
   featured: boolean
 }
+
+const SELF_HOST_HREF = "/docs/self-hosting"
 
 const PLANS: Plan[] = [
   {
     id: "free",
     name: "Free",
-    price: "$0",
+    priceLabel: "$0",
     period: "forever",
     description: "For individuals and open-source projects.",
     highlights: [
@@ -44,8 +49,7 @@ const PLANS: Plan[] = [
   {
     id: "pro",
     name: "Pro",
-    price: "$29",
-    period: "/month",
+    priceLabel: "Self-host free today",
     description: "For developers and small teams shipping fast.",
     highlights: [
       "5 repos · 500 analyses/mo",
@@ -53,15 +57,14 @@ const PLANS: Plan[] = [
       "Slack, Jira & Linear integrations",
       "Agent Governance + audit log",
     ],
-    cta: "Start Pro",
-    ctaHref: "/auth/signin?plan=pro",
+    cta: "Self-host free →",
+    ctaHref: SELF_HOST_HREF,
     featured: true,
   },
   {
     id: "team",
     name: "Team",
-    price: "$79",
-    period: "/month",
+    priceLabel: "Self-host free today",
     description: "For teams with compliance requirements.",
     highlights: [
       "Unlimited repos · 100 seats",
@@ -69,8 +72,8 @@ const PLANS: Plan[] = [
       "Evidence export + compliance templates",
       "Priority support + DPA on request",
     ],
-    cta: "Start Team",
-    ctaHref: "/auth/signin?plan=team",
+    cta: "Self-host free →",
+    ctaHref: SELF_HOST_HREF,
     featured: false,
   },
 ]
@@ -85,12 +88,10 @@ export function PricingTeaser() {
         <div className="text-center mb-10">
           <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Pricing</p>
           <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">
-            Start free. Upgrade when you&apos;re ready.
+            Free to start. Open source to run yourself.
           </h2>
-          {/* Prices blurred — final amounts announced at launch */}
-          <p className="mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-100 inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            Pricing is being finalised — final amounts announced at launch
+          <p className="mt-3 text-sm text-gray-500 max-w-md mx-auto">
+            DocuGardener is AGPL — self-host the full feature set for free, forever.
           </p>
         </div>
 
@@ -114,23 +115,18 @@ export function PricingTeaser() {
                   )}
                 </div>
                 <div className="flex items-baseline gap-2 mb-1 min-h-[2.5rem]">
-                  <span
-                    className="text-3xl font-extrabold text-gray-900 select-none"
-                    style={{ filter: "blur(6px)" }}
-                    aria-label="Price — to be announced"
-                  >
-                    {plan.price}
-                  </span>
-                  <span
-                    className="text-xs text-gray-500 select-none"
-                    style={{ filter: "blur(3px)" }}
-                    aria-hidden
-                  >
-                    {plan.period}
-                  </span>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-                    TBA
-                  </span>
+                  {plan.period ? (
+                    <>
+                      <span className="text-3xl font-extrabold text-gray-900">
+                        {plan.priceLabel}
+                      </span>
+                      <span className="text-xs text-gray-500">{plan.period}</span>
+                    </>
+                  ) : (
+                    <span className="text-sm font-semibold text-gray-600">
+                      {plan.priceLabel}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed">{plan.description}</p>
               </div>
@@ -146,6 +142,9 @@ export function PricingTeaser() {
 
               <Link
                 href={plan.ctaHref}
+                {...(plan.ctaExternal
+                  ? { target: "_blank", rel: "noopener noreferrer" }
+                  : {})}
                 className={`block text-center text-sm font-semibold px-4 py-2.5 rounded-lg transition ${
                   plan.featured
                     ? "bg-green-600 text-white hover:bg-green-700"
@@ -160,10 +159,10 @@ export function PricingTeaser() {
 
         <div className="text-center">
           <Link
-            href="/pricing"
+            href={SELF_HOST_HREF}
             className="text-sm font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4 transition"
           >
-            See full pricing &amp; annual discounts →
+            Self-host for free →
           </Link>
         </div>
       </div>

@@ -22,7 +22,6 @@ export function MarketingHeader({ activePage }: MarketingHeaderProps) {
       </Link>
       <nav className="flex gap-4 items-center">
         <Link href="/features" className={linkClass("features")}>Features</Link>
-        <Link href="/pricing" className={linkClass("pricing")}>Pricing</Link>
         <Link href="/faq" className={linkClass("faq")}>FAQ</Link>
         <Link href="/docs" className={linkClass("docs")}>Docs</Link>
         <Link href="/trust" className={linkClass("trust")}>Trust</Link>
