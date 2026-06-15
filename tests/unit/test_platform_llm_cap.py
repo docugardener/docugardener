@@ -4,7 +4,7 @@
 Tests verify that:
 - The cap blocks ALL tenants (not just FREE) when operator spend >= cap
 - BYOK tenants are exempt from cap enforcement and not counted
-- PLATFORM_LLM_MONTHLY_CAP_EUR=0 disables enforcement entirely
+- PLATFORM_LLM_MONTHLY_CAP_USD=0 disables enforcement entirely
 - usedPlatformLlm is stamped correctly on BudgetJob records
 
 Imports from ``src.api._platform_cap`` (the implementation module) which is
@@ -38,11 +38,11 @@ def _make_budget_job(
 
 
 def _make_settings(
-    cap_eur: float = 10.0,
+    cap_usd: float = 10.0,
     bundled_gemini_key: str = "fake-bundled-key",
 ) -> MagicMock:
     s = MagicMock()
-    s.platform_llm_monthly_cap_eur = cap_eur
+    s.platform_llm_monthly_cap_usd = cap_usd
     s.bundled_gemini_key = bundled_gemini_key
     return s
 
@@ -72,11 +72,11 @@ from src.api._platform_cap import check_platform_llm_cap, stamp_platform_llm_fla
 
 class TestCapBlocksWhenExceeded:
     def test_cap_blocks_when_exceeded(self):
-        """Operator spend >= €10 → returns skipped response with 'budget' in reason."""
-        # €10 cap; spend: 9.26 USD × 1.08 = €10.0008 — just over cap
-        platform_jobs = [_make_budget_job(cost_usd=9.26)]
+        """Operator spend >= $10 → returns skipped response with 'budget' in reason."""
+        # $10 cap; spend: $10.50 — over cap (USD-native, no FX)
+        platform_jobs = [_make_budget_job(cost_usd=10.5)]
         db = _build_db_mock(platform_jobs)
-        settings = _make_settings(cap_eur=10.0)
+        settings = _make_settings(cap_usd=10.0)
 
         result = check_platform_llm_cap(db=db, settings=settings, llm_cfg={})
 
@@ -92,10 +92,10 @@ class TestCapBlocksWhenExceeded:
 
 class TestCapAllowsWhenUnder:
     def test_cap_allows_when_under(self):
-        """Operator spend < €10 → returns None (processing should continue)."""
-        platform_jobs = [_make_budget_job(cost_usd=1.0)]  # €1.08 — well under cap
+        """Operator spend < $10 → returns None (processing should continue)."""
+        platform_jobs = [_make_budget_job(cost_usd=1.0)]  # $1 — well under cap
         db = _build_db_mock(platform_jobs)
-        settings = _make_settings(cap_eur=10.0)
+        settings = _make_settings(cap_usd=10.0)
 
         result = check_platform_llm_cap(db=db, settings=settings, llm_cfg={})
 
@@ -112,7 +112,7 @@ class TestByokTenantNotCounted:
         """Tenant with own apiKey is not blocked regardless of platform spend."""
         platform_jobs = [_make_budget_job(cost_usd=100.0)]
         db = _build_db_mock(platform_jobs)
-        settings = _make_settings(cap_eur=10.0)
+        settings = _make_settings(cap_usd=10.0)
         llm_cfg_with_own_key = {"apiKey": "tenant-own-key"}
 
         result = check_platform_llm_cap(db=db, settings=settings, llm_cfg=llm_cfg_with_own_key)
@@ -123,7 +123,7 @@ class TestByokTenantNotCounted:
         """Tenant with custom baseUrl (Ollama etc.) is also exempt."""
         platform_jobs = [_make_budget_job(cost_usd=100.0)]
         db = _build_db_mock(platform_jobs)
-        settings = _make_settings(cap_eur=10.0)
+        settings = _make_settings(cap_usd=10.0)
         llm_cfg_with_base_url = {"baseUrl": "http://ollama.internal"}
 
         result = check_platform_llm_cap(db=db, settings=settings, llm_cfg=llm_cfg_with_base_url)
@@ -138,10 +138,10 @@ class TestByokTenantNotCounted:
 
 class TestCapZeroDisablesEnforcement:
     def test_cap_zero_disables_enforcement(self):
-        """PLATFORM_LLM_MONTHLY_CAP_EUR=0 → no blocking regardless of spend."""
+        """PLATFORM_LLM_MONTHLY_CAP_USD=0 → no blocking regardless of spend."""
         platform_jobs = [_make_budget_job(cost_usd=9999.0)]
         db = _build_db_mock(platform_jobs)
-        settings = _make_settings(cap_eur=0.0)
+        settings = _make_settings(cap_usd=0.0)
 
         result = check_platform_llm_cap(db=db, settings=settings, llm_cfg={})
 
@@ -161,9 +161,9 @@ class TestProTeamPlanAlsoBlocked:
         The cap function checks only llm_cfg for apiKey/baseUrl,
         never the tenant's billing plan.
         """
-        platform_jobs = [_make_budget_job(cost_usd=9.26)]
+        platform_jobs = [_make_budget_job(cost_usd=10.5)]
         db = _build_db_mock(platform_jobs)
-        settings = _make_settings(cap_eur=10.0)
+        settings = _make_settings(cap_usd=10.0)
         # No apiKey in llm_cfg → uses platform LLM, plan does not matter
         llm_cfg_no_own_key: dict = {}
 

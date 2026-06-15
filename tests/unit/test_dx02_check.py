@@ -87,6 +87,14 @@ def _empty_db_override():
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 
+@pytest.fixture(autouse=True)
+def _allow_check_rate_limit():
+    """SEC-COST-01 Layer 2: these tests aren't about rate limiting — allow by default
+    (also avoids any real Redis call). Tests that exercise the 429 path re-patch it."""
+    with patch("src.api.check.check_rate_limit", return_value=(True, "")):
+        yield
+
+
 @pytest.mark.asyncio
 async def test_check_returns_drift_result_for_valid_request():
     """Valid API key + staged changes → returns severity and entity_changes."""
@@ -250,6 +258,40 @@ async def test_check_aggregates_changes_across_multiple_files():
     assert data["files_analyzed"] == 2
     entities = {c["entity"] for c in data["entity_changes"]}
     assert entities == {"func_a", "func_b", "func_c"}
+
+
+# ── SEC-COST-01 Layer 2: per-tenant rate limit ────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_check_returns_429_when_rate_limited():
+    """Rate-limited tenant → 429 + 'Plugin check rejected' log with status=rate_limited."""
+    tenant = _make_tenant({"pluginApiKey": VALID_KEY})
+    tenant.plan = "FREE"
+
+    app.dependency_overrides[get_db] = _db_override(tenant)
+    try:
+        with (
+            patch(
+                "src.api.check.check_rate_limit",
+                return_value=(False, "Daily check limit reached (100/day on the Free plan)."),
+            ),
+            patch("src.api.check.logger") as mock_log,
+        ):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+                res = await ac.post(
+                    "/check",
+                    json={"files": [{"path": "a.py", "old_content": "x", "new_content": "y"}]},
+                    headers={"Authorization": f"Bearer {VALID_KEY}"},
+                )
+            assert res.status_code == 429
+            assert "limit" in res.json()["detail"].lower()
+            assert any(
+                c.args[:1] == ("Plugin check rejected",) and c.kwargs.get("status") == "rate_limited"
+                for c in mock_log.warning.call_args_list
+            ), f"expected rate_limited rejection log, got {mock_log.warning.call_args_list}"
+    finally:
+        del app.dependency_overrides[get_db]
 
 
 # ── Observability: structured log line per call (tenant_id + status) ───────────

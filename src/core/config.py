@@ -142,7 +142,7 @@ class Settings(BaseSettings):
     # Leave empty to disable the fallback (tenants must supply their own key).
     bundled_gemini_key: str = Field(default="")
     bundled_gemini_model: str = Field(default="gemini-2.0-flash")
-    platform_llm_monthly_cap_eur: float = Field(default=10.0)
+    platform_llm_monthly_cap_usd: float = Field(default=10.0)
 
     # EPIC-11: Cross-repo drift detection (demo scope only).
     # Scale ceiling validated for ≤30 docs/namespace × ≤3 repos (Spike 1b-v2).

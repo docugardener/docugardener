@@ -121,6 +121,13 @@ async def _post_check(body: dict, db_override) -> dict:
     return res
 
 
+@pytest.fixture(autouse=True)
+def _allow_check_rate_limit():
+    """SEC-COST-01 Layer 2: allow rate limit by default (avoids real Redis in these tests)."""
+    with patch("src.api.check.check_rate_limit", return_value=(True, "")):
+        yield
+
+
 # ── AC-1: suggested_docs ──────────────────────────────────────────────────────
 
 

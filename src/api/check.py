@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.agents.verifier import VerificationAgent
 from src.analysis.diff import SemanticDiff
+from src.api._check_ratelimit import check_rate_limit
 from src.api.middleware import set_tenant_id
 from src.core.logging import get_logger
 from src.pipeline.job_manager import get_db
@@ -174,6 +175,16 @@ async def check_drift(
     tenant = _get_tenant_by_api_key(authorization, db)
     # Make tenant ID available to downstream services (e.g. VerificationAgent)
     set_tenant_id(tenant.id)
+
+    # SEC-COST-01 Layer 2: per-tenant rate limit. /check is stateless (no Job), so it
+    # bypasses the GAP-01 monthly quota + PH15-01 cap; this bounds per-tenant rate so a
+    # single key can't drain the shared platform LLM budget. Fails open on Redis error.
+    allowed, rl_reason = check_rate_limit(tenant.id, getattr(tenant, "plan", "FREE") or "FREE")
+    if not allowed:
+        logger.warning(
+            "Plugin check rejected", tenant_id=tenant.id, status="rate_limited", reason=rl_reason
+        )
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=rl_reason)
 
     # Compute semantic entity changes for every supplied file pair
     differ = SemanticDiff()

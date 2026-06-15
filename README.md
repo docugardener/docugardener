@@ -226,7 +226,7 @@ DocuGardener has three ways to run the AI analysis engine. Understanding this up
 
 | Mode | Who pays for LLM? | Cost to you | Notes |
 |---|---|---|---|
-| **Platform LLM (default)** | DocuGardener | Free up to limits | Uses a bundled Gemini Flash key. Shared €10/month operator budget (~8,000 PR analyses). Once the monthly budget is reached, analyses prompt users to configure their own API key. Self-hosters control this via `PLATFORM_LLM_MONTHLY_CAP_EUR`. |
+| **Platform LLM (default)** | DocuGardener | Free up to limits | Uses a bundled Gemini Flash key. Shared $10/month operator budget (~8,000 PR analyses). Once the monthly budget is reached, analyses prompt users to configure their own API key. Self-hosters control this via `PLATFORM_LLM_MONTHLY_CAP_USD`. |
 | **BYOK — Cloud API** | You (your API key) | $0 to DocuGardener | Bring your own Gemini / OpenAI / Anthropic key in Settings. No platform cost cap, but your key is billed by the provider. |
 | **BYOK — Local (Ollama)** | You (CPU/GPU) | $0 to anyone | Run any Ollama model locally. Set `LLM_PROVIDER=ollama` and `OLLAMA_URL` in your `.env`. |
 

@@ -35,7 +35,10 @@ def check_platform_llm_cap(
 
     The cap applies only when the tenant is using the bundled Gemini key —
     i.e. ``llm_cfg`` has neither ``apiKey`` nor ``baseUrl``.
-    Setting ``PLATFORM_LLM_MONTHLY_CAP_EUR=0`` disables enforcement entirely.
+    Setting ``PLATFORM_LLM_MONTHLY_CAP_USD=0`` disables enforcement entirely.
+
+    Accounting is in USD (matching ``estimated_cost_usd`` from the LLM provider) —
+    no currency conversion, so there is no FX drift in the enforcement path.
 
     Parameters
     ----------
@@ -44,14 +47,14 @@ def check_platform_llm_cap(
         Caller owns the session lifecycle.
     settings:
         Application settings object; must expose
-        ``platform_llm_monthly_cap_eur: float``.
+        ``platform_llm_monthly_cap_usd: float``.
     llm_cfg:
         Tenant-level LLM configuration dict.  Keys: ``apiKey``, ``baseUrl``.
     """
     _using_platform_llm: bool = not llm_cfg.get("apiKey") and not llm_cfg.get("baseUrl")
-    _cap_eur: float = float(getattr(settings, "platform_llm_monthly_cap_eur", 10.0))
+    _cap_usd: float = float(getattr(settings, "platform_llm_monthly_cap_usd", 10.0))
 
-    if not _using_platform_llm or _cap_eur <= 0:
+    if not _using_platform_llm or _cap_usd <= 0:
         return None
 
     _month_start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -64,7 +67,7 @@ def check_platform_llm_cap(
     except (ImportError, Exception):  # pragma: no cover
         logger.error(
             "Could not import Job from sql_models — cap check skipped",
-            extra={"cap_eur": _cap_eur},
+            extra={"cap_usd": _cap_usd},
         )
         return None
 
@@ -86,21 +89,19 @@ def check_platform_llm_cap(
         for j in _platform_jobs
         if isinstance(j.result, dict)
     )
-    _eur_spend: float = _usd_spend * 1.08  # conservative USD → EUR approximation
-
-    if _eur_spend >= _cap_eur:
+    if _usd_spend >= _cap_usd:
         logger.warning(
             "Platform LLM operator cap reached — skipping analysis",
             extra={
-                "spend_eur": round(_eur_spend, 4),
-                "cap_eur": _cap_eur,
+                "spend_usd": round(_usd_spend, 4),
+                "cap_usd": _cap_usd,
             },
         )
         return {
             "status": "skipped",
             "reason": (
                 f"Platform LLM monthly budget exhausted "
-                f"(\u20ac{_eur_spend:.2f} / \u20ac{_cap_eur:.2f}). "
+                f"(${_usd_spend:.2f} / ${_cap_usd:.2f}). "
                 f"Add your own LLM API key in Settings \u2192 AI Configuration to continue."
             ),
         }
