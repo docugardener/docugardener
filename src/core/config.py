@@ -191,7 +191,7 @@ class Settings(BaseSettings):
         if not self.allowed_origins:
             raise RuntimeError(
                 "SEC-11: ALLOWED_ORIGINS must be explicitly set in production. "
-                'Example: ALLOWED_ORIGINS=["https://app.docugardener.dev"]'
+                'Example: ALLOWED_ORIGINS=["https://docugardener.dev"]'
             )
         if not self.sql_database_url:
             raise RuntimeError("SEC-11: SQL_DATABASE_URL must be set in production.")

@@ -284,7 +284,7 @@ def _send_first_analysis_email(
         )
         return
 
-    app_url: str = getattr(settings, "app_url", None) or "https://app.docugardener.dev"
+    app_url: str = getattr(settings, "app_url", None) or "https://docugardener.dev"
     html = _build_email_html(
         pr_number=pr_number,
         repo_full_name=repo_full_name,

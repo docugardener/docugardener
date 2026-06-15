@@ -144,7 +144,7 @@ export default function EnvironmentPage() {
       <table className="w-full text-sm border-collapse mb-8">
         <tbody>
           <EnvVar name="DATABASE_URL" required description="PostgreSQL connection URL for Prisma (Next.js side). Same database as the backend but uses a different connection string format." example="DATABASE_URL=postgresql://postgres:password@localhost:5433/docugardener-web?schema=public" />
-          <EnvVar name="NEXTAUTH_URL" required description="Canonical URL of the Next.js app. Must match the app's public URL exactly." example="NEXTAUTH_URL=https://app.docugardener.dev" />
+          <EnvVar name="NEXTAUTH_URL" required description="Canonical URL of the Next.js app. Must match the app's public URL exactly." example="NEXTAUTH_URL=https://docugardener.dev" />
           <EnvVar name="NEXTAUTH_SECRET" required description="Random secret for NextAuth session encryption. Generate with: openssl rand -base64 32" />
           <EnvVar name="GITHUB_ID" required description="GitHub OAuth App client ID (for GitHub sign-in, separate from the GitHub App)." />
           <EnvVar name="GITHUB_SECRET" required description="GitHub OAuth App client secret." />
