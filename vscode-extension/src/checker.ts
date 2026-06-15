@@ -176,8 +176,28 @@ export class DriftChecker {
             result = await this.callCheckEndpoint(`${backendUrl}/check`, files, apiKey, repoSlug)
         } catch (err: any) {
             this.output.log(`ERROR calling backend: ${err.message}`)
-            vscode.window.showErrorMessage(`DocuGardener: Backend unreachable — ${err.message}`)
             this.statusBar.setError()
+            const code: number | undefined = err?.statusCode
+            const detail: string = err?.detail || err?.message || "Unknown error"
+            if (code === 401) {
+                // Reached the backend, but the key was rejected — offer to re-enter it.
+                vscode.window.showErrorMessage(
+                    "DocuGardener: Invalid or expired API key.",
+                    "Enter API Key",
+                ).then((choice) => {
+                    if (choice === "Enter API Key") void this.promptForApiKey()
+                })
+            } else if (code === 429) {
+                // Rate limited — surface the server's friendly message.
+                vscode.window.showWarningMessage(`DocuGardener: ${detail}`)
+            } else if (code === 403) {
+                vscode.window.showErrorMessage(`DocuGardener: Access denied — ${detail}`)
+            } else if (code) {
+                vscode.window.showErrorMessage(`DocuGardener: Server error (HTTP ${code}). Try again later.`)
+            } else {
+                // No status code → genuine network failure / timeout.
+                vscode.window.showErrorMessage(`DocuGardener: Backend unreachable — ${err.message}`)
+            }
             return
         }
 
@@ -303,7 +323,15 @@ export class DriftChecker {
                             try {
                                 detail = JSON.parse(raw)?.detail || raw
                             } catch { /* ignore */ }
-                            reject(new Error(`HTTP ${res.statusCode}: ${detail}`))
+                            // Attach the status code + parsed detail so the caller can
+                            // distinguish auth/rate-limit/server errors from a true outage.
+                            const err = new Error(`HTTP ${res.statusCode}: ${detail}`) as Error & {
+                                statusCode?: number
+                                detail?: string
+                            }
+                            err.statusCode = res.statusCode
+                            err.detail = typeof detail === "string" ? detail : String(detail)
+                            reject(err)
                         }
                     })
                 },

@@ -402,4 +402,61 @@ describe("DriftChecker", () => {
             httpModule.request = origRequest
         }
     })
+
+    // -----------------------------------------------------------------------
+    // INT-VSCODE-COPY-01: runCheck classifies backend errors (no more
+    // "Backend unreachable" for an HTTP 401/429 that actually reached the server)
+    // -----------------------------------------------------------------------
+    async function _checkerWithBackendError(err: any) {
+        const checker = new DriftChecker(makeOutput(), makeStatusBar(), makeContext("dg_key"))
+        vscodeStub.workspace.workspaceFolders = [{ uri: { fsPath: "/repo" } }]
+        sandbox.stub(checker as any, "getStagedFiles").resolves([
+            { path: "a.py", old_content: "x", new_content: "y" },
+        ])
+        sandbox.stub(checker as any, "getRepoSlug").resolves(undefined)
+        sandbox.stub(checker as any, "callCheckEndpoint").rejects(err)
+        return checker
+    }
+
+    it("EXT-16: backend 401 → 'Invalid API key' with Enter-Key action, not 'unreachable'", async () => {
+        const errStub = sandbox.stub(vscodeStub.window, "showErrorMessage").resolves(undefined)
+        const err: any = new Error("HTTP 401: Invalid API key")
+        err.statusCode = 401
+        err.detail = "Invalid API key"
+        const checker = await _checkerWithBackendError(err)
+
+        await checker.runCheck()
+
+        assert.ok(errStub.called, "showErrorMessage should be called")
+        const msg = errStub.getCall(0).args[0] as string
+        assert.ok(/api key/i.test(msg), `expected API-key message, got: ${msg}`)
+        assert.ok(!/unreachable/i.test(msg), "must NOT say 'unreachable' for a 401")
+        assert.strictEqual(errStub.getCall(0).args[1], "Enter API Key")
+    })
+
+    it("EXT-17: backend 429 → surfaces the rate-limit message as a warning", async () => {
+        const warnStub = sandbox.stub(vscodeStub.window, "showWarningMessage").resolves(undefined)
+        const err: any = new Error("HTTP 429: limited")
+        err.statusCode = 429
+        err.detail = "Daily check limit reached (100/day on the Free plan)."
+        const checker = await _checkerWithBackendError(err)
+
+        await checker.runCheck()
+
+        assert.ok(warnStub.called, "showWarningMessage should be called")
+        const msg = warnStub.getCall(0).args[0] as string
+        assert.ok(/daily check limit/i.test(msg), `expected rate-limit message, got: ${msg}`)
+    })
+
+    it("EXT-18: network failure (no statusCode) → 'Backend unreachable'", async () => {
+        const errStub = sandbox.stub(vscodeStub.window, "showErrorMessage").resolves(undefined)
+        const err: any = new Error("connect ECONNREFUSED 127.0.0.1:8000")
+        const checker = await _checkerWithBackendError(err)
+
+        await checker.runCheck()
+
+        assert.ok(errStub.called, "showErrorMessage should be called")
+        const msg = errStub.getCall(0).args[0] as string
+        assert.ok(/unreachable/i.test(msg), `expected 'unreachable' for a network error, got: ${msg}`)
+    })
 })

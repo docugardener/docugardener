@@ -2,7 +2,7 @@
     "name": "docugardener",
     "displayName": "DocuGardener",
     "description": "Pre-push documentation drift detection — know before you push",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "homepage": "https://docugardener.dev",
     "bugs": {
         "url": "https://github.com/docugardener/docugardener/issues"

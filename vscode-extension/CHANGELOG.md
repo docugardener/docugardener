@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.1.2] — 2026-06-15
+
+### Fixed
+- Backend errors are now classified instead of all shown as "Backend unreachable": an HTTP **401** says *"Invalid or expired API key"* with a one-click **Enter API Key** action; a **429** surfaces the server's rate-limit message; other server errors and genuine network outages are distinguished. ("Unreachable" now means actually unreachable.)
+
 ## [0.1.1] — 2026-06-14
 
 ### Fixed
