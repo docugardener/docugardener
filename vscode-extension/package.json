@@ -2,7 +2,7 @@
     "name": "docugardener",
     "displayName": "DocuGardener",
     "description": "Pre-push documentation drift detection — know before you push",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "homepage": "https://docugardener.dev",
     "bugs": {
         "url": "https://github.com/docugardener/docugardener/issues"
@@ -32,6 +32,10 @@
                 "command": "docugardener.checkDrift",
                 "title": "DocuGardener: Check Drift Now",
                 "icon": "$(search)"
+            },
+            {
+                "command": "docugardener.signIn",
+                "title": "DocuGardener: Sign In"
             },
             {
                 "command": "docugardener.enterApiKey",
@@ -66,6 +70,9 @@
             "commandPalette": [
                 {
                     "command": "docugardener.checkDrift"
+                },
+                {
+                    "command": "docugardener.signIn"
                 },
                 {
                     "command": "docugardener.enterApiKey"

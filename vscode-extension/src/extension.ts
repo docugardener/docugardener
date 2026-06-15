@@ -1,6 +1,7 @@
 import * as vscode from "vscode"
 import * as fs from "fs"
 import * as path from "path"
+import { randomBytes } from "crypto"
 import { DriftChecker } from "./checker"
 import { StatusBarManager } from "./statusBar"
 import { OutputChannelManager } from "./outputChannel"
@@ -10,12 +11,40 @@ let statusBar: StatusBarManager
 let output: OutputChannelManager
 let checker: DriftChecker
 
+// UX-VSCODE-ONBOARD-01: in-flight sign-in (CSRF state). Set when the browser flow
+// starts; verified + cleared when the vscode:// callback fires.
+let pendingSignIn: { state: string } | undefined
+
 /** Web-app base URL — derived from the configured backend URL. */
 function webAppBase(): string {
     return vscode.workspace
         .getConfiguration("docugardener")
         .get("backendUrl", "https://docugardener.dev")
         .replace(/\/$/, "")
+}
+
+/**
+ * UX-VSCODE-ONBOARD-01: one-click sign-in. Opens the browser to the authorize
+ * page; the vscode:// callback (see the URI handler in activate) completes it.
+ */
+async function signIn(): Promise<void> {
+    const state = randomBytes(16).toString("hex")
+    const redirectUri = `${vscode.env.uriScheme}://docugardener.docugardener/auth-callback`
+    pendingSignIn = { state }
+    const authorizeUrl =
+        `${webAppBase()}/vscode/authorize?state=${encodeURIComponent(state)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}`
+    const opened = await vscode.env.openExternal(vscode.Uri.parse(authorizeUrl))
+    if (!opened) {
+        pendingSignIn = undefined
+        vscode.window.showErrorMessage("DocuGardener: Couldn't open the browser for sign-in.")
+        return
+    }
+    vscode.window.showInformationMessage("DocuGardener: Continue sign-in in your browser…")
+    // Drop stale pending state after 5 minutes so a never-completed flow can't linger.
+    setTimeout(() => {
+        if (pendingSignIn?.state === state) pendingSignIn = undefined
+    }, 5 * 60_000)
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -55,7 +84,40 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         { providedCodeActionKinds: DocuGardenerCodeActionProvider.providedCodeActionKinds },
     )
 
-    // Register command: DocuGardener: Enter API Key — lets users re-enter their key anytime
+    // Register command: DocuGardener: Sign In — one-click browser auth, auto-stores the key
+    const signInCmd = vscode.commands.registerCommand("docugardener.signIn", () => signIn())
+
+    // Handle the vscode:// callback from the browser authorize flow
+    const uriHandler = vscode.window.registerUriHandler({
+        async handleUri(uri: vscode.Uri): Promise<void> {
+            if (uri.path !== "/auth-callback") return
+            const params = new URLSearchParams(uri.query)
+            const code = params.get("code") ?? ""
+            const state = params.get("state") ?? ""
+            if (!pendingSignIn || state !== pendingSignIn.state) {
+                vscode.window.showErrorMessage(
+                    "DocuGardener: Sign-in could not be verified (state mismatch). Please try again.",
+                )
+                return
+            }
+            pendingSignIn = undefined
+            if (!code) {
+                vscode.window.showErrorMessage("DocuGardener: Sign-in failed — no authorization code.")
+                return
+            }
+            try {
+                await checker.exchangeCodeForKey(code)
+                vscode.window.showInformationMessage(
+                    "DocuGardener: Signed in — you're ready to check drift.",
+                )
+            } catch (err: any) {
+                output.log(`Sign-in exchange failed: ${err.message}`)
+                vscode.window.showErrorMessage(`DocuGardener: Sign-in failed — ${err.message}`)
+            }
+        },
+    })
+
+    // Register command: DocuGardener: Enter API Key — manual fallback to paste a key
     const enterKeyCmd = vscode.commands.registerCommand(
         "docugardener.enterApiKey",
         () => checker.promptForApiKey(),
@@ -76,23 +138,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // from within VS Code, so the command is the primary trigger.
 
     context.subscriptions.push(
-        checkCmd, createDocCmd, codeActionProvider, enterKeyCmd, clearKeyCmd, statusBar, output,
+        checkCmd, createDocCmd, codeActionProvider,
+        signInCmd, uriHandler, enterKeyCmd, clearKeyCmd, statusBar, output,
     )
 
-    // Show onboarding if no API key is configured
+    // Show onboarding if no API key is configured — lead with one-click Sign In.
     const existingKey = await context.secrets.get("docugardener.apiKey")
     if (!existingKey) {
         vscode.window.showInformationMessage(
-            "DocuGardener: No API key configured — generate one in the web app to start checking drift.",
-            "Enter Key",
-            "Open Web App",
+            "DocuGardener: Sign in to start checking documentation drift.",
+            "Sign In",
+            "Enter API Key",
         ).then(async (choice) => {
-            if (choice === "Enter Key") {
+            if (choice === "Sign In") {
+                await signIn()
+            } else if (choice === "Enter API Key") {
                 await checker.promptForApiKey()
-            } else if (choice === "Open Web App") {
-                vscode.env.openExternal(
-                    vscode.Uri.parse(`${webAppBase()}/dashboard/settings?tab=integrations`),
-                )
             }
         })
     }

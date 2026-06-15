@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.0] — 2026-06-15
+
+### Added
+- **One-click "DocuGardener: Sign In"** — opens your browser, you sign in (GitHub / email / SSO) and click Authorize, and the extension is configured automatically. No more generating and copy-pasting an API key. Works against self-hosted instances too (via `docugardener.backendUrl`). Manual **Enter API Key** remains for air-gapped/manual setups.
+
 ## [0.1.2] — 2026-06-15
 
 ### Fixed

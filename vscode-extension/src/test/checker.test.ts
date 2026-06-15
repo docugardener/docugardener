@@ -229,9 +229,12 @@ describe("DriftChecker", () => {
         )
         const firstCallMsg = showWarnStub.getCall(0).args[0] as string
         assert.ok(
-            firstCallMsg.includes("API key") || firstCallMsg.includes("key"),
-            `Expected warning about API key, got: ${firstCallMsg}`,
+            /sign in/i.test(firstCallMsg),
+            `Expected a sign-in prompt when no key is configured, got: ${firstCallMsg}`,
         )
+        // Both onboarding paths must be offered.
+        const actions = showWarnStub.getCall(0).args.slice(1) as string[]
+        assert.ok(actions.includes("Sign In") && actions.includes("Enter API Key"))
     })
 
     // -----------------------------------------------------------------------
@@ -458,5 +461,30 @@ describe("DriftChecker", () => {
         assert.ok(errStub.called, "showErrorMessage should be called")
         const msg = errStub.getCall(0).args[0] as string
         assert.ok(/unreachable/i.test(msg), `expected 'unreachable' for a network error, got: ${msg}`)
+    })
+
+    // -----------------------------------------------------------------------
+    // UX-VSCODE-ONBOARD-01: exchange a sign-in code for the plugin key
+    // -----------------------------------------------------------------------
+    it("EXT-19: exchangeCodeForKey stores the dg_ key returned by the server", async () => {
+        const ctx = makeContext()
+        const checker = new DriftChecker(makeOutput(), makeStatusBar(), ctx)
+        sandbox.stub(checker as any, "_postSignInCode").resolves("dg_signedinkey")
+
+        await checker.exchangeCodeForKey("code-123")
+
+        assert.deepStrictEqual(ctx.secrets.store.getCall(0).args, [
+            "docugardener.apiKey",
+            "dg_signedinkey",
+        ])
+    })
+
+    it("EXT-20: exchangeCodeForKey rejects a non-dg_ key (no store)", async () => {
+        const ctx = makeContext()
+        const checker = new DriftChecker(makeOutput(), makeStatusBar(), ctx)
+        sandbox.stub(checker as any, "_postSignInCode").resolves("garbage")
+
+        await assert.rejects(() => checker.exchangeCodeForKey("code-123"), /Invalid key/)
+        assert.ok(ctx.secrets.store.notCalled, "must not store an invalid key")
     })
 })

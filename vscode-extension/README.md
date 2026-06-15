@@ -11,23 +11,28 @@ leaving the IDE.
 
 ## Requirements
 
-A DocuGardener account (free tier available at [docugardener.dev](https://docugardener.dev)).
-Generate a plugin API key under **Settings → Integrations → VS Code Plugin**.
+A DocuGardener account — created automatically the first time you sign in (free,
+at [docugardener.dev](https://docugardener.dev)). No manual API-key copying required.
 
 ## Quick Setup
 
 1. Install the extension from the VS Code Marketplace.
 2. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run
-   **DocuGardener: Enter API Key**, then paste the key from the web app.
+   **DocuGardener: Sign In**. Your browser opens — sign in (GitHub, email, or SSO),
+   click **Authorize**, and you're returned to VS Code with everything configured.
 3. Stage your changes with `git add`, then run **DocuGardener: Check Drift Now**
    from the Command Palette or click the status bar item.
+
+> Prefer to do it manually (or air-gapped)? Run **DocuGardener: Enter API Key** and
+> paste a key generated under **Settings → VS Code Plugin** in the web app instead.
 
 ## Commands
 
 | Command | Description |
 |---|---|
+| `DocuGardener: Sign In` | One-click browser sign-in; stores your key automatically |
 | `DocuGardener: Check Drift Now` | Run a drift check against your staged changes |
-| `DocuGardener: Enter API Key` | Store your API key securely in the OS keychain |
+| `DocuGardener: Enter API Key` | Manually store an API key (alternative to Sign In) |
 | `DocuGardener: Clear API Key` | Remove the stored API key from the OS keychain |
 
 ## Configuration

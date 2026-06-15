@@ -120,16 +120,14 @@ export class DriftChecker {
 
         if (!apiKey) {
             const choice = await vscode.window.showWarningMessage(
-                "DocuGardener: No API key configured.",
-                "Enter Key",
-                "Open Web App",
+                "DocuGardener: Sign in to check documentation drift.",
+                "Sign In",
+                "Enter API Key",
             )
-            if (choice === "Enter Key") {
+            if (choice === "Sign In") {
+                await vscode.commands.executeCommand("docugardener.signIn")
+            } else if (choice === "Enter API Key") {
                 await this.promptForApiKey()
-            } else if (choice === "Open Web App") {
-                vscode.env.openExternal(
-                    vscode.Uri.parse(`${backendUrl}/dashboard/settings?tab=integrations`),
-                )
             }
             return
         }
@@ -458,6 +456,72 @@ export class DriftChecker {
             return true
         }
         return false
+    }
+
+    /**
+     * UX-VSCODE-ONBOARD-01: exchange a one-time sign-in code (from the browser
+     * authorize flow) for the tenant's plugin API key, and store it.
+     */
+    async exchangeCodeForKey(code: string): Promise<void> {
+        const backendUrl = vscode.workspace
+            .getConfiguration("docugardener")
+            .get("backendUrl", "https://docugardener.dev")
+            .replace(/\/$/, "")
+        const key = await this._postSignInCode(`${backendUrl}/api/vscode/token`, code)
+        if (!key || !key.startsWith("dg_")) {
+            throw new Error("Invalid key returned by server")
+        }
+        await this.storeApiKey(key)
+    }
+
+    private _postSignInCode(url: string, code: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const body = JSON.stringify({ code })
+            const parsed = new URL(url)
+            const isHttps = parsed.protocol === "https:"
+            const mod = isHttps ? https : http
+            const req = mod.request(
+                {
+                    hostname: parsed.hostname,
+                    port: parsed.port || (isHttps ? 443 : 80),
+                    path: parsed.pathname + parsed.search,
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Content-Length": Buffer.byteLength(body),
+                    },
+                    timeout: 30_000,
+                },
+                (res) => {
+                    let raw = ""
+                    res.on("data", (c) => (raw += c))
+                    res.on("end", () => {
+                        if (res.statusCode === 200) {
+                            try {
+                                resolve((JSON.parse(raw) as { pluginApiKey: string }).pluginApiKey)
+                            } catch {
+                                reject(new Error("Invalid JSON in token response"))
+                            }
+                        } else {
+                            let detail = raw
+                            try {
+                                detail = JSON.parse(raw)?.error || raw
+                            } catch {
+                                /* ignore */
+                            }
+                            reject(new Error(`HTTP ${res.statusCode}: ${detail}`))
+                        }
+                    })
+                },
+            )
+            req.on("error", reject)
+            req.on("timeout", () => {
+                req.destroy()
+                reject(new Error("Sign-in request timed out"))
+            })
+            req.write(body)
+            req.end()
+        })
     }
 
     dispose(): void {
