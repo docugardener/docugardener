@@ -23,6 +23,8 @@ def test_saml_routes_registered():
     """Verify SAML callback and SLO endpoints are registered in the FastAPI app."""
     from src.main import app
 
-    routes = [r.path for r in app.routes]
+    # Some Starlette route entries (e.g. _IncludedRouter mounts) lack `.path`;
+    # guard with getattr so introspection is robust across FastAPI/Starlette versions.
+    routes = [getattr(r, "path", None) for r in app.routes]
     assert "/auth/saml/callback" in routes, f"SAML callback route missing. Routes: {routes}"
     assert "/auth/saml/logout" in routes, f"SAML SLO route missing. Routes: {routes}"
