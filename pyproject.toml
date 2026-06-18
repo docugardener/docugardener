@@ -18,7 +18,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastapi>=0.109.0",
+    "fastapi>=0.109.0,<0.138",  # cap untested drift on rebuild; 0.137.x prod-verified (see memory: fastapi-unpinned-drift)
     "uvicorn[standard]>=0.27.0",
     "pydantic>=2.5.0",
     "pydantic-settings>=2.1.0",

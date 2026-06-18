@@ -1,4 +1,7 @@
-fastapi>=0.109.0
+# Upper bound pins out untested drift on container rebuild. 0.129+ introduced
+# _IncludedRouter (route introspection change); 0.137.x is prod-verified. Bump
+# the cap deliberately after testing a newer release. See memory: fastapi-unpinned-drift.
+fastapi>=0.109.0,<0.138
 uvicorn[standard]>=0.27.0
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
