@@ -79,6 +79,8 @@
     "protobufjs": "^7.5.8",
     "@protobufjs/utf8": "^1.1.1",
     "postcss": "^8.5.10",
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "dompurify": "^3.4.11",
+    "@opentelemetry/core": "^2.8.0"
   }
 }
