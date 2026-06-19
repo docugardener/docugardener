@@ -5,6 +5,16 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+---
+
+**Built solo.** 244 commits since going public (Apr 2026) · **3,200+ automated tests** (1,758 Python unit/integration · 1,439 Vitest) + Playwright E2E · zero-retention analysis · strict multi-tenancy · **cosign-signed Helm chart for on-prem K8s**.
+
+The core insight: **when agents write the code, DocuGardener writes the docs.** A two-stage LLM pipeline (Generator + temperature-0 Verifier) refuses to auto-merge hallucinated documentation — precision is the whole product.
+
+→ **Why it's built this way — architecture decisions & trade-offs: [DECISIONS.md](DECISIONS.md)**
+
+---
+
 ## Overview
 
 DocuGardener is the documentation safety net for AI-native engineering teams. As Copilot, Cursor, and Devin write more of your code, DocuGardener detects documentation drift in every PR and — for AI-authored code — drafts and merges the fix automatically. No human touchpoint required.
@@ -16,7 +26,7 @@ DocuGardener is the documentation safety net for AI-native engineering teams. As
 - 📥 **Triage Inbox**: Centralized dashboard to review, accept, or ignore drift alerts across all repos. High-contrast semantic diffs, keyboard-driven (`j`/`k`, `a`, `i`).
 - 🤖 **Auto-Fix PR (`autoHeal`)**: Drafts the precise Markdown update and opens a PR. The developer just reviews and merges.
 - 🔗 **Cross-Repo Drift Detection** *(beta)*: Detects when a change in one repository has documentation implications in sibling repositories. Configurable per-repo in Settings (Team plan+).
-- 🔌 **VS Code Extension (Pre-push Check)**: Real-time drift diagnostics in the IDE via a stateless `/check` API — catch issues before code reaches CI.
+- 🔌 **VS Code Extension (Pre-push Check)**: Real-time drift diagnostics in the IDE via a stateless `/check` API — catch issues before code reaches CI. One-click **Sign In** mints an API key in-editor (no manual token copy); the `/check` endpoint is per-tenant rate-limited.
 - 📊 **Nightly Rollup Reports**: Automated scheduler (02:00 UTC) creates GitHub Issues per repository summarizing average drift, peak scores, and high-drift PRs.
 - 🔌 **Slack & Jira Integrations**: Push drift alerts to Slack channels; auto-comment on existing Jira tickets at four lifecycle points (drift detected → fix PR created → no update required → fix PR merged). Pro+.
 - 🎮 **Git Diff Simulator & Prompt Playground**: Paste raw diffs to preview scoring; override system prompts per tenant to tune verification strictness. Pro+.
@@ -342,13 +352,13 @@ Sometimes documentation isn't needed (e.g., legacy code, generated files).
 - Add custom glob patterns (like `.gitignore`) in the Settings UI.
 - Use the **Real-time Tester** to verify if a file matches your rules before saving.
 
-### 🎮 Drift Simulator & Prompt Playground
+### 🧪 Evaluation & Hallucination Guardrails
 
-DocuGardener provides a full suite of tools for "Red Teaming" your documentation:
+Documentation generated from a hallucination is worse than no documentation. DocuGardener treats output quality as an evaluation problem, with both an offline regression suite and a runtime grounding check:
 
-- **Prompt Engineering Playground**: Override system prompts (e.g., `GENERATOR_SYSTEM_PROMPT`) per tenant to change the AI's "voice" or verification strictness.
-- **Git Diff Simulator**: Paste raw Git Diffs to see how the bot would score them against your current rules and prompts.
-- **Real-time Feedback**: Visualize the **Drift Score** and reasoning breakdown instantly.
+- **Hallucination guardrail (grounding)**: The two-stage pipeline grounds every draft against the actual code diff — a **Verifier runs at temperature 0** and emits an `ACCURATE` / `HALLUCINATION` verdict with a confidence score. Rejected drafts flag drift but are never auto-merged; a confidence **grace threshold** lifts the merge block so a low-confidence model never gates human code review.
+- **Golden-dataset regression scoring**: A curated set of drift cases (`tests/fixtures/golden/`) with deterministic, **LLM-free rubric scoring** (`scripts/score_golden.py`) — required/preferred/forbidden keyword coverage against a per-case `pass_threshold`. The `GS-01…05` test suite catches scoring regressions in CI without burning API credits.
+- **Drift simulator & prompt playground (interactive eval harness)**: Paste raw Git diffs to preview the **drift score** and reasoning breakdown, and override system prompts (e.g. `GENERATOR_SYSTEM_PROMPT`) per tenant to tune verification strictness before rolling changes out. Pro+.
 
 ## Configuration
 

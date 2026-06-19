@@ -328,7 +328,7 @@ flowchart LR
 - OSS creates pricing pressure and self-hosting support burden for a solo founder
 - Revisit conditions: >100 paying customers + SOC2 in progress + pull-based enterprise demand
 
-**Status:** Accepted (2026-03-12). See `docs/specs/GTM-09-SaaS-First-Bootstrap-Strategy.md`.
+**Status:** ⚠️ **Superseded by ADR-10 (2026-06-14).** This decision was reversed during the de-commercialization pivot — DocuGardener is now AGPL open-source + self-hostable with a managed SaaS. Retained here for historical context. Original: Accepted (2026-03-12), see `docs/specs/GTM-09-SaaS-First-Bootstrap-Strategy.md`.
 
 ---
 
@@ -376,6 +376,46 @@ flowchart LR
 - Provider-agnostic `LLMProvider` enum required zero pipeline refactor — only a new `AnthropicClient` in `src/agents/llm.py`
 
 **Status:** Accepted (2026-03-28).
+
+---
+
+### ADR-09: Ephemeral tmpfs Ingestion (Zero Code Retention)
+
+**Context:** Analysis requires a full checkout of the customer's repository. For compliance-sensitive teams, "where does our source code go?" is the first question — and a persistent clone on disk is a standing liability.
+
+**Decision:** Clone each repository into a RAM-backed `tmpfs` directory (`settings.tmpfs_path`, default `/tmp/docugardener`), parse with tree-sitter, embed, and wipe the working directory in a `finally` block — guaranteed cleanup even on error (`src/github/clone.py`, `shutil.rmtree`). No source caching; re-clone every run.
+
+**Rationale:**
+- Source code never touches persistent storage — the zero-retention claim is structural, not policy
+- RAM-disk wipe on process exit means a crashed worker leaves no residue
+- Re-cloning per run is cheap relative to LLM inference, and keeps the security story to one sentence
+
+**Consequences:**
+- Redundant clone cost per analysis (no incremental fetch)
+- tmpfs is sized against worker RAM — very large monorepos are bounded by available memory
+- Concurrent jobs partition tmpfs via per-job `tempfile` subdirectories to prevent cross-PR leakage
+
+**Status:** Accepted.
+
+---
+
+### ADR-10: AGPL Open-Source + Managed SaaS (supersedes ADR-05)
+
+**Context:** ADR-05 committed to SaaS-only with no open-source edition, to protect a solo founder's time. By mid-2026 that calculus had changed: the product *audits other teams' code and docs*, where source transparency directly reduces buyer friction.
+
+**Decision:** Relicense to **AGPL-3.0-or-later** and ship a fully self-hostable build (Docker Compose + cosign-signed Helm chart), alongside the managed SaaS at docugardener.dev. Public marketing reframed open-source / self-host first (de-commercialization, 2026-06-14).
+
+**Rationale:**
+- Transparency removes the "what does it do with our code?" objection and makes the zero-retention claim (ADR-09) auditable rather than asserted
+- Regulated teams can run it air-gapped on their own infrastructure
+- AGPL network-copyleft keeps the open core and the managed offering aligned
+- Stripe/billing code retained but unlinked — the pivot is reversible (see `pricing/page.tsx` dormant paths)
+
+**Consequences:**
+- A real self-host support surface (docs, issues, upgrade paths) the original ADR sought to avoid
+- Plan tiers become configurable defaults for cost-control rather than hard paywalls on self-host
+
+**Status:** Accepted (2026-06-14).
 
 ---
 
