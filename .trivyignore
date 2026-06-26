@@ -1,0 +1,77 @@
+# =============================================================================
+# Trivy ignore list — DocuGardener container scan (security-scan.yml)
+# =============================================================================
+# Defensive net for `linux-libc-dev` (Linux kernel userspace HEADERS).
+#
+# Why these are ignored:
+#   * `linux-libc-dev` ships ONLY C header files (/usr/include/linux/*.h). It
+#     contains no executable code and NO running kernel. The container always
+#     runs on the host kernel (VPS / colima), never on anything from this
+#     package, so these kernel CVEs are not reachable here.
+#   * The package entered the image transitively via libc6-dev (pulled by the
+#     -dev build packages). The structural fix in docker/Dockerfile removes it
+#     from the production stage entirely (runtime shared libs only), so after
+#     the next image rebuild + deploy these IDs will no longer appear at all.
+#   * This file is the belt-and-suspenders layer: it keeps the Security tab
+#     clean in the window before the rebuilt image is deployed, and absorbs any
+#     freshly-disclosed linux-libc-dev kernel-header CVE in the same class.
+#
+# Trivy reads `.trivyignore` from the scan working dir automatically — no
+# workflow change required. Review/prune once the rebuilt image is confirmed
+# live (the structural fix makes these entries dead no-ops). Added 2026-06-24.
+# -----------------------------------------------------------------------------
+
+# --- linux-libc-dev kernel-header CVEs (installed 6.12.90-2, fix 6.12.94-1) ---
+CVE-2025-22069
+CVE-2025-68251
+CVE-2025-68768
+CVE-2025-71289
+CVE-2026-23247
+CVE-2026-23272
+CVE-2026-23346
+CVE-2026-23394
+CVE-2026-23469
+CVE-2026-31420
+CVE-2026-31486
+CVE-2026-31560
+CVE-2026-31613
+CVE-2026-31663
+CVE-2026-31717
+CVE-2026-43116
+CVE-2026-43219
+CVE-2026-43245
+CVE-2026-43303
+CVE-2026-43331
+CVE-2026-45838
+CVE-2026-45839
+CVE-2026-45840
+CVE-2026-45841
+CVE-2026-45842
+CVE-2026-45843
+CVE-2026-45844
+CVE-2026-45845
+CVE-2026-45846
+CVE-2026-45850
+CVE-2026-45930
+CVE-2026-46117
+CVE-2026-46137
+CVE-2026-46158
+CVE-2026-46160
+CVE-2026-46170
+CVE-2026-46203
+CVE-2026-46216
+CVE-2026-46244
+CVE-2026-46274
+CVE-2026-46275
+CVE-2026-46315
+CVE-2026-46316
+CVE-2026-46319
+CVE-2026-46320
+CVE-2026-46321
+CVE-2026-46322
+CVE-2026-46323
+CVE-2026-46331
+CVE-2026-52908
+CVE-2026-52909
+CVE-2026-52910
+CVE-2026-52911

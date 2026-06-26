@@ -43,13 +43,21 @@ RUN useradd --create-home --shell /bin/bash docugardener
 
 WORKDIR /app
 
-# Install runtime dependencies (including SAML C libs for python3-saml)
-# apt-get upgrade pulls Debian security patches (libunbound8, linux-libc-dev, etc.).
+# Install runtime dependencies (SAML C libs for python3-saml).
+# Use RUNTIME shared libs, not -dev headers: the compiled xmlsec/lxml C
+# extensions are already baked into /opt/venv by the builder stage, so the
+# production image only needs the .so runtime plus the openssl crypto engine
+# (libxmlsec1t64-openssl, required for SAML sign/verify). Dropping the -dev
+# packages also removes libc6-dev -> linux-libc-dev (kernel headers), which
+# Trivy flags with dozens of non-exploitable kernel CVEs — no kernel runs in
+# this container, the headers are pure build-time artifacts. Verified: onelogin
+# add_sign produces a valid signed SAML Response against this exact lib set.
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     git \
-    libxmlsec1-dev \
-    libxml2-dev \
-    pkg-config \
+    libxmlsec1t64 \
+    libxmlsec1t64-openssl \
+    libxml2 \
+    libxslt1.1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Patch the base-image system pip (CVE-2026-3219, CVE-2026-6357).
