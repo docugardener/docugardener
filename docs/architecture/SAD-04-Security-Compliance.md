@@ -172,11 +172,13 @@ graph TD
 
 | Layer | Location | Mechanism | Latency | Authoritative? |
 |-------|----------|-----------|---------|----------------|
-| **1. Middleware** | `web/middleware.ts` | JWT cookie → role check → route-level redirect | <1ms | No (stale JWT) |
+| **1. Middleware** | `web/middleware.ts` | JWT cookie → reject revoked → role check → route-level redirect | <1ms | No (stale JWT) |
 | **2. Server Component** | `getServerSession()` | DB re-read of role on every request | ~5ms | Yes (real-time) |
-| **3. UI Filtering** | React components | Conditional rendering based on role | 0ms | No (cosmetic only) |
+| **3. UI Filtering** | React components + `SessionGuard` | Conditional rendering by role; client redirect on userless session | 0ms | No (cosmetic only) |
 
 **Known staleness window:** After an admin changes a user's role, middleware (Layer 1) still enforces the old role until the user signs out and back in. Server components (Layer 2) reflect the new role immediately. This is an accepted trade-off: middleware must be fast (no DB queries).
+
+**Session expiry / revocation handling:** The `jwt` callback flags idle-timed-out, SCIM-deactivated, and tenant-revoked sessions with `revoked: true` and the `session` callback then strips `user`. Middleware's `authorized` predicate rejects any `revoked` token (not just absent ones) and guards the whole `/dashboard` tree, redirecting expired sessions to `/auth/signin`. A client-side `SessionGuard` (mounted in `DashboardLayout`) covers an already-open tab whose session expires in place: on an authenticated-but-userless session it forces `signOut()` (clearing the stale cookie) and redirects to sign-in — closing the former bug where an expired session rendered a chrome-less, role-less dashboard shell instead of bouncing to login.
 
 ### 3.3 Plan-Based Feature Gating
 

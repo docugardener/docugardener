@@ -332,9 +332,11 @@ flowchart LR
 | **web-ci** | Push/PR to main | ESLint, `tsc --noEmit`, vitest (381 tests), npm audit | Lines/functions/statements: 70%, branches: 60% |
 | **docker** | After lint + test | BuildKit image build (no push) | Build succeeds |
 | **e2e** | Push/PR to main | Prisma migrate + seed + Playwright (37/51 passing) | Soft gate (report artifact) |
-| **security-scan** | Push/PR + weekly Monday | Trivy CRITICAL/HIGH CVE scan | SARIF upload to GitHub Security |
+| **security-scan** | Weekly Monday 06:00 UTC + manual dispatch (not push/PR — the full image build is too heavy for every push) | Trivy CRITICAL/HIGH CVE scan, `ignore-unfixed` | SARIF upload to GitHub Security |
 | **audit-retention** | Daily 02:00 UTC (`.github/workflows/audit-retention.yml`) | POST to `/api/admin/audit/retain` with `Authorization: Bearer ${CRON_SECRET}` — archives events older than `AUDIT_HOT_DAYS` (90d default) to cold storage and hard-deletes past `AUDIT_DELETE_DAYS` (365d) | 200 OK |
 | **helm-publish** | Git tag `v*` | Helm package + push to OCI registry | Cosign signature |
+
+> **Image hardening (Trivy surface):** The production stage of `docker/Dockerfile` installs **runtime** shared libs only (`libxmlsec1t64`, `libxmlsec1t64-openssl`, `libxml2`, `libxslt1.1`) — not the build-time `-dev` headers, which are confined to the builder stage. This keeps `libc6-dev → linux-libc-dev` (kernel headers) out of the final image, eliminating dozens of non-exploitable kernel-header CVEs from the Trivy scan (the container runs on the host kernel, never one from that package). The compiled `xmlsec`/`lxml` C extensions are baked into `/opt/venv` by the builder; SAML sign/verify (onelogin `add_sign`) is verified against this exact runtime lib set. A documented `.trivyignore` covers the same kernel-header CVE class as a defensive net.
 
 ### 5.3 Test Suite Summary
 
