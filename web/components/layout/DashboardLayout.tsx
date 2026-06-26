@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { Sidebar } from "@/components/layout/Sidebar"
+import { SessionGuard } from "@/components/layout/SessionGuard"
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs"
 import { Toaster } from "@/components/ui/sonner"
 import { CommandPalette } from "@/components/layout/CommandPalette"
@@ -13,6 +14,7 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
     return (
         <div className="flex min-h-screen overflow-hidden">
+            <SessionGuard />
             <Sidebar />
             <main className="flex-1 overflow-y-auto bg-background text-foreground page-stage">
                 <div className="w-full">
