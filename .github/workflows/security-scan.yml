@@ -51,6 +51,12 @@ jobs:
           push: false
           load: true
           tags: docugardener:scan
+          # Fresh token every run forces the apt-upgrade layer to rebuild so the
+          # scan reflects the latest Debian security patches, not a stale cached
+          # apt layer. Expensive pip/venv layers stay cached (arg only busts the
+          # production-stage apt in docker/Dockerfile).
+          build-args: |
+            APT_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

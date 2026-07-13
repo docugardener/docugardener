@@ -52,7 +52,15 @@ WORKDIR /app
 # Trivy flags with dozens of non-exploitable kernel CVEs — no kernel runs in
 # this container, the headers are pure build-time artifacts. Verified: onelogin
 # add_sign produces a valid signed SAML Response against this exact lib set.
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+#
+# APT_REFRESH busts this layer's build cache so `apt-get upgrade` re-runs and
+# pulls freshly-published Debian security patches. Without it, an unchanged
+# Dockerfile line keeps a stale cached apt layer (Buildx GHA cache / VPS local
+# cache), so newly-disclosed CVE fixes never reach the image. The scan workflow
+# passes github.run_id (fresh every scan); deploy passes the commit SHA.
+ARG APT_REFRESH=0
+RUN echo "apt-refresh token: ${APT_REFRESH}" \
+    && apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     git \
     libxmlsec1t64 \
     libxmlsec1t64-openssl \

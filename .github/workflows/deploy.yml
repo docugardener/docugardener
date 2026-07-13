@@ -80,6 +80,11 @@ jobs:
             git reset --hard origin/main
 
             echo "==> Building and starting services..."
+            # Cache-bust the production-stage apt layer so every deploy pulls the
+            # latest Debian security patches (see docker/Dockerfile ARG APT_REFRESH).
+            # The commit SHA changes each deploy, so apt-get upgrade re-runs; the
+            # expensive builder/pip layers stay cached.
+            export APT_REFRESH="$(git rev-parse HEAD)"
             docker compose --env-file /opt/docugardener/.env -f /opt/docugardener/docker/docker-compose.prod.yml up --build -d
 
             echo "==> Pruning old images..."
