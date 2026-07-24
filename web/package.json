@@ -80,7 +80,7 @@
     "@protobufjs/utf8": "^1.1.1",
     "postcss": "^8.5.10",
     "esbuild": "^0.28.1",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.12",
     "@opentelemetry/core": "^2.8.0",
     "vite": "^7.3.5",
     "undici": "^7.28.0",
