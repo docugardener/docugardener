@@ -68,15 +68,45 @@ RUN echo "apt-refresh token: ${APT_REFRESH}" \
     libxslt1.1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Patch the base-image system pip (CVE-2026-3219, CVE-2026-6357).
-# Runs before the PATH switch below, so `pip` resolves to /usr/local/bin/pip
-# (system pip), not the venv's already-patched pip.
-RUN pip install --no-cache-dir --upgrade "pip>=26.1"
-
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONPATH="/app"
+
+# Remove pip from the production image (SEC-TRIVY-03).
+#
+# Nothing installs packages at runtime: CMD is uvicorn, the healthcheck is a
+# bare `python -c "import httpx"`, there is no entrypoint script, and no module
+# under src/ imports pip, setuptools or pkg_resources. pip is a build-time
+# artifact here, exactly like the -dev headers dropped in 19e11c2.
+#
+# This replaces the previous `pip install --upgrade "pip>=26.1"` line. That
+# line patched CVE-2026-3219 / CVE-2026-6357, but pip *vendors* its own
+# dependencies, so upgrading pip dragged in three fresh Trivy findings:
+#   msgpack   1.1.2  GHSA-6v7p-g79w-8964  (high)
+#   setuptools 70.3.0 CVE-2025-47273      (high)
+#   setuptools 70.3.0 CVE-2026-59890      (medium)
+# Upgrading further does not help — pip 26.2 (latest release) still pins
+# msgpack==1.1.2 and setuptools==70.3.0 in src/pip/_vendor/vendor.txt. Deleting
+# pip removes the vendored copies and the original pip CVEs in one move, and
+# stops every future pip-vendored advisory from landing on this image.
+#
+# Only pip is removed; the venv's REAL setuptools is left untouched (torch
+# declares it as a runtime requirement). The flagged 70.3.0 is provably the
+# vendored copy — a real install resolves to 80.x. Verified that no installed
+# dependency imports pkg_resources, so nothing here relies on the shim that
+# setuptools>=81 stopped shipping.
+#
+# ensurepip is removed too; it bundles a pip wheel that Trivy also inspects,
+# and no venv is ever created inside this container.
+RUN rm -rf /usr/local/lib/python3.*/site-packages/pip \
+           /usr/local/lib/python3.*/site-packages/pip-*.dist-info \
+           /usr/local/lib/python3.*/ensurepip \
+           /opt/venv/lib/python3.*/site-packages/pip \
+           /opt/venv/lib/python3.*/site-packages/pip-*.dist-info \
+    && rm -f /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.* \
+             /opt/venv/bin/pip /opt/venv/bin/pip3 /opt/venv/bin/pip3.* \
+    && ! command -v pip
 
 # Copy application code
 COPY --chown=docugardener:docugardener src/ ./src/
