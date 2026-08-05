@@ -198,9 +198,23 @@ FROM production AS test
 USER root
 
 COPY --from=testdeps /testdeps /opt/testdeps
-# pytest is importable via PYTHONPATH rather than installed into the venv, so
-# the production venv stays byte-identical to what actually ships.
-ENV PYTHONPATH="/app:/opt/testdeps"
+
+# Make /opt/testdeps importable via a .pth file rather than PYTHONPATH.
+#
+# PYTHONPATH is NOT reliable here: run-tests-vps.sh passes `-e PYTHONPATH=/app`
+# on both the python and e2e suites, which REPLACES any PYTHONPATH baked into
+# the image — dropping /opt/testdeps and producing
+#     /opt/venv/bin/python: No module named pytest
+# (deploy run 31013764983). A .pth file in site-packages is processed by the
+# interpreter at startup and cannot be clobbered by the caller's environment.
+#
+# Copying into a .pth instead of into site-packages itself is deliberate: the
+# test deps overlap the venv (requests, python-dateutil already present as
+# transitive deps) and overwriting them could silently change the versions the
+# application code runs against.
+RUN echo "/opt/testdeps" > "$(python -c 'import site; print(site.getsitepackages()[0])')/_testdeps.pth" \
+    && python -c "import pytest, pytest_asyncio; print('pytest', pytest.__version__, 'importable without PYTHONPATH')"
+
 ENV PATH="/opt/testdeps/bin:$PATH"
 
 # tests/ is NOT copied: run-tests-vps.sh mounts it from the host, so editing a
