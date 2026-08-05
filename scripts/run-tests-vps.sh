@@ -76,8 +76,27 @@ E2E_REPO_ID="${E2E_REPO_ID:-repo-9615a1707d}"
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-https://docugardener.dev}"
 
 # Docker Compose file and project
+#
+# DC is an ARRAY, not a string. As a string it had to be used unquoted (${DC})
+# to word-split into arguments, which also split any path containing a space —
+# so the script could not run from a checkout like "…/AI Projects/DocuGardener".
+# It failed with: unknown docker command: "compose Projects/DocuGardener/.env".
+# Invisible on the VPS (/opt/docugardener has no space). Always expand as
+# "${DC[@]}" so each element stays one argument.
 DC_FILE="${ROOT}/docker/docker-compose.yml"
-DC="docker compose --env-file ${ROOT}/.env -f ${DC_FILE}"
+
+# Compose ships in two forms and hosts differ: the VPS has the `docker compose`
+# CLI plugin, while some local setups (e.g. Colima without the plugin wired in)
+# only have the standalone `docker-compose` v2 binary. Detect instead of
+# assuming either — hardcoding one form breaks the other host.
+if docker compose version >/dev/null 2>&1; then
+  DC=(docker compose --env-file "${ROOT}/.env" -f "${DC_FILE}")
+elif command -v docker-compose >/dev/null 2>&1; then
+  DC=(docker-compose --env-file "${ROOT}/.env" -f "${DC_FILE}")
+else
+  fail "neither 'docker compose' nor 'docker-compose' found — cannot run any suite"
+  exit 1
+fi
 
 # ── Suite selection ───────────────────────────────────────────────────────────
 # Parse --confirm-prod flag (required for e2e / playwright which touch production)
@@ -158,10 +177,29 @@ fi
 header "Pre-flight"
 
 # docker compose build must have been run
-if ! ${DC} images docugardener 2>/dev/null | grep -q "docugardener"; then
+if ! "${DC[@]}" images docugardener 2>/dev/null | grep -q "docugardener"; then
   warn "docugardener image not found — run 'docker compose build docugardener' first"
 fi
 pass "Docker compose config found"
+
+# The python + e2e suites run in the `test-runner` service, built from the
+# `test` stage. The production image has had no pip since SEC-TRIVY-03, so these
+# suites can no longer pip-install their dependencies into it at runtime —
+# that is exactly what turned deploy.yml red on 2026-08-05. The test deps are
+# pinned in docker/requirements-test.txt and baked into the image instead.
+#
+# This build is idempotent and almost always a cache hit: the `test` stage
+# derives from `builder`, which the production build has already cached.
+if wants python || wants e2e; then
+  echo "  Building test-runner image (cache hit unless requirements-test.txt changed)..."
+  if "${DC[@]}" --profile test build test-runner > /tmp/dg-test-build.log 2>&1; then
+    pass "test-runner image ready"
+  else
+    fail "test-runner image build failed — see /tmp/dg-test-build.log"
+    tail -20 /tmp/dg-test-build.log
+    exit 1
+  fi
+fi
 
 # FastAPI health (needed for e2e)
 if wants e2e || wants playwright; then
@@ -197,13 +235,15 @@ fi
 # ── Suite: python ─────────────────────────────────────────────────────────────
 if wants python; then
   header "Suite: python (unit + integration)"
-  echo "  Using docker compose run (production image excludes tests/ — mounting from host)"
+  echo "  Using docker compose run against test-runner (tests/ mounted from host)"
 
   # --no-deps: unit+integration tests are fully mocked — no postgres/redis/weaviate needed.
-  # --user root: production venv is root-owned; test deps are installed ephemerally.
+  # --user root: the venv is root-owned; pytest also needs a writable cache dir.
+  # --profile test: test-runner is profile-gated so `up` can never start it.
   # Extra mounts: tests that read config/script/doc files need project dirs accessible.
+  # pytest is baked into the image (docker/requirements-test.txt) — no runtime install.
   set +e
-  ${DC} run --rm --no-deps --user root \
+  "${DC[@]}" --profile test run --rm --no-deps --user root \
     -v "${ROOT}/tests:/app/tests:ro" \
     -v "${ROOT}/pyproject.toml:/app/pyproject.toml:ro" \
     -v "${ROOT}/docker:/app/docker:ro" \
@@ -217,8 +257,8 @@ if wants python; then
     -e APP_ENV=development \
     -e DEBUG=true \
     -e LOG_LEVEL=WARNING \
-    docugardener \
-    bash -c 'pip install -q "pytest>=7.4.0" "pytest-asyncio>=0.23.0" "pytest-cov>=4.1.0" "httpx>=0.26.0" && python -m pytest tests/unit/ tests/integration/ -q --tb=short' 2>&1 \
+    test-runner \
+    python -m pytest tests/unit/ tests/integration/ -q --tb=short 2>&1 \
     | tee /tmp/dg-test-python.log
   PYTHON_EXIT=${PIPESTATUS[0]}
   set -e
@@ -284,11 +324,11 @@ if wants e2e; then
   echo "  DB (internal): postgresql://postgres:***@postgres:5432/docugardener-web"
 
   # Run inside the Docker compose network so the 'postgres' hostname resolves.
-  # Production image excludes tests/ — mount from host (read-only).
+  # Runs in test-runner (pytest baked in) — tests/ mounted from host, read-only.
   # /usr/bin/gh is mounted so e2e tests that create/close GitHub PRs can use it.
   # GH_TOKEN is forwarded so gh CLI authenticates without interactive login.
   set +e
-  ${DC} run --rm --no-deps --user root \
+  "${DC[@]}" --profile test run --rm --no-deps --user root \
     -v "${ROOT}/tests:/app/tests:ro" \
     -v "${ROOT}/pyproject.toml:/app/pyproject.toml:ro" \
     -v /usr/bin/gh:/usr/bin/gh:ro \
@@ -304,12 +344,11 @@ if wants e2e; then
     -e GIT_COMMITTER_NAME="DocuGardener E2E" \
     -e GIT_COMMITTER_EMAIL="e2e@docugardener.dev" \
     -e PYTHONPATH=/app \
-    docugardener \
+    test-runner \
     bash -c '
       git config --global user.name "DocuGardener E2E" &&
       git config --global user.email "e2e@docugardener.dev" &&
       git config --global credential.helper "!gh auth git-credential" &&
-      pip install -q "pytest>=7.4.0" "pytest-asyncio>=0.23.0" "requests>=2.31.0" "sqlalchemy>=2.0.0" "psycopg2-binary>=2.9.0" "python-dateutil>=2.8.0" &&
       python -m pytest tests/e2e/ -m e2e -v -s --tb=short
     ' 2>&1 \
   | tee /tmp/dg-test-e2e.log

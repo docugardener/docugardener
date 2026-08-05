@@ -20,15 +20,27 @@
 # Run this after ANY change to docker/Dockerfile or a base-image bump.
 #
 # Usage:
-#   bash scripts/verification/verify-image-hardening.sh                # isolated (fast, ~1 min)
-#   bash scripts/verification/verify-image-hardening.sh --image TAG    # assert a built image
+#   bash scripts/verification/verify-image-hardening.sh                    # isolated (fast, ~1 min)
+#   bash scripts/verification/verify-image-hardening.sh --image TAG        # assert the PROD image
+#   bash scripts/verification/verify-image-hardening.sh --test-image TAG   # assert the TEST image
+#   bash scripts/verification/verify-image-hardening.sh --compose-only     # guards only, no daemon
 #   bash scripts/verification/verify-image-hardening.sh --image TAG --trivy
 #
-#   --image TAG   Assert against an already-built image instead of the
-#                 isolated fixture. Build it first:
-#                   docker build -f docker/Dockerfile -t docugardener:verify .
-#   --trivy       Also run a Trivy library scan (requires network; pulls
-#                 aquasec/trivy). Fails on MEDIUM+ findings.
+#   --image TAG       Assert the production invariants against an already-built
+#                     image instead of the isolated fixture. Build it first:
+#                       docker build -f docker/Dockerfile --target production \
+#                         -t docugardener:verify .
+#   --test-image TAG  Assert the mirror-image invariants for the `test` stage:
+#                     pytest and pip present, src.main importable, mounted tests
+#                     collectable. Build with --target test.
+#   --compose-only    Run only the compose guards (every docker/Dockerfile
+#                     service pins a target; test-runner is profile-gated).
+#                     Pure text checks — no Docker daemon required.
+#   --trivy           Also run a Trivy library scan (requires network; pulls
+#                     aquasec/trivy). Fails on MEDIUM+ findings.
+#
+# The compose guards run in every mode. An unpinned service is a diff-time
+# mistake, and catching it before an image is ever built is the whole point.
 #
 # Exit 0 = all invariants hold. Non-zero = a regression; read the FAIL line.
 #
@@ -51,11 +63,76 @@ while [[ $# -gt 0 ]]; do
             [[ -z "$TARGET_IMAGE" ]] && { echo "ERROR: --image needs a tag"; exit 2; }
             shift 2
             ;;
+        --test-image)
+            MODE="test-image"
+            TARGET_IMAGE="${2:-}"
+            [[ -z "$TARGET_IMAGE" ]] && { echo "ERROR: --test-image needs a tag"; exit 2; }
+            shift 2
+            ;;
+        --compose-only) MODE="compose-only"; shift ;;
         --trivy) RUN_TRIVY=1; shift ;;
-        -h|--help) sed -n '3,40p' "$0"; exit 0 ;;
+        -h|--help) sed -n '3,46p' "$0"; exit 0 ;;
         *) echo "ERROR: unknown argument '$1' (try --help)"; exit 2 ;;
     esac
 done
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# -----------------------------------------------------------------------------
+# Compose-level guards. No Docker daemon needed — pure text checks, so they run
+# anywhere (including the VPS, which has no .venv and no yaml module).
+#
+# These exist because Docker's default build target is the LAST stage in the
+# Dockerfile, and the last stage is now `test`. If a service ever loses its
+# explicit target, it silently starts shipping pip + pytest to production.
+# -----------------------------------------------------------------------------
+check_compose() {
+    local rc=0 f n_df n_tgt
+    echo "--- compose guards ---"
+    for f in "$REPO_ROOT/docker/docker-compose.yml" "$REPO_ROOT/docker/docker-compose.prod.yml"; do
+        [[ -f "$f" ]] || { echo "FAIL: missing $f"; rc=1; continue; }
+        local name; name="$(basename "$f")"
+
+        # Every service building docker/Dockerfile must declare a target within
+        # the 3 lines that follow (allows one interleaved comment line).
+        n_df=$(grep -c "^      dockerfile: docker/Dockerfile$" "$f" || true)
+        n_tgt=$(grep -A3 "^      dockerfile: docker/Dockerfile$" "$f" | grep -c "^      target: " || true)
+        if [[ "$n_df" -eq 0 ]]; then
+            echo "FAIL: $name — no docker/Dockerfile services found (did the file move?)"; rc=1
+        elif [[ "$n_df" -ne "$n_tgt" ]]; then
+            echo "FAIL: $name — $n_df Dockerfile service(s) but only $n_tgt declare a target"
+            echo "      an unpinned service defaults to the LAST stage (test) and ships pytest"
+            rc=1
+        else
+            echo "OK: $name — all $n_df docker/Dockerfile service(s) pin a build target"
+        fi
+
+        # Only test-runner may target the test stage.
+        local n_test; n_test=$(grep -c "^      target: test$" "$f" || true)
+        if [[ "$n_test" -ne 1 ]]; then
+            echo "FAIL: $name — expected exactly 1 service targeting the test stage, found $n_test"; rc=1
+        else
+            echo "OK: $name — exactly one service targets the test stage"
+        fi
+
+        # test-runner must be profile-gated, or `docker compose up` starts it.
+        local block; block="$(sed -n '/^  test-runner:/,/^  [a-z]/p' "$f")"
+        if ! grep -q 'profiles:.*test' <<<"$block"; then
+            echo "FAIL: $name — test-runner is not profile-gated; 'up' would start it in prod"; rc=1
+        elif ! grep -q "^      target: test$" <<<"$block"; then
+            echo "FAIL: $name — test-runner does not build the test stage"; rc=1
+        else
+            echo "OK: $name — test-runner is profile-gated and builds the test stage"
+        fi
+    done
+    return $rc
+}
+
+if [[ "$MODE" == "compose-only" ]]; then
+    check_compose || exit 1
+    echo "=== COMPOSE GUARDS HOLD ==="
+    exit 0
+fi
 
 # Colima is the usual local Docker host; respect an existing DOCKER_HOST.
 if [[ -z "${DOCKER_HOST:-}" && -S "$HOME/.colima/default/docker.sock" ]]; then
@@ -87,6 +164,13 @@ find / -path "*/pip/_vendor/*" -name "vendor.txt" 2>/dev/null | grep -q . \
     && fail "pip/_vendor present — vendored msgpack/setuptools still shipping"
 echo "OK: no pip/_vendor (vendored msgpack + setuptools gone)"
 
+# Catches the compose default-target footgun: docker/Dockerfile's LAST stage is
+# `test`, so a service that loses its explicit `target: production` would build
+# the test stage and ship pytest to prod. This assertion is how that surfaces.
+python -c "import pytest" >/dev/null 2>&1 \
+    && fail "pytest is in the production image — a service is building the test stage"
+echo "OK: no pytest (production is not accidentally built from the test stage)"
+
 python -c "print('')" >/dev/null 2>&1 || fail "python interpreter is broken"
 echo "OK: python runs"
 
@@ -116,6 +200,60 @@ else
     echo "note: pkg_resources absent (setuptools>=81 drops it; unrelated to pip removal)"
 fi
 ASSERT
+
+# -----------------------------------------------------------------------------
+# Invariants for the TEST image — the mirror image of the production set. The
+# test stage is what post-deploy suites run in, so pytest must be baked in and
+# the app must be importable. If these fail, deploy.yml goes red again.
+# -----------------------------------------------------------------------------
+read -r -d '' TEST_ASSERTIONS <<'ASSERT' || true
+fail() { echo "FAIL: $1"; exit 1; }
+
+python -c "import pytest" >/dev/null 2>&1 \
+    || fail "pytest missing from the test image — post-deploy suites cannot run"
+echo "OK: pytest present ($(python -c 'import pytest; print(pytest.__version__)'))"
+
+python -c "import pytest_asyncio" >/dev/null 2>&1 \
+    || fail "pytest-asyncio missing — async tests will error at collection"
+echo "OK: pytest-asyncio present"
+
+# pip is expected HERE (unlike production) — the stage derives from `builder`.
+command -v pip >/dev/null 2>&1 \
+    || fail "pip missing from the test image — the test stage should derive from builder"
+echo "OK: pip present (expected in the test stage only)"
+
+python -c "import src.main" >/dev/null 2>&1 \
+    || fail "cannot import src.main — PYTHONPATH or the src/ COPY is wrong"
+echo "OK: src.main imports"
+
+# Proves the mounted-tests contract still works end to end.
+if [ -d /app/tests ]; then
+    python -m pytest /app/tests/unit --collect-only -q >/dev/null 2>&1 \
+        || fail "pytest cannot collect mounted tests"
+    echo "OK: pytest collects mounted tests"
+else
+    echo "note: /app/tests not mounted — collection check skipped"
+fi
+ASSERT
+
+# -----------------------------------------------------------------------------
+if [[ "$MODE" == "test-image" ]]; then
+    echo "=== asserting TEST image: $TARGET_IMAGE ==="
+    docker image inspect "$TARGET_IMAGE" >/dev/null 2>&1 \
+        || { echo "ERROR: image '$TARGET_IMAGE' not found — build it first"; exit 2; }
+    echo "--- test-image invariants ---"
+    # Mirrors the mounts run-tests-vps.sh uses for collection. scripts/ matters:
+    # tests/unit/test_golden_scorer.py imports the `scripts` package, so a
+    # tests-only mount fails collection and misreports a healthy image as broken.
+    docker run --rm --entrypoint sh \
+        -v "$REPO_ROOT/tests:/app/tests:ro" \
+        -v "$REPO_ROOT/pyproject.toml:/app/pyproject.toml:ro" \
+        -v "$REPO_ROOT/scripts:/app/scripts:ro" \
+        "$TARGET_IMAGE" -c "$TEST_ASSERTIONS"
+    check_compose || exit 1
+    echo "=== ALL TEST-IMAGE INVARIANTS HOLD ==="
+    exit 0
+fi
 
 # -----------------------------------------------------------------------------
 if [[ "$MODE" == "isolated" ]]; then
@@ -161,6 +299,10 @@ fi
 
 echo "--- invariants ---"
 docker run --rm --entrypoint sh "$TARGET_IMAGE" -c "$ASSERTIONS"
+
+# Runs on every invocation: the in-image pytest assertion only fires if a bad
+# image was already built, whereas this catches an unpinned service in the diff.
+check_compose || exit 1
 
 # -----------------------------------------------------------------------------
 if [[ "$RUN_TRIVY" -eq 1 ]]; then

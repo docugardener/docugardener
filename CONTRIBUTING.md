@@ -36,6 +36,34 @@ cd web && npm run dev -- --port 3003
 
 See [`.env.example`](.env.example) and [`web/.env.example`](web/.env.example) for required environment variables.
 
+### Local Docker environment (macOS / Colima)
+
+The local Docker host differs from the VPS in ways that silently break tooling.
+Establish these **before** debugging a container or compose failure — each one
+below has cost real time by being discovered mid-task instead of upfront.
+
+```bash
+# Required for every docker/compose command — Colima is not the default context.
+export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+
+# Colima must be running; it is often left stopped between sessions.
+colima start          # ~40s; also brings up any restart:always containers
+colima list           # STATUS must be "Running"
+```
+
+| Fact | Why it matters |
+|---|---|
+| **Compose form varies.** The VPS has the `docker compose` CLI plugin; this Colima setup only has standalone `docker-compose` v2. | Scripts must detect both. `scripts/run-tests-vps.sh` does — do not hardcode either form. |
+| **No buildx.** `docker build` falls back to the legacy builder. | `--progress=plain` and other BuildKit flags are rejected. The legacy builder also builds every stage *up to* the target, which is why the `test` stage is last in `docker/Dockerfile`. |
+| **`COMPOSE_BAKE=false` is required.** Without buildx, compose v2 panics in `doBuildBake` (`slice bounds out of range`) on any build. | Export it before `docker compose build`, or builds crash with a Go stack trace. |
+| **Colima shares only `$HOME` into its VM.** | Bind-mounting a path outside `$HOME` (e.g. `/private/tmp/...`) silently mounts an *empty* directory — tests then fail with confusing "file or directory not found". Always run from inside `$HOME`. |
+| **The checkout path may contain spaces.** | Any shell variable holding a path must be quoted, and multi-word commands must be bash **arrays** (`DC=(...)` expanded as `"${DC[@]}"`), never unquoted strings. This is invisible on the VPS (`/opt/docugardener`). |
+
+The shared Colima host also runs other projects' containers (`skillseal-*`,
+`nestfleet-*`). **Never** run a blanket `docker system prune`, `docker image
+prune -a`, or `docker volume prune` — remove by explicit name or ID. Volumes
+include local dev databases (`docker_postgres-data`, `docker_weaviate-data`).
+
 ---
 
 ## Running Tests

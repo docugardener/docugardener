@@ -10,10 +10,12 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      # Pin: the LAST stage in docker/Dockerfile is `test` and must never ship.
+      target: production
     container_name: docugardener
     ports:
       - "127.0.0.1:8000:8000"
-    environment:
+    environment: &backend-env
       - APP_ENV=development
       - DEBUG=true
       - LOG_LEVEL=DEBUG
@@ -62,6 +64,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      # Pin: the LAST stage in docker/Dockerfile is `test` and must never ship.
+      target: production
     container_name: docugardener-worker
     command: rq worker high default --url redis://redis:6379/0
     # GAP-04: Give in-flight jobs up to 60 s to finish before Docker sends SIGKILL.
@@ -116,6 +120,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      # Pin: the LAST stage in docker/Dockerfile is `test` and must never ship.
+      target: production
     container_name: docugardener-worker-2
     command: rq worker high default --url redis://redis:6379/0
     stop_grace_period: 60s
@@ -209,6 +215,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      # Pin: the LAST stage in docker/Dockerfile is `test` and must never ship.
+      target: production
     container_name: docugardener-scheduler
     command: python -m src.scheduler.manager
     # Disable the Dockerfile's port-8000 healthcheck — scheduler has no HTTP server
@@ -366,6 +374,31 @@ services:
     networks:
       - docugardener-network
     restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Test runner — profile-gated, NEVER started by `docker compose up`
+  # ---------------------------------------------------------------------------
+  # Built from the `test` stage, which carries pinned pytest. The production
+  # image has had no pip since SEC-TRIVY-03, so tests can no longer install
+  # their own dependencies at runtime. Used by scripts/run-tests-vps.sh.
+  #
+  # `profiles` keeps this out of `up` / `down` / `ps`. It only materialises for:
+  #   docker compose --profile test run --rm test-runner <cmd>
+  test-runner:
+    profiles: ["test"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: test
+    image: docugardener-test:dev
+    # Anchor reuse — test env cannot silently drift from the real backend
+    # service. run-tests-vps.sh overrides APP_ENV/DEBUG/LOG_LEVEL per suite.
+    environment: *backend-env
+    volumes:
+      - ../src:/app/src:ro
+      - ../secrets:/app/secrets:ro
+    networks:
+      - docugardener-network
 
 volumes:
   redis-data:

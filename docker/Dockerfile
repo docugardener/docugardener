@@ -128,3 +128,46 @@ EXPOSE 8000
 
 # Run application
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# -----------------------------------------------------------------------------
+# Stage 3: Test runner  — NEVER DEPLOYED
+# -----------------------------------------------------------------------------
+# Exists because the production stage has no pip (SEC-TRIVY-03). Post-deploy
+# tests used to `pip install pytest ...` inside the production container at
+# deploy time; removing pip broke that and turned deploy.yml red. Rather than
+# putting pip back, the test tooling gets its own stage.
+#
+# ⚠️ THIS STAGE MUST STAY LAST, AND EVERY COMPOSE SERVICE MUST PIN
+#    `target: production`.
+#
+# Docker's default build target is the LAST stage in this file. All 8 services
+# that build this Dockerfile (docugardener, worker, worker-2, scheduler — in
+# both docker-compose.yml and docker-compose.prod.yml) therefore pin
+# `target: production` explicitly. Without that pin, this stage would ship pip
+# and pytest to production and silently undo the hardening above.
+#
+# Why last rather than wedged between `builder` and `production`: placing it
+# earlier would make the pin unnecessary under BuildKit, but the legacy builder
+# builds every stage up to the target — which would run this pip install during
+# production deploys, putting a PyPI network call back into the deploy path.
+# Last + explicit target is correct under both builders.
+#
+# Guarded by scripts/verification/verify-image-hardening.sh, which fails if the
+# production image contains pytest or pip, or if any service omits a target.
+FROM builder AS test
+
+WORKDIR /app
+ENV PATH="/opt/venv/bin:$PATH"
+ENV PYTHONPATH="/app"
+
+# Pinned, unlike the old floating deploy-time install — see requirements-test.txt.
+COPY docker/requirements-test.txt ./
+RUN pip install --no-cache-dir -r requirements-test.txt
+
+# tests/ is NOT copied: run-tests-vps.sh mounts it from the host, so editing a
+# test never requires rebuilding this image.
+COPY src/ ./src/
+
+# Root by default (the builder stage never creates the docugardener user), which
+# is what pytest needs for its cache dir. No CMD: the runner always supplies one.
+

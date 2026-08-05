@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# =============================================================================
+# DocuGardener — Test-only Python dependencies
+# =============================================================================
+# Installed ONLY into the `test` stage of docker/Dockerfile. Never present in
+# the production image — see ops note in docker/Dockerfile, and the assertion
+# in scripts/verification/verify-image-hardening.sh that fails if pytest ever
+# reaches production.
+#
+# Pinned exactly, on purpose. These were previously installed at DEPLOY TIME by
+# scripts/run-tests-vps.sh with floating ranges ("pytest>=7.4.0", ...), which
+# meant every deploy hit PyPI and a bad upstream release could turn deploys red
+# with no code change. Same failure class that forced the fastapi<0.138 cap.
+# Bump these deliberately, with the suites run locally — never widen to ranges.
+#
+# Versions match the local .venv baseline (Python 1756 passing, 2026-08-04).
+#
+# NOT listed here because docker/requirements.txt already provides them and the
+# test stage inherits the builder venv: httpx, sqlalchemy, psycopg2-binary.
+# =============================================================================
+
+pytest==9.0.2
+pytest-asyncio==1.3.0
+pytest-cov==7.0.0
+
+# e2e suite only (tests/e2e/) — see run-tests-vps.sh e2e suite
+requests==2.32.5
+python-dateutil==2.9.0.post0

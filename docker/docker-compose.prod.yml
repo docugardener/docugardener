@@ -116,6 +116,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      # Pin: the LAST stage in docker/Dockerfile is `test` and must never ship.
+      target: production
       args:
         # Busts the production-stage apt layer so each deploy pulls fresh Debian
         # security patches. deploy.yml exports APT_REFRESH=<commit SHA>.
@@ -123,7 +125,7 @@ services:
     container_name: docugardener
     restart: unless-stopped
     # No host port binding
-    environment:
+    environment: &backend-env
       - APP_ENV=production
       - APP_URL=https://${DOMAIN}
       - DEBUG=false
@@ -178,6 +180,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      # Pin: the LAST stage in docker/Dockerfile is `test` and must never ship.
+      target: production
       args:
         APT_REFRESH: ${APT_REFRESH:-0}
     container_name: docugardener-worker
@@ -217,6 +221,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      # Pin: the LAST stage in docker/Dockerfile is `test` and must never ship.
+      target: production
       args:
         APT_REFRESH: ${APT_REFRESH:-0}
     container_name: docugardener-worker-2
@@ -255,6 +261,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      # Pin: the LAST stage in docker/Dockerfile is `test` and must never ship.
+      target: production
     container_name: docugardener-scheduler
     command: python -m src.scheduler.manager
     restart: unless-stopped
@@ -446,6 +454,32 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
+    networks:
+      - docugardener-network
+
+  # ---------------------------------------------------------------------------
+  # Test runner — profile-gated, NEVER started by `docker compose up`
+  # ---------------------------------------------------------------------------
+  # Built from the `test` stage, which carries pinned pytest. The production
+  # image has had no pip since SEC-TRIVY-03, so tests can no longer install
+  # their own dependencies at runtime — that is what turned deploy.yml red on
+  # 2026-08-05. Used by scripts/run-tests-vps.sh for the post-deploy suites.
+  #
+  # `profiles` keeps this out of `up` / `down` / `ps`, so a deploy can never
+  # start a test container in production. It only materialises for:
+  #   docker compose --profile test run --rm test-runner <cmd>
+  test-runner:
+    profiles: ["test"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: test
+    image: docugardener-test:latest
+    # Anchor reuse — test env cannot silently drift from the real backend
+    # service. run-tests-vps.sh overrides APP_ENV/DEBUG/LOG_LEVEL per suite.
+    environment: *backend-env
+    volumes:
+      - ../secrets:/app/secrets:ro
     networks:
       - docugardener-network
 
