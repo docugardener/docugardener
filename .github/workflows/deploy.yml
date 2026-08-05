@@ -174,3 +174,37 @@ jobs:
               description: 'Smoke test failed — production may be degraded',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             })
+
+  # ── Resolve the pending status when the deploy never reaches smoke-test ──────
+  # check-ci posts a 'pending' commit status up front, and only smoke-test
+  # clears it. But smoke-test is gated on `needs: deploy`, so a failed deploy
+  # SKIPS it — and a skipped job never runs its `if: failure()` step. The
+  # status then stays 'pending' forever and renders as an amber "in progress"
+  # dot indistinguishable from a live run. Observed on ff376fd and cc00fb1
+  # (2026-08-05), which had to be cleared by hand via the statuses API.
+  #
+  # This job exists purely to close that gap. `always()` is required so it
+  # still runs when deploy was skipped (e.g. check-ci failed) rather than
+  # merely failed; the result guard keeps it off the success path, where
+  # smoke-test already owns the status. It touches nothing but the commit
+  # status, so it cannot affect a deploy.
+  resolve-status-on-failure:
+    name: Resolve deploy status on failure
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always() && needs.deploy.result != 'success'
+    permissions:
+      statuses: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.payload.workflow_run?.head_sha ?? context.sha,
+              state: 'failure',
+              context: 'deploy / smoke-test',
+              description: 'Deploy ${{ needs.deploy.result }} — smoke test did not run',
+              target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            })
