@@ -28,10 +28,34 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Python dependencies
-# Install Python dependencies
 COPY docker/requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip
+
+# CPU-only torch, installed BEFORE requirements.txt — order matters.
+#
+# requirements.txt asks for sentence-transformers, which pulls torch. On the
+# default PyPI index torch declares its whole CUDA stack gated only on the OS:
+#     nvidia-cudnn-cu13==9.20.0.48;   platform_system == "Linux"
+#     nvidia-cusparselt-cu13==0.8.1;  platform_system == "Linux"
+#     nvidia-nccl-cu13==2.29.7;       platform_system == "Linux"
+#     nvidia-nvshmem-cu13==3.4.5;     platform_system == "Linux"
+#     triton==3.7.1;                  platform_system == "Linux" and ...
+# There is no GPU check, so a CPU-only VPS gets the lot: measured inside the
+# deployed image, /opt/venv carried 2.7GB of nvidia/ plus 691MB of triton/ in a
+# 5.4GB venv. None of it executes — src/analysis/embeddings.py:40 constructs
+# SentenceTransformer(..., device="cpu") and the host has no NVIDIA hardware.
+# That dead weight is what left no disk headroom for rebuilds and broke the
+# 2026-08-05 deploy with "no space left on device".
+#
+# Installing the CPU build first means pip finds torch already satisfied when
+# it resolves sentence-transformers, so the CUDA wheels are never fetched.
+# Pinned deliberately: torch has been unpinned since the initial commit, so the
+# image has been growing with upstream. Bump this on purpose, not by accident.
+RUN pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        "torch==2.13.0+cpu"
+
+RUN pip install --no-cache-dir -r requirements.txt
 
 # -----------------------------------------------------------------------------
 # Stage 2: Production image
@@ -154,20 +178,32 @@ CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
 #
 # Guarded by scripts/verification/verify-image-hardening.sh, which fails if the
 # production image contains pytest or pip, or if any service omits a target.
-FROM builder AS test
-
-WORKDIR /app
-ENV PATH="/opt/venv/bin:$PATH"
-ENV PYTHONPATH="/app"
-
-# Pinned, unlike the old floating deploy-time install — see requirements-test.txt.
+# Test deps are built with the builder's pip into a relocatable directory, so
+# the test image itself needs no pip. Pinned — see requirements-test.txt.
+FROM builder AS testdeps
 COPY docker/requirements-test.txt ./
-RUN pip install --no-cache-dir -r requirements-test.txt
+RUN pip install --no-cache-dir --target /testdeps -r requirements-test.txt
+
+# The test image derives from `production`, NOT from `builder`.
+#
+# Deriving from builder duplicates the entire venv: measured on the VPS, the
+# resulting image was 9.55GB with only 132MB shared — 9.42GB of unique layers
+# re-copying torch and friends onto a disk that was already the constraint.
+# Deriving from production instead means every production layer is shared and
+# this stage adds only the ~50MB of pytest below.
+FROM production AS test
+
+# Root: pytest needs a writable cache dir, and production switches to the
+# unprivileged docugardener user.
+USER root
+
+COPY --from=testdeps /testdeps /opt/testdeps
+# pytest is importable via PYTHONPATH rather than installed into the venv, so
+# the production venv stays byte-identical to what actually ships.
+ENV PYTHONPATH="/app:/opt/testdeps"
+ENV PATH="/opt/testdeps/bin:$PATH"
 
 # tests/ is NOT copied: run-tests-vps.sh mounts it from the host, so editing a
-# test never requires rebuilding this image.
-COPY src/ ./src/
-
-# Root by default (the builder stage never creates the docugardener user), which
-# is what pytest needs for its cache dir. No CMD: the runner always supplies one.
+# test never requires rebuilding this image. src/ is already present from the
+# production stage. No CMD: the runner always supplies one.
 
