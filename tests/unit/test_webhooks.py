@@ -4,10 +4,10 @@
 import hashlib
 import hmac
 import json
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch
 
 from src.api.webhooks import verify_github_signature
 from src.core.config import settings
@@ -20,6 +20,7 @@ _TEST_SECRET = "test-webhook-secret"
 def client() -> TestClient:
     """Create test client with HMAC signing enabled."""
     import src.api.webhooks as wh
+
     wh._webhook_rate_limiters.clear()
     with patch.object(settings, "github_webhook_secret", _TEST_SECRET):
         yield TestClient(app)
@@ -30,7 +31,9 @@ def _sign(body: bytes) -> str:
     return f"sha256={sig}"
 
 
-def _post(client: TestClient, payload: dict, event: str = "ping", delivery_id: str = "test-delivery-123") -> object:
+def _post(
+    client: TestClient, payload: dict, event: str = "ping", delivery_id: str = "test-delivery-123"
+) -> object:
     body = json.dumps(payload).encode()
     return client.post(
         "/webhooks/github",
@@ -131,7 +134,9 @@ class TestWebhookEndpoint:
 
     def test_unhandled_event_ignored(self, client: TestClient):
         """Test that unhandled events return ignored status."""
-        response = _post(client, {"action": "created"}, event="issues", delivery_id="test-delivery-999")
+        response = _post(
+            client, {"action": "created"}, event="issues", delivery_id="test-delivery-999"
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -167,7 +172,9 @@ class TestLoopPrevention:
 
     def test_policy_sync_copilot_variant_skipped(self, client: TestClient):
         """BUG-7: copilot-instructions variant also uses docugardener/ prefix."""
-        data = self._post_pr(client, self._pr_payload("docugardener/rules-copilot-instructions-xyz"))
+        data = self._post_pr(
+            client, self._pr_payload("docugardener/rules-copilot-instructions-xyz")
+        )
         assert data["status"] == "skipped"
 
     def test_policy_sync_synchronize_also_skipped(self, client: TestClient):

@@ -10,16 +10,13 @@ Covers:
 
 from unittest.mock import patch
 
-import pytest
-
+from src.agents.verifier import DriftAnalysis
 from src.notifications.first_analysis_email import (
     _build_email_html,
     is_first_drift_for_tenant,
 )
-from src.agents.verifier import DriftAnalysis
 from src.pipeline.analyzer import PRAnalysisResult
 from src.pipeline.reporter import format_drift_report
-
 
 # ── is_first_drift_for_tenant ─────────────────────────────────────────────────
 
@@ -63,6 +60,7 @@ class TestIsFirstDriftForTenant:
 
 
 # ── format_drift_report — celebration banner ──────────────────────────────────
+
 
 def _make_result(drift_score: int = 45) -> PRAnalysisResult:
     drift = DriftAnalysis(

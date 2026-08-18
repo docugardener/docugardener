@@ -109,7 +109,7 @@ async def _ensure_tenant(db: Session, settings: Settings) -> str:
     db.execute(
         text(
             'INSERT INTO "Tenant" (id, "githubOrgId", name, plan, "createdAt", "updatedAt") '
-            'VALUES (:id, :github_org_id, :name, :plan, NOW(), NOW()) '
+            "VALUES (:id, :github_org_id, :name, :plan, NOW(), NOW()) "
             "ON CONFLICT (id) DO NOTHING"
         ),
         {

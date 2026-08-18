@@ -104,7 +104,9 @@ class TestLinearResolutionLifecycle:
         ):
             response = await http_client.post(
                 "/webhooks/github",
-                content=(_body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))),
+                content=(
+                    _body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))
+                ),
                 headers=_webhook_headers(body=_body),
             )
 
@@ -133,7 +135,9 @@ class TestLinearResolutionLifecycle:
         ):
             response = await http_client.post(
                 "/webhooks/github",
-                content=(_body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))),
+                content=(
+                    _body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))
+                ),
                 headers=_webhook_headers(body=_body),
             )
 
@@ -162,7 +166,9 @@ class TestLinearResolutionLifecycle:
         ):
             response = await http_client.post(
                 "/webhooks/github",
-                content=(_body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))),
+                content=(
+                    _body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))
+                ),
                 headers=_webhook_headers(body=_body),
             )
 
@@ -195,7 +201,9 @@ class TestLinearResolutionLifecycle:
         ):
             response = await http_client.post(
                 "/webhooks/github",
-                content=(_body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))),
+                content=(
+                    _body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))
+                ),
                 headers=_webhook_headers(body=_body),
             )
 
@@ -232,7 +240,9 @@ class TestLinearResolutionLifecycle:
         ):
             await http_client.post(
                 "/webhooks/github",
-                content=(_body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))),
+                content=(
+                    _body := signed_body(pr_merged_payload(head_ref="docugardener-fix-42-abc"))
+                ),
                 headers=_webhook_headers(body=_body),
             )
 

@@ -417,9 +417,7 @@ async def process_pull_request(
                         _da.get("summary", "") if isinstance(_da, dict) else ""
                     ) or ""
                     # EPIC-01-GAP-05: detect first drift for celebration banner + email
-                    _is_first_drift = is_first_drift_for_tenant(
-                        tenant_id, _drift_score_c04
-                    )
+                    _is_first_drift = is_first_drift_for_tenant(tenant_id, _drift_score_c04)
                     maybe_send_first_analysis_email(
                         tenant_id=tenant_id,
                         pr_number=pr_number,

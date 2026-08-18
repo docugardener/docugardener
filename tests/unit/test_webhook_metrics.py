@@ -24,6 +24,7 @@ _TEST_SECRET = "metrics-test-secret"
 @pytest.fixture
 def client() -> TestClient:
     import src.api.webhooks as wh
+
     wh._webhook_rate_limiters.clear()
     with patch.object(settings, "github_webhook_secret", _TEST_SECRET):
         yield TestClient(app)
@@ -69,14 +70,18 @@ class TestWebhookMetricsWired:
     @patch("src.api.webhooks.record_webhook")
     def test_ping_calls_record_webhook_success(self, mock_record, client):
         body = _ping_payload()
-        resp = client.post("/webhooks/github", content=body, headers=_headers("ping", "del-001", body))
+        resp = client.post(
+            "/webhooks/github", content=body, headers=_headers("ping", "del-001", body)
+        )
         assert resp.status_code == 200
         mock_record.assert_called_once_with("ping", success=True)
 
     @patch("src.api.webhooks.record_webhook")
     def test_unknown_event_calls_record_webhook_success(self, mock_record, client):
         body = json.dumps({}).encode()
-        resp = client.post("/webhooks/github", content=body, headers=_headers("push", "del-002", body))
+        resp = client.post(
+            "/webhooks/github", content=body, headers=_headers("push", "del-002", body)
+        )
         assert resp.status_code == 200
         mock_record.assert_called_once_with("push", success=True)
 
@@ -92,7 +97,9 @@ class TestWebhookMetricsWired:
         """When the handler raises, record_webhook must be called with success=False."""
         body = _pr_payload()
         with pytest.raises(Exception):
-            client.post("/webhooks/github", content=body, headers=_headers("pull_request", "del-003", body))
+            client.post(
+                "/webhooks/github", content=body, headers=_headers("pull_request", "del-003", body)
+            )
         mock_record.assert_called_once()
         _, kwargs = mock_record.call_args
         assert kwargs["success"] is False

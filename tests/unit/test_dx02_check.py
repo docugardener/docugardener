@@ -287,7 +287,8 @@ async def test_check_returns_429_when_rate_limited():
             assert res.status_code == 429
             assert "limit" in res.json()["detail"].lower()
             assert any(
-                c.args[:1] == ("Plugin check rejected",) and c.kwargs.get("status") == "rate_limited"
+                c.args[:1] == ("Plugin check rejected",)
+                and c.kwargs.get("status") == "rate_limited"
                 for c in mock_log.warning.call_args_list
             ), f"expected rate_limited rejection log, got {mock_log.warning.call_args_list}"
     finally:

@@ -5,6 +5,7 @@ Safe rule: only write to a tenant field that is currently NULL / empty.
 Never overwrite existing tenant configuration.
 Errors are caught and logged — bootstrap failure must never block login.
 """
+
 from __future__ import annotations
 
 import logging
@@ -91,9 +92,7 @@ def _bootstrap_github_app(tenant_id: str) -> None:
             with open(pem_path) as f:
                 pem_content = f.read()
         except OSError as exc:
-            raise RuntimeError(
-                f"Cannot read private key from {pem_path}: {exc}"
-            ) from exc
+            raise RuntimeError(f"Cannot read private key from {pem_path}: {exc}") from exc
 
         # Encrypt before storing
         encrypted_pem = encrypt(pem_content)
@@ -141,8 +140,9 @@ def _fetch_installation_id(app_id: str, pem_content: str) -> str:
         RuntimeError: If the API call fails or no installations are found.
     """
     try:
-        import jwt as pyjwt  # type: ignore[import]
         import time
+
+        import jwt as pyjwt  # type: ignore[import]
 
         now = int(time.time())
         payload = {"iat": now - 60, "exp": now + 600, "iss": app_id}
@@ -161,9 +161,7 @@ def _fetch_installation_id(app_id: str, pem_content: str) -> str:
     )
 
     if resp.status_code != 200:
-        raise RuntimeError(
-            f"GitHub API returned {resp.status_code}: {resp.text[:200]}"
-        )
+        raise RuntimeError(f"GitHub API returned {resp.status_code}: {resp.text[:200]}")
 
     installations = resp.json()
     if not installations:
@@ -267,11 +265,7 @@ def _get_tenant(db: Any, tenant_id: str) -> Any | None:
     try:
         from src.storage.sql_models import Tenant  # type: ignore[import]
 
-        return (
-            db.query(Tenant)
-            .filter(Tenant.id == tenant_id)
-            .first()
-        )
+        return db.query(Tenant).filter(Tenant.id == tenant_id).first()
     except Exception:
         logger.exception(
             "Failed to query tenant",

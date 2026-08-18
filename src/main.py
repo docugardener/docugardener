@@ -11,9 +11,9 @@ from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app as make_metrics_app
 
 from src.api.billing import router as billing_router
-from src.api.environment import router as environment_router
 from src.api.check import router as check_router
 from src.api.diagnostics import router as diagnostics_router
+from src.api.environment import router as environment_router
 from src.api.feedback import router as feedback_router
 from src.api.health import router as health_router
 from src.api.inbox import router as inbox_router

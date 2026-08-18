@@ -12,9 +12,8 @@ Verifies that:
 import hashlib
 import hmac
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from src.core.config import settings
@@ -36,11 +35,13 @@ def _sign(body: bytes, secret: str) -> str:
 def _make_app():
     import src.api.webhooks as wh
     from src.main import create_app
+
     wh._webhook_rate_limiters.clear()
     return create_app()
 
 
 # ── Test 1: empty secret → 503 ────────────────────────────────────────────────
+
 
 def test_empty_secret_returns_503():
     """When GITHUB_WEBHOOK_SECRET is not set, any webhook must return 503."""
@@ -55,12 +56,11 @@ def test_empty_secret_returns_503():
             content=body,
             headers={**_PING_HEADERS, "X-Hub-Signature-256": "sha256=invalid"},
         )
-    assert resp.status_code == 503, (
-        f"Expected 503 for unconfigured secret, got {resp.status_code}"
-    )
+    assert resp.status_code == 503, f"Expected 503 for unconfigured secret, got {resp.status_code}"
 
 
 # ── Test 2: debug=True does not bypass empty secret ───────────────────────────
+
 
 def test_debug_true_does_not_bypass_empty_secret():
     """debug=True must never disable signature enforcement."""
@@ -81,6 +81,7 @@ def test_debug_true_does_not_bypass_empty_secret():
 
 
 # ── Test 3: valid secret + correct HMAC → 200 ─────────────────────────────────
+
 
 def test_valid_signature_accepted():
     """Correct HMAC with a configured secret must be accepted (200)."""
@@ -103,6 +104,7 @@ def test_valid_signature_accepted():
 
 # ── Test 4: valid secret + wrong HMAC → 401 ──────────────────────────────────
 
+
 def test_invalid_signature_rejected():
     """Wrong HMAC signature with a configured secret must return 401."""
     with (
@@ -119,6 +121,4 @@ def test_invalid_signature_rejected():
                 "X-Hub-Signature-256": "sha256=deadbeefdeadbeef",
             },
         )
-    assert resp.status_code == 401, (
-        f"Expected 401 for wrong HMAC, got {resp.status_code}"
-    )
+    assert resp.status_code == 401, f"Expected 401 for wrong HMAC, got {resp.status_code}"

@@ -160,9 +160,7 @@ async def handle_github_webhook(
             delivery_id=x_github_delivery,
             event_type=x_github_event,
         )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature")
 
     # Parse JSON payload
     try:
@@ -428,7 +426,6 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
     if sender_login and installation_id:
         try:
             from src.pipeline.job_manager import SessionLocal
-            from src.storage.sql_models import Tenant
 
             _db = SessionLocal()
             try:
@@ -459,7 +456,7 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
     if installation_id and repo_name:
         try:
             from src.pipeline.job_manager import SessionLocal
-            from src.storage.sql_models import Repository, Tenant
+            from src.storage.sql_models import Repository
 
             _db2 = SessionLocal()
             try:
@@ -500,7 +497,6 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
     if installation_id:
         try:
             from src.pipeline.job_manager import SessionLocal
-            from src.storage.sql_models import Tenant as _Tenant
 
             _db_ai = SessionLocal()
             try:
@@ -539,7 +535,6 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
 
             from src.pipeline.job_manager import SessionLocal
             from src.storage.sql_models import Job as _BudgetJob
-            from src.storage.sql_models import Tenant as _BudgetTenant
 
             _db_budget = SessionLocal()
             try:
@@ -596,7 +591,6 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
         try:
             from src.billing.quota import check_pr_quota, check_repo_quota
             from src.pipeline.job_manager import SessionLocal
-            from src.storage.sql_models import Tenant as _QuotaTenant
 
             _db_quota = SessionLocal()
             try:
@@ -728,7 +722,6 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
             from src.pipeline.job_manager import SessionLocal as _IdemSession
             from src.storage.sql_models import Job as _IdemJob
             from src.storage.sql_models import JobStatus as _IdemStatus
-            from src.storage.sql_models import Tenant as _IdemTenant
 
             _idem_db = _IdemSession()
             try:
@@ -770,7 +763,6 @@ async def handle_pull_request(data: dict[str, Any], delivery_id: str) -> dict[st
         try:
             from src.pipeline.job_manager import SessionLocal as _G4Session
             from src.pipeline.job_manager import job_manager as _jm
-            from src.storage.sql_models import Tenant as _G4Tenant
 
             _g4_db = _G4Session()
             try:
@@ -910,7 +902,7 @@ async def handle_fix_pr_merged(data: dict[str, Any], head_ref: str) -> dict[str,
         from datetime import datetime
 
         from src.pipeline.job_manager import SessionLocal
-        from src.storage.sql_models import Job, Tenant, TriageStatus
+        from src.storage.sql_models import Job, TriageStatus
 
         db = SessionLocal()
         try:
@@ -1090,7 +1082,7 @@ async def handle_fix_pr_closed(data: dict, head_ref: str) -> dict:
         from datetime import datetime
 
         from src.pipeline.job_manager import SessionLocal
-        from src.storage.sql_models import Job, Tenant, TriageStatus
+        from src.storage.sql_models import Job, TriageStatus
 
         db = SessionLocal()
         try:

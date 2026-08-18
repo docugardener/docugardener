@@ -12,14 +12,13 @@ Verifies that:
 
 from unittest.mock import patch
 
-import pytest
-
 from src.core.config import settings
 
 
 def _get_cors_middleware(app):
     """Extract CORSMiddleware kwargs from a FastAPI app's middleware stack."""
     from starlette.middleware.cors import CORSMiddleware as StarletteCORS
+
     for mw in app.user_middleware:
         if mw.cls is StarletteCORS:
             return mw.kwargs
@@ -28,21 +27,22 @@ def _get_cors_middleware(app):
 
 # ── Test 1: no wildcard when ALLOWED_ORIGINS is empty (dev) ───────────────────
 
+
 def test_cors_dev_fallback_is_not_wildcard():
     with (
         patch.object(settings, "allowed_origins", []),
         patch.object(settings, "app_env", "development"),
     ):
         from src.main import create_app
+
         app = create_app()
         cors = _get_cors_middleware(app)
         assert cors is not None
-        assert "*" not in cors["allow_origins"], (
-            "Wildcard origin must not appear in dev fallback"
-        )
+        assert "*" not in cors["allow_origins"], "Wildcard origin must not appear in dev fallback"
 
 
 # ── Test 2: dev fallback includes localhost:3003 ──────────────────────────────
+
 
 def test_cors_dev_fallback_includes_localhost():
     with (
@@ -50,6 +50,7 @@ def test_cors_dev_fallback_includes_localhost():
         patch.object(settings, "app_env", "development"),
     ):
         from src.main import create_app
+
         app = create_app()
         cors = _get_cors_middleware(app)
         origins = cors["allow_origins"]
@@ -61,9 +62,11 @@ def test_cors_dev_fallback_includes_localhost():
 
 # ── Test 3: explicit origins are used when set ────────────────────────────────
 
+
 def test_cors_explicit_origins_used():
     with patch.object(settings, "allowed_origins", ["https://app.example.com"]):
         from src.main import create_app
+
         app = create_app()
         cors = _get_cors_middleware(app)
         assert cors["allow_origins"] == ["https://app.example.com"]
@@ -71,9 +74,11 @@ def test_cors_explicit_origins_used():
 
 # ── Test 4: allow_methods does not contain wildcard ───────────────────────────
 
+
 def test_cors_methods_are_explicit():
     with patch.object(settings, "allowed_origins", ["https://app.example.com"]):
         from src.main import create_app
+
         app = create_app()
         cors = _get_cors_middleware(app)
         methods = cors.get("allow_methods", [])
@@ -84,9 +89,11 @@ def test_cors_methods_are_explicit():
 
 # ── Test 5: allow_headers does not contain wildcard, includes X-Tenant-ID ─────
 
+
 def test_cors_headers_are_explicit():
     with patch.object(settings, "allowed_origins", ["https://app.example.com"]):
         from src.main import create_app
+
         app = create_app()
         cors = _get_cors_middleware(app)
         headers = cors.get("allow_headers", [])

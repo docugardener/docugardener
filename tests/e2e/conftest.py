@@ -29,7 +29,6 @@ import pytest
 import requests
 from sqlalchemy import create_engine, text
 
-
 # ── Auto-discover tenant/repo IDs before test collection ──────────────────────
 # Runs in pytest_configure so that helpers.py reads the correct values at import
 # time (module-level constants are evaluated during collection, after this hook).

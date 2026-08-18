@@ -8,14 +8,12 @@ Tests cover src/core/env_bootstrap.py:
   - Safe-overwrite guard (never clobber existing config)
   - Failure isolation (bootstrap errors never block login)
 """
+
 from __future__ import annotations
 
 import os
 from typing import Any
 from unittest.mock import MagicMock, patch
-
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -105,7 +103,9 @@ class TestBootstrapGitHubApp:
     def test_bootstrap_skipped_when_app_id_already_set(self, tmp_path: Any) -> None:
         """Bootstrap does NOT overwrite an existing appId."""
         pem_file = tmp_path / "key.pem"
-        pem_file.write_text("-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----\n")
+        pem_file.write_text(
+            "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----\n"
+        )
 
         env = {
             "GITHUB_APP_ID": "999",

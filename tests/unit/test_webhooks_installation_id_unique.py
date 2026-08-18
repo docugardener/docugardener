@@ -32,6 +32,8 @@ engine = create_engine(
     "sqlite:///:memory:",
     connect_args={"check_same_thread": False},
 )
+
+
 # Enable FK enforcement for SQLite
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_conn, _):
@@ -93,7 +95,9 @@ class TestGetTenantByInstallationId:
         The unique constraint prevents creating this state via the ORM, so we
         test the selection logic directly by mocking db.query().filter().all().
         """
-        default_t = Tenant(id="default", name="Self-hosted", githubOrgId="default", installationId="77777")
+        default_t = Tenant(
+            id="default", name="Self-hosted", githubOrgId="default", installationId="77777"
+        )
         real_t = Tenant(id="t-real", name="myorg", githubOrgId="999", installationId="77777")
 
         mock_db = MagicMock()
@@ -106,7 +110,9 @@ class TestGetTenantByInstallationId:
     def test_tiebreaker_fallback_when_all_rows_are_default(self):
         """Edge case: if all matching rows are the default tenant, return the first one."""
         t1 = Tenant(id="default", name="Self-hosted", githubOrgId="default", installationId="88888")
-        t2 = Tenant(id="default2", name="Self-hosted", githubOrgId="default2", installationId="88888")
+        t2 = Tenant(
+            id="default2", name="Self-hosted", githubOrgId="default2", installationId="88888"
+        )
 
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value.all.return_value = [t1, t2]
@@ -128,9 +134,7 @@ class TestInstallationIdUniqueConstraint:
         try:
             _make_tenant(db, id="t1", name="Org1", github_org_id="111", installation_id="12345")
             with pytest.raises(IntegrityError):
-                _make_tenant(
-                    db, id="t2", name="Org2", github_org_id="222", installation_id="12345"
-                )
+                _make_tenant(db, id="t2", name="Org2", github_org_id="222", installation_id="12345")
         finally:
             db.close()
 
@@ -150,9 +154,7 @@ class TestInstallationIdUniqueConstraint:
         db = TestingSessionLocal()
         try:
             _make_tenant(db, id="t1", name="Org1", github_org_id="111", installation_id=None)
-            _make_tenant(
-                db, id="t2", name="Org2", github_org_id="222", installation_id="99999"
-            )
+            _make_tenant(db, id="t2", name="Org2", github_org_id="222", installation_id="99999")
             assert db.query(Tenant).count() == 2
         finally:
             db.close()
@@ -192,9 +194,7 @@ class TestHandleInstallationGuard:
         db = TestingSessionLocal()
         try:
             _make_tenant(db, id="t1", name="myorg", github_org_id="42", installation_id=None)
-            _make_tenant(
-                db, id="t2", name="other", github_org_id="99", installation_id="existing"
-            )
+            _make_tenant(db, id="t2", name="other", github_org_id="99", installation_id="existing")
         finally:
             db.close()
 
