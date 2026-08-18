@@ -19,7 +19,7 @@
 # test stage inherits the builder venv: httpx, sqlalchemy, psycopg2-binary.
 # =============================================================================
 
-pytest==9.0.2
+pytest==9.0.3
 pytest-asyncio==1.3.0
 pytest-cov==7.0.0
 
