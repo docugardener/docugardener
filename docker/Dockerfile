@@ -57,6 +57,42 @@ RUN pip install --no-cache-dir \
 
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pin setuptools from PyPI (SEC-TRIVY-04).
+#
+# The torch line above uses --index-url, which REPLACES PyPI for that whole
+# resolution rather than adding to it. torch declares setuptools as a runtime
+# requirement, so pip resolved it from download.pytorch.org/whl/cpu — a mirror
+# whose newest setuptools is 78.1.0 (verified 2026-08-18: it carries only
+# 70.0.0, 70.2.0, 78.1.0). The deployed image confirmed it: setuptools 78.1.0,
+# while a PyPI resolution gives 80.9.0+.
+#
+# That one stale package produced four Trivy findings:
+#   setuptools 78.1.0             CVE-2025-47273  (high)    fixed 78.1.1
+#   setuptools 78.1.0             CVE-2026-59890  (medium)  fixed 83.0.0
+#   _vendor/wheel 0.45.1          CVE-2026-24049  (high)    fixed 0.46.2
+#   _vendor/jaraco.context 5.3.0  CVE-2026-23949  (high)    fixed 6.1.0
+# It never self-heals — the requirements.txt install above runs against PyPI
+# but finds setuptools already satisfied and leaves the mirror copy in place.
+# 84.0.0 is the first version that clears all four: it vendors wheel 0.46.3 and
+# jaraco_context 6.1.0.
+#
+# Placed AFTER requirements.txt on purpose. python3-saml builds xmlsec from an
+# sdist against libxmlsec1-dev, so the install path itself runs setuptools;
+# upgrading first would swap the toolchain under a known-good build for no
+# runtime benefit. Everything Trivy scans and everything prod executes comes
+# from the final venv, so patching it here is equivalent and strictly safer.
+#
+# setuptools >= 81 no longer ships pkg_resources. Verified against the LIVE
+# production image before this change: no module in /opt/venv imports
+# pkg_resources at all, and src.main, src.analysis.embeddings, torch,
+# sentence_transformers, transformers, numpy, httpx, sqlalchemy, redis and rq
+# all import cleanly with pkg_resources blocked. The remaining setuptools
+# importers (torch/utils/cpp_extension.py, torch/_dynamo/backends/registry.py,
+# sympy/utilities/autowrap.py, cffi/setuptools_ext.py) are JIT/build paths that
+# CPU inference never reaches. Bump deliberately, like torch.
+RUN pip install --no-cache-dir "setuptools==84.0.0" \
+    && python -c "from importlib.metadata import version; v = version('setuptools'); assert v == '84.0.0', v; print('setuptools', v)"
+
 # -----------------------------------------------------------------------------
 # Stage 2: Production image
 # -----------------------------------------------------------------------------
@@ -116,10 +152,13 @@ ENV PYTHONPATH="/app"
 # stops every future pip-vendored advisory from landing on this image.
 #
 # Only pip is removed; the venv's REAL setuptools is left untouched (torch
-# declares it as a runtime requirement). The flagged 70.3.0 is provably the
-# vendored copy — a real install resolves to 80.x. Verified that no installed
-# dependency imports pkg_resources, so nothing here relies on the shim that
-# setuptools>=81 stopped shipping.
+# declares it as a runtime requirement) and is pinned to 84.0.0 by the builder
+# stage — see SEC-TRIVY-04 above. The 70.3.0 flagged here was the pip-vendored
+# copy, which this rm deletes. Note the earlier claim that "a real install
+# resolves to 80.x" was wrong for THIS image: the --index-url on the torch
+# install pinned the real setuptools to the PyTorch mirror's 78.1.0, which is
+# what SEC-TRIVY-04 fixes. Verified that no installed dependency imports
+# pkg_resources, so nothing here relies on the shim setuptools>=81 dropped.
 #
 # ensurepip is removed too; it bundles a pip wheel that Trivy also inspects,
 # and no venv is ever created inside this container.

@@ -80,6 +80,37 @@ updates:
           - "tree-sitter*"
 
   # ---------------------------------------------------------------------------
+  # Python — docker/requirements*.txt (the files the image is actually built from)
+  # ---------------------------------------------------------------------------
+  # The "/" entry above covers pyproject.toml only. docker/requirements.txt and
+  # docker/requirements-test.txt are what docker/Dockerfile installs, and until
+  # 2026-08-18 nothing watched them: the only PRs that ever landed there were
+  # Dependabot *security* updates (#42, #43), which run regardless of this file.
+  # Routine version updates never reached the image's real dependency set.
+  #
+  # Pins in requirements-test.txt stay exact — Dependabot bumps a pin in place,
+  # it never widens it to a range. See the header in that file.
+  - package-ecosystem: "pip"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "automated"
+      - "backend"
+    commit-message:
+      prefix: "deps(image)"
+    groups:
+      # Test tooling moves together — one PR, one deploy, one baseline bump.
+      test-tooling:
+        patterns:
+          - "pytest*"
+
+  # ---------------------------------------------------------------------------
   # Docker base images — docker/
   # ---------------------------------------------------------------------------
   - package-ecosystem: "docker"
