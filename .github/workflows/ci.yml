@@ -86,15 +86,15 @@ jobs:
       - name: Smoke — SAML import + routes (TEST-SSO-02)
         run: pytest tests/unit/test_saml_import_smoke.py -q
 
-      # Report-only, deliberately. pip-audit currently reports ~85 findings
-      # across transitive deps (starlette, torch, transformers, urllib3,
-      # virtualenv). Blocking on them would wedge every CI run behind an
-      # upstream-CVE triage project, and silencing them with `|| true` would
-      # hide the report altogether. continue-on-error keeps the full output and
-      # a visible warning annotation on the run while the backlog is worked
-      # through. Flip this back to blocking once the findings are triaged.
-      - name: SCA — Python dependency audit (CI-04, report-only)
-        continue-on-error: true
+      # Blocking, and it passes: run 32123432479 reported "No known
+      # vulnerabilities found". This was briefly made report-only on the
+      # assumption it was failing — that reading came from a STALE LOCAL VENV
+      # (torch 2.9.1, urllib3 2.6.2, starlette 0.50.0 → ~85 findings), not from
+      # CI, which installs fresh from pyproject and resolves current versions.
+      # Note the flip side of those unpinned specs: a newly published CVE in a
+      # current dependency can turn this red with no code change. That is the
+      # gate working, not a fault — triage the finding, do not silence the step.
+      - name: SCA — Python dependency audit (CI-04)
         run: |
           pip install pip-audit
           pip-audit --skip-editable
