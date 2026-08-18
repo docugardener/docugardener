@@ -109,7 +109,14 @@ ignore = [
 known-first-party = ["docugardener"]
 
 [tool.mypy]
-python_version = "3.11"
+# Must match the runtime. Everything here is Python 3.13 — the prod image
+# (python:3.13-slim), the CI runner (PYTHON_VERSION: 3.13) and the local venv.
+# This said "3.11" and so parsed third-party stubs against 3.11: a PEP 695
+# `type` statement in a newer numpy stub became a hard syntax error and mypy
+# bailed before checking a single source file ("errors prevented further
+# checking"). It stayed invisible because the ruff step ahead of it failed
+# first, so mypy never ran in CI.
+python_version = "3.13"
 # strict = true intentionally disabled — SQLAlchemy Column types, FastAPI
 # dependency injection, and other framework patterns generate too many
 # false positives under strict mode. Enforce the checks that add real value.

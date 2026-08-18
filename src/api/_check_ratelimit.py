@@ -18,6 +18,7 @@ Fail-open: any Redis error returns ``(True, "")`` so transient infra never block
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
 
 import redis as _redis
 
@@ -61,7 +62,11 @@ def check_rate_limit(tenant_id: str, plan: str) -> tuple[bool, str]:
 
         # Burst guard — per minute, all tiers.
         min_key = f"check_rl:{tenant_id}:min:{now:%Y%m%d%H%M}"
-        n_min = r.incr(min_key)
+        # cast: redis-py types Redis.incr() as `Awaitable[Any] | Any` because one
+        # stub serves both the sync and async clients. This client is sync
+        # (redis.Redis via _redis_client), so the value is an int at runtime and
+        # the comparisons below are sound — mypy just cannot see it.
+        n_min = cast(int, r.incr(min_key))
         if n_min == 1:
             r.expire(min_key, 120)
         if n_min > _BURST_PER_MIN:
@@ -73,7 +78,7 @@ def check_rate_limit(tenant_id: str, plan: str) -> tuple[bool, str]:
         # Daily cap — per tier.
         if daily_cap != -1:
             day_key = f"check_rl:{tenant_id}:day:{now:%Y%m%d}"
-            n_day = r.incr(day_key)
+            n_day = cast(int, r.incr(day_key))  # sync client — see note above
             if n_day == 1:
                 r.expire(day_key, 90_000)  # ~25h
             if n_day > daily_cap:

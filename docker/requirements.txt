@@ -33,6 +33,10 @@ python-multipart>=0.0.9
 stripe>=10.0.0
 alembic>=1.13.0
 PyJWT>=2.8.0
-numpy>=1.26.0
+# Upper bound follows the fastapi cap precedent above: pin out untested major
+# drift on container rebuild. numpy is 2.x; a 3.x major landing unannounced on a
+# rebuild would be the same failure class. Note this is NOT what broke CI on
+# 2026-08-18 — that was [tool.mypy] python_version lying about the runtime.
+numpy>=1.26.0,<3.0
 click>=8.1.0
 openai>=1.0.0
