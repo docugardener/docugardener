@@ -3,8 +3,11 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from src.core.config import settings
+from src.core.logging import get_logger
 from src.security.encryption import decrypt_credential
 from src.storage.sql_models import Tenant
+
+logger = get_logger(__name__)
 
 # Setup Sync Engine (Workers are typically synchronous or use simple threading)
 # For high-throughput, asyncpg would be better, but standard pyscopg2 is robust for now.
