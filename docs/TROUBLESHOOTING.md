@@ -14,6 +14,7 @@ This document serves as a reference for developers to avoid repeating known issu
    - [Smee Webhook Proxy Not Running](#13-smee-webhook-proxy-not-running)
    - [Docker Services Down After Restart](#14-docker-services-redispostgresweaviate-down-after-restart)
    - [GitHub App Missing Permissions](#15-github-app-missing-contents-write-permission)
+   - [Prod Web Image Ships Stale Dependencies](#17-prod-web-image-ships-stale-dependencies-lockfile-ignored)
 2. [Code Bugs](#2-code-bugs)
    - [fail_job() Destroyed Existing Analysis Data](#21-fail_job-destroyed-existing-analysis-data)
    - [Documentation Generation Gated by Drift Score Threshold](#22-documentation-generation-gated-by-drift-score-threshold)
@@ -237,6 +238,27 @@ Confirm data is wiped:
 ```bash
 .venv/bin/python3 -c "from src.pipeline.job_manager import SessionLocal; from src.storage.sql_models import Tenant; db = SessionLocal(); t = db.query(Tenant).first(); print(f'Tenants remaining: {1 if t else 0}')"
 ```
+
+---
+
+### 1.7 Prod Web Image Ships Stale Dependencies (Lockfile Ignored)
+
+| Attribute | Details |
+|-----------|---------|
+| **Symptom** | Dependabot alerts close after a lockfile bump, but the running `docugardener-web` container still reports old versions (found 2026-10-11: `next` 16.2.3 / `nodemailer` 7.0.13 in prod while the lockfile pinned 16.4.0 / 10.1.0). Deploys also slow, since ~1.2GB of `web/node_modules` was sent as build context. |
+| **Root Cause** | `docker/Dockerfile.web` builder stage runs `COPY web/ .`. With no `.dockerignore`, a root-owned `web/node_modules` left on the VPS by a manual `npm install` (2026-04-18) overwrote the deps-stage `npm ci` output, so every web image since April built against April dependencies. |
+| **Affected Component** | Web image build (`docker/Dockerfile.web`), VPS checkout `/opt/docugardener/web/node_modules` |
+
+**Fix:** root `.dockerignore` excludes `**/node_modules` and `web/.next`, so dependencies come only from the lockfile inside the image.
+
+**Verification (run after every dependency-security deploy, don't trust the alert dashboard alone):**
+
+```bash
+ssh -i ~/.ssh/docugardener-ops deploy@46.225.145.115 \
+  'for p in next nodemailer sharp; do printf "%s " $p; docker exec docugardener-web grep -m1 "\"version\"" /app/node_modules/$p/package.json; done'
+```
+
+Versions must match `web/package-lock.json`.
 
 ---
 

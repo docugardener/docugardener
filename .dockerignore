@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Build context for every image is the repo root (compose: `context: ..`).
+#
+# Without this file, docker/Dockerfile.web's `COPY web/ .` copied the host's
+# web/node_modules over the fresh `npm ci` output from the deps stage. A stale
+# web/node_modules on the VPS (manual install, 2026-04-18) meant every prod web
+# image shipped April dependencies regardless of package-lock.json, so
+# Dependabot alerts closed on the lockfile but the fixes never reached prod.
+# Dependencies must only ever come from the lockfile inside the image.
+**/node_modules
+web/.next
