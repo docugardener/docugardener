@@ -8,7 +8,7 @@
 import { test as setup } from "@playwright/test"
 import fs from "fs"
 import path from "path"
-import { storageStatePath, Role } from "./auth"
+import { storageStatePath, Role, COOKIE_CONSENT_KEY } from "./auth"
 import { applySeed } from "./db"
 
 const ROLES: Role[] = ["ADMIN", "AUDITOR", "BILLING_ADMIN", "VIEWER"]
@@ -43,6 +43,8 @@ setup("seed DB + authenticate all roles", async ({ browser }) => {
             await page.getByPlaceholder("user@test.local").fill(ROLE_EMAILS[role])
             await page.getByRole("button", { name: /dev login/i }).click()
             await page.waitForURL(/\/dashboard/, { timeout: 15_000 })
+            // Saved into storageState so every role context starts with the cookie banner dismissed
+            await page.evaluate((key) => window.localStorage.setItem(key, "1"), COOKIE_CONSENT_KEY)
             await context.storageState({ path: cachePath })
         } finally {
             await context.close()

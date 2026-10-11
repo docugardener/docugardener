@@ -1,4 +1,4 @@
-import { Page } from "@playwright/test"
+import { BrowserContext, Page } from "@playwright/test"
 import path from "path"
 
 export type Role = "ADMIN" | "AUDITOR" | "BILLING_ADMIN" | "VIEWER"
@@ -8,6 +8,16 @@ const ROLE_EMAILS: Record<Role, string> = {
     AUDITOR: "e2e-auditor@test.local",
     BILLING_ADMIN: "e2e-billing@test.local",
     VIEWER: "e2e-viewer@test.local",
+}
+
+/**
+ * Pre-accepts the cookie banner (components/marketing/CookieBanner.tsx). The banner is
+ * fixed to the bottom of the viewport and intercepts clicks on anything beneath it.
+ */
+export const COOKIE_CONSENT_KEY = "dg-cookie-consent"
+
+export async function acceptCookieConsent(context: BrowserContext): Promise<void> {
+    await context.addInitScript((key) => window.localStorage.setItem(key, "1"), COOKIE_CONSENT_KEY)
 }
 
 /** Absolute path for cached storageState per role */
@@ -27,5 +37,6 @@ export async function loginAs(page: Page, role: Role): Promise<void> {
     await page.getByRole("button", { name: /dev login/i }).click()
     // Wait for redirect away from signin
     await page.waitForURL(/\/dashboard/, { timeout: 15_000 })
+    await page.evaluate((key) => window.localStorage.setItem(key, "1"), COOKIE_CONSENT_KEY)
     await page.context().storageState({ path: storageStatePath(role) })
 }

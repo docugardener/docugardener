@@ -11,6 +11,7 @@
  * SPEC-ONBOARD-03 — Unauthenticated visitor to /dashboard → sign-in redirect
  */
 import { test, expect } from "@playwright/test"
+import { acceptCookieConsent } from "../../fixtures/auth"
 
 const NEW_USER_EMAIL = "e2e-newuser@test.local"
 
@@ -20,6 +21,7 @@ const NEW_USER_EMAIL = "e2e-newuser@test.local"
  */
 async function signInAsNewUser(browser: import("@playwright/test").Browser) {
     const ctx = await browser.newContext()
+    await acceptCookieConsent(ctx)
     const page = await ctx.newPage()
 
     await page.goto("/api/auth/signin")

@@ -252,6 +252,18 @@ export async function restoreTenantSsoSnapshot(
     })
 }
 
+/**
+ * Stores a placeholder SAML IdP certificate on the tenant. The settings page
+ * derives `hasCertificate` server-side from this column, so a page.route()
+ * mock cannot drive the "certificate saved" indicator. Undo with
+ * restoreTenantSsoSnapshot().
+ */
+export async function setTenantSamlCertificate(tenantId: string, pem: string): Promise<void> {
+    await withClient(async (c) => {
+        await c.query(`UPDATE "Tenant" SET "samlIdpCertificate" = $2 WHERE id = $1`, [tenantId, pem])
+    })
+}
+
 /** Upgrades a tenant to TEAM plan so SSO settings card is visible. */
 export async function setTenantPlan(tenantId: string, plan: "FREE" | "PRO" | "TEAM"): Promise<void> {
     await withClient(async (c) => {

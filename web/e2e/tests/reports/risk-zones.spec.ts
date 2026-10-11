@@ -45,8 +45,9 @@ test("SPEC-MAP01-01: Repositories tab shows Documentation Risk Map card for PRO 
         await page.goto("/dashboard/reports")
         await page.getByRole("button", { name: "Repositories" }).click()
 
+        // Scoped to <main>: streamed SSR can briefly hold a hidden duplicate of the card
         // The card header should be visible
-        await expect(page.getByText("Documentation Risk Map")).toBeVisible({ timeout: 8_000 })
+        await expect(page.getByRole("main").getByText("Documentation Risk Map")).toBeVisible({ timeout: 8_000 })
     } finally {
         // @ts-ignore plan type
         await setTenantPlan(E2E_TENANT, prevPlan as any)
@@ -72,14 +73,17 @@ test("SPEC-MAP01-02: risk zones table renders repo name, score, and severity bad
         // Wait for table
         await expect(page.locator("[data-testid='risk-zones-table']")).toBeVisible({ timeout: 10_000 })
 
+        // Scope to the table: the Overview stats also render a "1 High" badge
+        const table = page.getByTestId("risk-zones-table")
+
         // Repo name
-        await expect(page.getByText("e2e-risk-repo")).toBeVisible()
+        await expect(table.getByText("e2e-risk-repo")).toBeVisible()
 
         // Score — 72 should appear somewhere in the row
-        await expect(page.getByText("72")).toBeVisible()
+        await expect(table.getByText("72")).toBeVisible()
 
         // Severity badge
-        await expect(page.getByText("high")).toBeVisible()
+        await expect(table.getByText("high", { exact: true })).toBeVisible()
     } finally {
         // @ts-ignore
         await setTenantPlan(E2E_TENANT, prevPlan as any)
@@ -135,7 +139,7 @@ test("SPEC-MAP01-04: FREE tenant sees upgrade prompt instead of risk map", async
         await page.getByRole("button", { name: "Repositories" }).click()
 
         // Upgrade prompt visible, risk map table not present
-        await expect(page.getByText("Documentation Risk Map — Pro Feature")).toBeVisible({ timeout: 8_000 })
+        await expect(page.getByRole("region", { name: "Upgrade required: Documentation Risk Map" })).toBeVisible({ timeout: 8_000 })
         await expect(page.locator("[data-testid='risk-zones-table']")).not.toBeVisible()
     } finally {
         // @ts-ignore
@@ -162,7 +166,7 @@ test("SPEC-MAP01-05: View Risk Map button on Vitality Index navigates to Reposit
         await page.getByRole("button", { name: /view risk map/i }).click()
 
         // Should now be on Repositories tab — risk map card visible
-        await expect(page.getByText("Documentation Risk Map")).toBeVisible({ timeout: 8_000 })
+        await expect(page.getByRole("main").getByText("Documentation Risk Map")).toBeVisible({ timeout: 8_000 })
         // URL should reflect the tab change
         await expect(page).toHaveURL(/tab=repositories/)
     } finally {
@@ -188,7 +192,7 @@ test("SPEC-MAP01-06: direct ?tab=repositories URL activates Repositories tab wit
         await page.goto("/dashboard/reports?tab=repositories")
 
         // Repositories tab content should be active immediately
-        await expect(page.getByText("Documentation Risk Map")).toBeVisible({ timeout: 8_000 })
+        await expect(page.getByRole("main").getByText("Documentation Risk Map")).toBeVisible({ timeout: 8_000 })
 
         // Overview-only content (e.g. Vitality Index heading) should not be visible
         await expect(page.getByText("Vitality Index")).not.toBeVisible()

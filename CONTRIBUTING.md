@@ -87,6 +87,19 @@ cd web && npx tsc --noEmit
 
 All suites must pass with zero regressions before submitting a PR.
 
+### Playwright E2E conventions
+
+The Playwright suite is **frontend-only** (see `.github/workflows/e2e.yml`): it runs a production `next build` against a seeded Postgres, with no Python backend. Running it locally follows the workflow — `prisma migrate deploy`, apply `web/e2e/seed.sql`, `npm run build` with `NEXT_PUBLIC_DEV_LOGIN=true`, `npm start`, then `npx playwright test` with `E2E_DEV_CREDENTIALS=1` and `PLAYWRIGHT_BASE_URL` pointing at the server. First run on a machine: `npx playwright install chromium`.
+
+When writing or fixing specs:
+
+- **Mock every route that proxies to the backend.** `/api/inbox` and friends call FastAPI, which isn't running — use the helpers in `web/e2e/fixtures/routes.ts` (`mockInboxList` accepts `resultExtra` for e.g. `policy_violations`). Keep mock payloads in sync with the page's TypeScript types; a missing required field (e.g. `prQuota` on `/api/billing`) crashes the page into the error boundary.
+- **Server-rendered state can't be mocked with `page.route()`.** Values the page computes from the DB on the server (e.g. SSO `hasCertificate`) must be set in the DB via `web/e2e/fixtures/db.ts`, with snapshot/restore around the test.
+- **The cookie banner intercepts clicks** near the bottom of the viewport. Role contexts get consent from `fixtures/setup.ts`; fresh contexts must call `acceptCookieConsent(ctx)` from `fixtures/auth.ts`.
+- **Don't depend on test order.** `seed.sql` provides a baseline repository because `DashboardShell` swaps ADMIN dashboard pages for the import wizard when a tenant has 0 repos.
+- **Native dialogs** (`window.confirm`) are auto-dismissed by Playwright — register `page.once("dialog", d => d.accept())` before the click.
+- Tabbed pages (`/dashboard/settings`, `/dashboard/reports`) accept `?tab=<id>`; navigate there directly instead of relying on the default tab.
+
 ---
 
 ## UI Contributions

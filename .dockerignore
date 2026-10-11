@@ -10,3 +10,18 @@
 # Dependencies must only ever come from the lockfile inside the image.
 **/node_modules
 web/.next
+
+# Context size only: no Dockerfile COPYs these (builds copy web/, src/ and
+# docker/requirements*.txt). Locally they made the context ~1.9GB.
+.git
+.venv*
+.mypy_cache
+.pytest_cache
+.ruff_cache
+**/__pycache__
+*.log
+docs/Presentations
+vscode-extension
+web/test-results
+web/playwright-report
+web/coverage

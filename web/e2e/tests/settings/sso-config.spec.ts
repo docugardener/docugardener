@@ -12,7 +12,7 @@ import { test, expect } from "@playwright/test"
 import { SsoSettingsPage } from "../../pages/SsoSettingsPage"
 import { storageStatePath } from "../../fixtures/auth"
 import { mockSsoConfig, SsoConfigFixture } from "../../fixtures/routes"
-import { getTenantSsoSnapshot, restoreTenantSsoSnapshot, setTenantPlan } from "../../fixtures/db"
+import { getTenantSsoSnapshot, restoreTenantSsoSnapshot, setTenantPlan, setTenantSamlCertificate } from "../../fixtures/db"
 
 const E2E_TENANT = "e2e-tenant-fixed"
 
@@ -57,6 +57,8 @@ test("SPEC-SSO-02: SSO card shows 'certificate saved' when hasCertificate=true",
     try {
         snapshot = await getTenantSsoSnapshot(E2E_TENANT)
         await setTenantPlan(E2E_TENANT, "TEAM")
+        // hasCertificate is computed server-side from the Tenant row, not fetched client-side
+        await setTenantSamlCertificate(E2E_TENANT, "-----BEGIN CERTIFICATE-----\nMIIDfake...\n-----END CERTIFICATE-----")
 
         await mockSsoConfig(page, {
             ssoEnabled: true,

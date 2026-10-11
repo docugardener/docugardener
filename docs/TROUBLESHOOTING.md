@@ -260,6 +260,17 @@ ssh -i ~/.ssh/docugardener-ops deploy@46.225.145.115 \
 
 Versions must match `web/package-lock.json`.
 
+**Cleanup done 2026-10-11:** the stale `/opt/docugardener/web/node_modules` (1.2GB) was removed.
+
+**Related — broken sudoers rule:** root-owned files could accumulate because `/etc/sudoers.d/docugardener-deploy` has a syntax error: the `:` in `deploy:deploy` must be escaped in sudoers. `deploy.yml` runs `sudo /bin/chown -R deploy:deploy /opt/docugardener/ || true`, so the failure was silent on every deploy. Fix as root:
+
+```bash
+echo 'deploy ALL=(root) NOPASSWD: /bin/chown -R deploy\:deploy /opt/docugardener/' | sudo tee /etc/sudoers.d/docugardener-deploy
+sudo chmod 0440 /etc/sudoers.d/docugardener-deploy
+sudo visudo -cf /etc/sudoers.d/docugardener-deploy   # must print "parsed OK"
+sudo -u deploy sudo -n /bin/chown -R deploy:deploy /opt/docugardener/ && echo OK
+```
+
 ---
 
 ## 2. Code Bugs

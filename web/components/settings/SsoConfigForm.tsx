@@ -117,6 +117,7 @@ export function SsoConfigForm({ spEntityId, spAcsUrl, initialConfig }: SsoConfig
                 <button
                     type="button"
                     role="switch"
+                    aria-label="Enable SSO"
                     aria-checked={enabled}
                     onClick={() => setEnabled(!enabled)}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70 ${enabled ? "bg-primary" : "bg-input"}`}

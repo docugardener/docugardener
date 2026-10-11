@@ -45,8 +45,9 @@ test("SPEC-MODE01-E2E-3: Export Profile button absent for VIEWER role", async ({
     try {
         const settings = new SettingsPage(page)
         await settings.goto()
-        // VIEWER sees Intelligence tab but has no TEAM-gated export button
-        await settings.goToIntelligenceTab()
+        // middleware.ts redirects every non-ADMIN away from /dashboard/settings,
+        // so a VIEWER can never reach the Intelligence tab or its export button
+        await page.waitForURL((url) => !url.pathname.startsWith("/dashboard/settings"), { timeout: 10_000 })
         await settings.assertExportProfileButtonAbsent()
     } finally {
         await ctx.close()

@@ -1,5 +1,5 @@
 /**
- * SPEC-GTM03-04 — FREE plan: AUDITOR and BILLING_ADMIN options disabled in role dropdown
+ * SPEC-GTM03-04 — FREE plan: team management locked (upgrade card, no role dropdown)
  * SPEC-GTM03-05 — PRO  plan: AUDITOR and BILLING_ADMIN options are enabled
  * SPEC-GTM03-06 — FREE plan: API rejects AUDITOR role assignment with 400
  *
@@ -16,7 +16,7 @@ const E2E_TENANT = "e2e-tenant-fixed"
 
 // ── SPEC-GTM03-04: FREE → AUDITOR/BILLING_ADMIN disabled in dropdown ──────────
 
-test("SPEC-GTM03-04: FREE plan — AUDITOR and BILLING_ADMIN role options are disabled", async ({ browser }) => {
+test("SPEC-GTM03-04: FREE plan — team management is locked, so AUDITOR/BILLING_ADMIN cannot be assigned", async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: storageStatePath("ADMIN") })
     const page = await ctx.newPage()
     const originalPlan = await getTenantPlan(E2E_TENANT)
@@ -25,22 +25,11 @@ test("SPEC-GTM03-04: FREE plan — AUDITOR and BILLING_ADMIN role options are di
         await setTenantPlan(E2E_TENANT, "FREE")
         await page.goto("/dashboard/team")
 
-        // Wait for an enabled combobox — the admin's own row is disabled (self-edit guard)
-        // Use the first SelectTrigger that is NOT data-disabled
-        // Admin's own row has HTML `disabled` attribute; other rows are interactive
-        const trigger = page.locator('[role="combobox"]:not([disabled]):not([data-disabled])').first()
-        await trigger.waitFor({ timeout: 10_000 })
-        await trigger.click()
-
-        // Radix SelectContent appears in a portal; items have role="option"
-        // Disabled items carry aria-disabled="true"
-        const auditorOption = page.getByRole("option", { name: /auditor/i })
-        await expect(auditorOption).toBeVisible({ timeout: 5_000 })
-        await expect(auditorOption).toHaveAttribute("aria-disabled", "true")
-
-        const billingOption = page.getByRole("option", { name: /billing/i })
-        await expect(billingOption).toBeVisible()
-        await expect(billingOption).toHaveAttribute("aria-disabled", "true")
+        // app/dashboard/team/page.tsx replaces the whole member table with an upgrade
+        // card on FREE, so no role selector (and no AUDITOR/BILLING_ADMIN option) exists
+        await expect(page.getByText("Team Management — Pro Feature")).toBeVisible({ timeout: 10_000 })
+        await expect(page.getByRole("link", { name: /upgrade to pro/i })).toBeVisible()
+        await expect(page.getByRole("combobox")).toHaveCount(0)
     } finally {
         await setTenantPlan(E2E_TENANT, originalPlan)
         await ctx.close()

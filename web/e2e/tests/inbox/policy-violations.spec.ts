@@ -7,10 +7,29 @@
  */
 import { test, expect } from "@playwright/test"
 import { storageStatePath } from "../../fixtures/auth"
-import { mockInboxTriage } from "../../fixtures/routes"
+import { mockInboxList, mockInboxTriage } from "../../fixtures/routes"
 import { createFixtureJobWithPolicy, deleteJob } from "../../fixtures/db"
 
 const E2E_TENANT = "e2e-tenant-fixed"
+
+/**
+ * /api/inbox proxies to the Python backend, which this frontend-only suite does
+ * not run, so the list is served via mockInboxList (as in triage.spec.ts).
+ * Mirrors the violation shape written by createFixtureJobWithPolicy().
+ */
+function policyResult(ruleName: string, enforcement: "advisory" | "blocking" | "blocking-with-reason") {
+    return {
+        policy_violations: [{
+            rule_name: ruleName,
+            enforcement,
+            paths_matched: ["src/api/routes.py"],
+            require_docs: ["docs/api/**"],
+            docs_present: [],
+            docs_missing: ["docs/api/**"],
+        }],
+        policy_blocks_merge: true,
+    }
+}
 
 test("SPEC-DOCPOL01-01: inbox list shows POLICY badge for policy violation job", async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: storageStatePath("ADMIN") })
@@ -31,6 +50,7 @@ test("SPEC-DOCPOL01-01: inbox list shows POLICY badge for policy violation job",
         jobId = job.id
         repositoryId = job.repositoryId
 
+        await mockInboxList(page, job.id, "e2e-policy-badge-repo", "PENDING", policyResult("api-docs-required", "blocking"))
         await page.goto("/dashboard/inbox")
         await page.waitForSelector("text=e2e-policy-badge-repo", { timeout: 10_000 })
 
@@ -62,6 +82,7 @@ test("SPEC-DOCPOL01-02: detail view shows policy violations panel with rule name
         jobId = job.id
         repositoryId = job.repositoryId
 
+        await mockInboxList(page, job.id, "e2e-policy-panel-repo", "PENDING", policyResult("api-docs-required", "blocking"))
         await page.goto("/dashboard/inbox")
         await page.getByText("e2e-policy-panel-repo").first().click()
 
@@ -76,7 +97,8 @@ test("SPEC-DOCPOL01-02: detail view shows policy violations panel with rule name
         await expect(page.getByText("api-docs-required")).toBeVisible({ timeout: 5_000 })
 
         // Missing docs shown
-        await expect(page.getByText("docs/api/**")).toBeVisible()
+        // Also rendered as <code> in the summary line; check the expanded <details> list
+        await expect(page.getByRole("group").getByText("docs/api/**")).toBeVisible()
     } finally {
         if (jobId) await deleteJob(jobId, repositoryId ?? undefined)
         await ctx.close()
@@ -103,6 +125,7 @@ test("SPEC-DOCPOL01-03: dismissing blocking-with-reason violation requires typed
         repositoryId = job.repositoryId
 
         await mockInboxTriage(page, jobId)
+        await mockInboxList(page, job.id, "e2e-policy-reason-repo", "PENDING", policyResult("sec-policy", "blocking-with-reason"))
         await page.goto("/dashboard/inbox")
         await page.getByText("e2e-policy-reason-repo").first().click()
 

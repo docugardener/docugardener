@@ -62,21 +62,23 @@ test.describe('Onboarding page — unauthenticated guard', () => {
         await page.goto('/onboarding')
 
         await page.waitForURL(/signin|\/api\/auth\/signin/, { timeout: 10_000 })
-        await expect(page).not.toHaveURL(/\/onboarding/)
+        // signin URL carries ?callbackUrl=/onboarding, so check the pathname only
+        expect(new URL(page.url()).pathname).toMatch(/signin/)
     })
 })
 
 // ── SPEC-SAAS06-04 ────────────────────────────────────────────────────────────
 
 test.describe('Landing page — How it works section', () => {
-    test('SPEC-SAAS06-04: all 4 "How it works" step titles are visible on the landing page', async ({ page }) => {
+    test('SPEC-SAAS06-04: "How it works" demo shows its 3 step labels on the landing page', async ({ page }) => {
         await page.goto('/')
 
-        // The four onboarding steps shown in the marketing section
-        await expect(page.getByText(/sign up with github/i)).toBeVisible({ timeout: 10_000 })
-        await expect(page.getByText(/install the github app/i)).toBeVisible()
-        await expect(page.getByText(/pick repos to monitor/i)).toBeVisible()
-        await expect(page.getByText(/open a pull request/i)).toBeVisible()
+        // Landing refactor (76c3713) replaced the 4-step HowItWorks list with the 3-step DemoSection
+        const demo = page.locator('section#demo')
+        await expect(demo.getByText('Three steps to drift-free docs')).toBeVisible({ timeout: 10_000 })
+        for (const label of ['Connect', 'Detect', 'Fix & Merge']) {
+            await expect(demo.getByText(label, { exact: true })).toBeVisible()
+        }
     })
 })
 
@@ -87,7 +89,8 @@ test.describe('Onboarding repos page — unauthenticated guard', () => {
         await page.goto('/onboarding/repos')
 
         await page.waitForURL(/signin|\/api\/auth\/signin/, { timeout: 10_000 })
-        await expect(page).not.toHaveURL(/\/onboarding\/repos/)
+        // signin URL carries ?callbackUrl=/onboarding/repos, so check the pathname only
+        expect(new URL(page.url()).pathname).toMatch(/signin/)
     })
 })
 

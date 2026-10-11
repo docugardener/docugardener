@@ -34,15 +34,16 @@ test("SPEC-TEAM-02: Revoke All Sessions shows dialog and completes with success"
 
         await page.goto("/dashboard/team")
 
-        const revokeBtn = page.getByRole("button", { name: /revoke all sessions/i })
-        await revokeBtn.click()
+        // RevokeSessionsButton confirms via native window.confirm(); Playwright
+        // dismisses native dialogs by default, so accept it explicitly
+        let confirmMessage = ""
+        page.once("dialog", async (dialog) => {
+            confirmMessage = dialog.message()
+            await dialog.accept()
+        })
 
-        // Confirmation dialog should appear
-        await expect(page.getByText(/revoke all/i).first()).toBeVisible({ timeout: 5_000 })
-
-        // Click the confirm button in the dialog
-        const confirmBtn = page.getByRole("button", { name: /revoke/i }).last()
-        await confirmBtn.click()
+        await page.getByRole("button", { name: /revoke all sessions/i }).click()
+        await expect.poll(() => confirmMessage).toMatch(/sign out ALL team members/i)
 
         // Success feedback (toast or inline text)
         await expect(page.getByText(/revoked|sessions.*revoked|all sessions.*signed out/i).first()).toBeVisible({ timeout: 8_000 })

@@ -35,7 +35,7 @@ test("SPEC-GAPE-01: FREE plan — sync warnings appear as toast notifications", 
         await mockReposSync(page, [PRIVATE_REPO_WARNING, LIMIT_WARNING])
 
         // RepoListCard (with Sync Repositories button) is in Settings, not Reports
-        await page.goto("/dashboard/settings")
+        await page.goto("/dashboard/settings?tab=repositories")
         await page.waitForLoadState("networkidle")
 
         // Wait for the Sync button inside RepoListCard
@@ -70,7 +70,7 @@ test("SPEC-GAPE-02: PRO plan — sync with no warnings shows no warning toast", 
         // Mock POST /api/repos to return no warnings
         await mockReposSync(page, [])
 
-        await page.goto("/dashboard/settings")
+        await page.goto("/dashboard/settings?tab=repositories")
         await page.waitForLoadState("networkidle")
 
         const syncBtn = page.getByRole("button", { name: /sync repositories/i })

@@ -29,8 +29,10 @@ test("SPEC-GTM02-01: FREE plan — IntegrationsForm shows upgrade CTA, not the f
         await page.getByRole("button", { name: "Integrations" }).click()
 
         // Upgrade CTA must be present
-        await expect(page.getByText(/Pro Feature/i)).toBeVisible({ timeout: 10_000 })
-        await expect(page.getByText(/Upgrade to Pro/i)).toBeVisible()
+        // UpgradeContextCard (abc1538) renders role="region" + an "Upgrade to Pro" link
+        const gate = page.getByRole("region", { name: /Upgrade required: Slack, Jira & Linear/i })
+        await expect(gate).toBeVisible({ timeout: 10_000 })
+        await expect(gate.getByRole("link", { name: /Upgrade to Pro/i })).toBeVisible()
 
         // The actual Slack/Jira inputs must NOT be present
         await expect(page.locator('input[name="slackWebhook"]')).not.toBeVisible()

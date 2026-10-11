@@ -60,7 +60,7 @@ export class ReportsPage {
     }
 
     async assertDismissRateBySeverityVisible() {
-        // Dismiss rate is in the Overview tab; only renders when ignore data exists.
+        // Dismiss rate is in the Governance tab; only renders when ignore data exists.
         // Accept the Governance Proof Points card or its empty state as valid.
         await expect(
             this.page.getByText(/dismiss rate by severity/i).or(

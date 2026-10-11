@@ -13,6 +13,8 @@ const BILLING_FIXTURE = {
     currentMonthScans: 38,
     monthlyBudgetUsd: 20,
     budgetUsagePercent: 21.35,
+    // Required by BillingInfo (app/dashboard/billing/page.tsx); omitting it crashes the page
+    prQuota: { used: 38, limit: null },
     dailyBreakdown: [],
     providerBreakdown: [
         { provider: "gemini", model: "gemini-2.0-flash", scans: 38, tokens: 42_700, cost: 4.27 },
@@ -133,7 +135,9 @@ export async function mockInboxList(
     page: Page,
     jobId: string,
     repoName: string,
-    triageStatus: "PENDING" | "ACCEPTED" | "IGNORED" = "PENDING"
+    triageStatus: "PENDING" | "ACCEPTED" | "IGNORED" = "PENDING",
+    /** Extra keys merged into `result`, e.g. policy_violations for DOCPOL-01 */
+    resultExtra: Record<string, unknown> = {}
 ): Promise<void> {
     await page.route("**/api/inbox", (route) => {
         if (route.request().method() === "GET") {
@@ -153,6 +157,7 @@ export async function mockInboxList(
                     result: {
                         drift_score: 72,
                         drift_analysis: { severity: "significant", items: [] },
+                        ...resultExtra,
                     },
                     fixPrUrl: null,
                     aiAuthored: false,

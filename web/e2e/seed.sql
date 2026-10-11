@@ -23,3 +23,10 @@ VALUES
 ON CONFLICT (id) DO UPDATE SET
     role       = EXCLUDED.role,
     "tenantId" = EXCLUDED."tenantId";
+
+-- Baseline repository: DashboardShell replaces ADMIN dashboard pages (reports,
+-- settings, ...) with the RepoImportWizard when the tenant has 0 repos. Without
+-- this row those specs only passed when an earlier test leaked a fixture repo.
+INSERT INTO "Repository" (id, "tenantId", "githubRepoId", name, enabled, "createdAt", "updatedAt")
+VALUES ('e2e-repo-baseline', 'e2e-tenant-fixed', 'e2e-baseline-1', 'e2e-baseline-repo', true, NOW(), NOW())
+ON CONFLICT (id) DO NOTHING;

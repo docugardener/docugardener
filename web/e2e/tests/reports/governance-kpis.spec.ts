@@ -38,14 +38,15 @@ test("SPEC-GOV-02: Governance tab shows Auto-Fix Success Rate KPI", async ({ bro
     }
 })
 
-test("SPEC-GOV-03: Overview tab Dismiss Signals shows Dismiss Rate by Severity", async ({ browser }) => {
+test("SPEC-GOV-03: Governance tab Dismiss Signals shows Dismiss Rate by Severity", async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: storageStatePath("ADMIN") })
     const page = await ctx.newPage()
     try {
         await mockBillingApi(page)
         const reports = new ReportsPage(page)
         await reports.goto()
-        // Dismiss Signals is in Overview tab (default), visible for PRO+ — e2e tenant is TEAM
+        // Dismiss Signals moved from Overview into the Governance tab
+        await reports.goToGovernanceTab()
         await reports.assertDismissRateBySeverityVisible()
     } finally {
         await ctx.close()
