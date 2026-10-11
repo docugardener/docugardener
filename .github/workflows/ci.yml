@@ -193,7 +193,9 @@ jobs:
           python3 -c "import sys; pct=float('$LINES'); sys.exit(0 if pct >= 70 else 1)"
 
       - name: SCA — Node.js dependency audit (CI-04)
-        run: npm audit --audit-level=high
+        # npm audit --audit-level=high minus an explicit, commented allowlist
+        # (advisories with no upstream fix in dev-only chains). See the script.
+        run: node scripts/npm-audit-gate.mjs
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3

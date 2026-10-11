@@ -83,6 +83,10 @@ cd web && npx playwright test
 
 # TypeScript
 cd web && npx tsc --noEmit
+
+# Dependency audit gate (CI-04): fails on high/critical advisories, minus the
+# commented allowlist in the script (only for advisories with no upstream fix)
+cd web && node scripts/npm-audit-gate.mjs
 ```
 
 All suites must pass with zero regressions before submitting a PR.
