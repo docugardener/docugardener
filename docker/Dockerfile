@@ -90,8 +90,22 @@ RUN pip install --no-cache-dir -r requirements.txt
 # importers (torch/utils/cpp_extension.py, torch/_dynamo/backends/registry.py,
 # sympy/utilities/autowrap.py, cffi/setuptools_ext.py) are JIT/build paths that
 # CPU inference never reaches. Bump deliberately, like torch.
-RUN pip install --no-cache-dir "setuptools==84.0.0" \
-    && python -c "from importlib.metadata import version; v = version('setuptools'); assert v == '84.0.0', v; print('setuptools', v)"
+#
+# 84.2.1 (2026-10-28): 84.0.0 carried GHSA-xmj3-9gf7-h52w (low, fixed 84.1.0).
+#
+# filelock is pinned here for the same reason (SEC-TRIVY-05). It is a runtime
+# dep of torch and huggingface_hub, with no upper bound from either. The image
+# still carried 3.32.3 (CVE-2026-112940 high, CVE-2026-112907 and
+# CVE-2026-112913 low, all fixed in 4.2.1). PyPI and the PyTorch mirror both
+# offer 4.2.4, but the pip layers above come from the GHA build cache (only the
+# apt layer is cache-busted), so whatever filelock was current when they were
+# built stays frozen. An explicit pin changes this RUN line and forces the
+# upgrade. 4.0's only breaking change is the SoftReadWriteLock on-disk
+# protocol. Nothing here uses it: torch and huggingface_hub take plain
+# FileLock/WeakFileLock, verified against filelock 4.2.4 + huggingface_hub 2.3.0.
+RUN pip install --no-cache-dir "setuptools==84.2.1" "filelock==4.2.4" \
+    && python -c "from importlib.metadata import version; v = version('setuptools'); assert v == '84.2.1', v; print('setuptools', v)" \
+    && python -c "from importlib.metadata import version; v = version('filelock'); assert v == '4.2.4', v; print('filelock', v)"
 
 # -----------------------------------------------------------------------------
 # Stage 2: Production image
@@ -152,7 +166,7 @@ ENV PYTHONPATH="/app"
 # stops every future pip-vendored advisory from landing on this image.
 #
 # Only pip is removed; the venv's REAL setuptools is left untouched (torch
-# declares it as a runtime requirement) and is pinned to 84.0.0 by the builder
+# declares it as a runtime requirement) and is pinned to 84.2.1 by the builder
 # stage — see SEC-TRIVY-04 above. The 70.3.0 flagged here was the pip-vendored
 # copy, which this rm deletes. Note the earlier claim that "a real install
 # resolves to 80.x" was wrong for THIS image: the --index-url on the torch

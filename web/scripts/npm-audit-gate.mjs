@@ -10,13 +10,9 @@
  */
 import { spawnSync } from "node:child_process"
 
-const ALLOWLIST = {
-    // braces <=3.0.3, stack-exhaustion DoS on deeply nested patterns. No patched
-    // release exists. Dev-only: eslint-config-next -> @next/eslint-plugin-next
-    // (pins fast-glob 3.3.1, still true in 16.4.0) -> micromatch -> braces.
-    // Never ships (standalone build); input is our own lint globs. Added 2026-10-11.
-    "GHSA-vfj7-8cjw-p6xm": "braces: no fix upstream, dev-only eslint chain",
-}
+// Empty on purpose. The last entry (braces GHSA-vfj7-8cjw-p6xm, added
+// 2026-10-11) was removed after GitHub withdrew that advisory on 2026-10-23.
+const ALLOWLIST = {}
 
 const BLOCKING = new Set(["high", "critical"])
 
